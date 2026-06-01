@@ -46,19 +46,19 @@ LLM 是最后一道防线，不是主力识别路径。
 
 ### 架构图
 
-![Intent Hub 架构图](docs/codex/v1/designs/意图中枢架构图.png)
+![Intent Hub 架构图](docs/assets/architecture/intent-hub-architecture.png)
 
 这张图用于理解系统边界：接入治理、输入适配、前置路由、核心意图漏斗、后置路由、输出适配、配置治理和观测回流。
 
 ### 数据流向图 v2
 
-![Intent Hub 数据流向图 v2](docs/codex/v1/designs/数据流向图v2.png)
+![Intent Hub 数据流向图 v2](docs/assets/architecture/intent-hub-data-flow-v2.png)
 
 v2 是当前数据流向基线，强调三段式流转：接入与治理、核心意图漏斗、输出与执行。P2-1 动态 scene 读取即落在前置路由与配置读取这一段。
 
 ### 核心交互时序
 
-![Intent Hub 核心交互时序图](docs/codex/v1/designs/核心交互时序图.png)
+![Intent Hub 核心交互时序图](docs/assets/architecture/intent-hub-sequence.png)
 
 时序图用于区分同步识别和异步执行：识别链路返回标准 `IntentResult`，异步动作通过幂等记录、trace 和 bad case 进入后续运营闭环。
 
@@ -304,6 +304,7 @@ P2-1 动态 scene 验证结果：
 
 | 资料 | 说明 |
 | --- | --- |
+| [README 展示图目录](docs/assets/architecture/) | GitHub README 使用的稳定英文文件名图片副本 |
 | [意图中枢架构图](docs/codex/v1/designs/意图中枢架构图.png) | 当前架构边界参考图 |
 | [数据流向图 v2](docs/codex/v1/designs/数据流向图v2.png) | 当前数据流向基线 |
 | [核心交互时序图](docs/codex/v1/designs/核心交互时序图.png) | 同步识别与异步执行参考 |

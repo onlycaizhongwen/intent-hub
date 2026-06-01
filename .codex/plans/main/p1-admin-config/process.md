@@ -4,9 +4,9 @@
 
 - 任务需求：继续推进 P1-4，落地 Admin Portal 最小配置治理 API，覆盖草稿、校验、发布、回滚、导入导出和审计。
 - 关键决策：P1 先以 API 闭环代替完整 UI；事实源为 PostgreSQL `config_version` + 配置表，Nacos/GitOps 后置；保持 DDD 分层，接口层只做入参出参。
-- 当前阶段：P1-4 配置对象最小 CRUD 已完成。
-- 已完成产物：任务记录、配置版本应用服务、配置对象应用服务、内存/JDBC 适配器、Admin REST API、自动化测试、默认 memory 模式 API 冒烟、`local-jdbc` PostgreSQL 审计写入联调。
-- 剩余工作：补配置对象删除/批量导入细节，并将识别配置读取切到已发布版本。
+- 当前阶段：P1-4 已发布配置读取已完成。
+- 已完成产物：任务记录、配置版本应用服务、配置对象应用服务、已发布配置读取仓储、内存/JDBC 适配器、Admin REST API、自动化测试、默认 memory 模式 API 冒烟、`local-jdbc` PostgreSQL 审计写入联调。
+- 剩余工作：补配置对象删除/批量导入细节、完善配置字段校验，并补更多场景的已发布配置读取测试。
 - 重要发现：P1-3 已完成真实 PostgreSQL/Flyway 联调，现有 `config_version` 与 `audit_log` 可支撑最小治理闭环。
 
 ## 步骤列表
@@ -37,6 +37,12 @@
   - 支持接口：`POST/GET /api/v1/admin/config/versions/{version}/{objectType}`。
   - 约束：仅允许编辑 `DRAFT` 版本，发布版本不可直接修改。
   - 验证结果：`mvn test` 通过，共 15 个测试；默认 memory 模式 HTTP 冒烟已验证 intent、slot、downstream-action 写入并进入 export bundle。
+- [v] 将识别配置读取切到已发布版本。
+  - 当前产物：`JdbcSceneConfigRepository`、`BuiltinSceneConfigFactory`，`InMemorySceneConfigRepository` 增加 memory 条件启用。
+  - 读取策略：`local-jdbc` 模式优先读取 PostgreSQL 中同租户、`order-scene` 最新 `PUBLISHED` 版本；未找到发布版本时回退到 P1 内置配置。
+  - 映射范围：从 `intent_definition.definition` 映射规则的 `matchType`、`pattern`、`confidence`、`explanation`、`fixedSlots`；从 `slot_definition.required` 映射必填槽；从 `downstream_action` 映射后置动作。
+  - 验证结果：发布 `v-published-read-1` 后，识别请求 `REQ-PUBLISHED-READ-1` 命中 `INVOICE_QUERY/SUCCESS`，识别路径包含 `PRE_ROUTE:order-scene:v-published-read-1` 与 `POST_ROUTE:INVOICE_QUERY_API`。
+  - 数据库结果：`config_version.status=PUBLISHED`，`intent_definition.intent_code=INVOICE_QUERY`，`downstream_action.action_code=INVOICE_QUERY_API`，`recognition_trace.intent_code=INVOICE_QUERY`。
 
 ## 研究发现
 
@@ -48,8 +54,11 @@
 - `local-jdbc` 联调证明配置版本生命周期 API 已真实写入 PostgreSQL：`config_version_count=2`、`audit_log_count=6`。
 - 配置对象最小 CRUD 采用通用对象类型入口，先满足 P1 Admin API 闭环；后续完整后台可按对象拆更细的专用接口和表单校验。
 - 发布后只读是配置治理底线：对象编辑必须发生在 `DRAFT`，通过发布/回滚改变线上版本。
+- 已发布配置读取目前以 `order-scene` 为最小试点场景，后续需要补前置路由规则决定 scene 的动态选择。
+- 当前 action 到 intent 的映射先按 `ACTION_CODE` 后缀推断，例如 `INVOICE_QUERY_API` 映射到 `INVOICE_QUERY`；后续应在路由或动作配置中显式声明 intent/action 关系。
 
 ## 错误记录
 
 - 测试首次暴露发布 v1 时会把 v2 草稿归档；已修正为只归档旧 `PUBLISHED` 版本。
 - 配置对象测试首次编译失败，原因是接口层测试缺少 `java.util.List` import；已补齐并复验通过。
+- 已发布配置读取首次编译失败，原因是 infrastructure 缺少 Jackson 3 显式依赖；已增加 `tools.jackson.core:jackson-databind` 并复验通过。

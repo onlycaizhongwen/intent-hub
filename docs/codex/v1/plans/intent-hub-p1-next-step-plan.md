@@ -30,7 +30,7 @@
 - 服务已通过打包后的 `intent-hub-interfaces` jar 启动，健康检查和核心识别接口已完成手工冒烟。
 - P1-2 自动化验收已固化：`mvn test` 与 `mvn clean package` 均通过，共 9 个测试。
 - P1-3 已完成：Flyway migration、JDBC adapter、默认 memory fallback、`local-jdbc` PostgreSQL profile 和真实 PostgreSQL 联调均已通过。
-- P1-4 已完成配置版本生命周期、JDBC 联调和配置对象最小 CRUD：配置版本草稿、查询、校验、发布、回滚、导入导出、审计端口/API、配置对象 Upsert/List 已落地。
+- P1-4 已完成配置版本生命周期、JDBC 联调、配置对象最小 CRUD 和已发布配置读取：配置版本草稿、查询、校验、发布、回滚、导入导出、审计端口/API、配置对象 Upsert/List、识别链路读取最新 PUBLISHED 配置均已落地。
 
 ## 总体顺序
 
@@ -39,7 +39,7 @@ P1 下一步按 6 个工作包推进：
 1. P1-1：工程可编译与本地可启动。
 2. P1-2：识别接口验收用例固化。已完成。
 3. P1-3：PostgreSQL/Flyway 持久化最小落地。已完成。
-4. P1-4：Admin Portal 最小配置治理 API。版本生命周期、JDBC 联调与配置对象最小 CRUD 已完成，下一步已发布配置读取。
+4. P1-4：Admin Portal 最小配置治理 API。版本生命周期、JDBC 联调、配置对象最小 CRUD 与已发布配置读取已完成。
 5. P1-5：可观测与数据回流闭环。
 6. P1-6：P1 退出评审与 P2 准入。
 
@@ -264,10 +264,18 @@ P1 下一步按 6 个工作包推进：
 - 默认 memory 模式 HTTP 冒烟：创建草稿后写入 intent、slot、downstream-action，导出 bundle 可带出对象。
 - `mvn test` 通过，共 15 个测试。
 
+已发布配置读取结果：
+
+- 已新增 `JdbcSceneConfigRepository` 和 `BuiltinSceneConfigFactory`。
+- `local-jdbc` 模式优先读取 PostgreSQL 最新 `PUBLISHED` 配置，未找到发布版本时回退 P1 内置配置。
+- 当前映射范围：`intent_definition.definition` 到规则，`slot_definition.required` 到必填槽，`downstream_action` 到后置动作。
+- JDBC 冒烟：发布 `v-published-read-1`，识别请求 `REQ-PUBLISHED-READ-1` 命中 `INVOICE_QUERY/SUCCESS`。
+- 路径证据：`PRE_ROUTE:order-scene:v-published-read-1`、`POST_ROUTE:INVOICE_QUERY_API`。
+
 剩余工作：
 
-- 配置读取从当前内存 `SceneConfig` 切到已发布版本。
 - 补齐配置对象删除、批量导入和更细的字段校验。
+- 补前置路由动态 scene 选择，替换当前 `order-scene` 最小试点固定值。
 
 ## P1-5 可观测与数据回流闭环
 
@@ -346,7 +354,7 @@ P2 准入建议：
 | 1 | P1-1 工程可编译与本地可启动 | 可编译工程、健康检查 | `mvn clean package` 通过 |
 | 2 | P1-2 识别接口验收用例固化 | 单元/接口测试 | 已通过：`mvn test` 与 `mvn clean package` 均 9 个测试通过 |
 | 3 | P1-3 持久化最小落地 | Flyway + repository | 已完成：真实 PostgreSQL 验证 trace/bad case/idempotency 可查 |
-| 4 | P1-4 配置治理 API | 草稿/发布/回滚/审计 API、配置对象 Upsert/List | 版本生命周期、JDBC 联调和配置对象最小 CRUD 已完成；下一步已发布配置读取 |
+| 4 | P1-4 配置治理 API | 草稿/发布/回滚/审计 API、配置对象 Upsert/List、已发布配置读取 | 已完成到 P1 最小闭环；下一步配置治理细化或 P1-5 |
 | 5 | P1-5 可观测与回流 | trace、指标、bad case 筛选 | 可按 trace_id 回溯 |
 | 6 | P1-6 退出评审 | P1 验收报告 | 满足 P2 准入条件 |
 
@@ -372,4 +380,4 @@ mvn clean package
 java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar
 ```
 
-当前 P1-1、P1-2、P1-3 与 P1-4 配置治理最小闭环均已通过。下一步继续 P1-4：把识别配置读取切到已发布版本。
+当前 P1-1、P1-2、P1-3 与 P1-4 配置治理最小闭环均已通过。下一步可进入配置治理细化，或推进 P1-5 可观测与数据回流闭环。

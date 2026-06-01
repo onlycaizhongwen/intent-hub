@@ -209,6 +209,7 @@ java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar 
 - P1-3 PostgreSQL/Flyway 持久化真实联调已完成。
 - P1-4 Admin 配置版本生命周期 API 已完成，并通过 JDBC 联调。
 - P1-4 配置对象最小 Upsert/List API 已完成，并通过默认 memory 模式 HTTP 冒烟。
+- P1-4 识别链路读取 PostgreSQL 最新 `PUBLISHED` 配置已完成，并通过 `local-jdbc` 冒烟。
 
 P1-4 JDBC 联调结果：
 
@@ -219,8 +220,8 @@ P1-4 JDBC 联调结果：
 
 ## 下一步
 
-- 将识别配置读取从内存 `SceneConfig` 切换到 PostgreSQL 已发布版本。
 - 补齐配置对象删除、批量导入和更细的字段校验。
+- 补更多场景的已发布配置读取测试，并让前置路由动态决定 scene。
 - 完善可观测指标与 bad case 查询回流。
 - 完成 P1 退出评审，明确 P2 准入条件。
 

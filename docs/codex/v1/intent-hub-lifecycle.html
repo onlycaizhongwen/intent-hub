@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>意图中枢生命周期规划</title>
+  <style>
+    :root {
+      --bg: #f6f7f3;
+      --surface: #ffffff;
+      --ink: #1f2a2e;
+      --muted: #647174;
+      --line: #dce2dd;
+      --blue: #2f6f9f;
+      --green: #2f7d62;
+      --gold: #a66c1f;
+      --red: #b3473d;
+      --violet: #6d5aa8;
+      --chip: #eef3f5;
+      --shadow: 0 16px 36px rgba(31, 42, 46, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
+      line-height: 1.65;
+      letter-spacing: 0;
+    }
+
+    a {
+      color: var(--blue);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 28px 22px;
+      border-right: 1px solid var(--line);
+      background: #fbfcfa;
+      overflow: auto;
+    }
+
+    .brand {
+      margin-bottom: 30px;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 22px;
+      line-height: 1.25;
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    nav a {
+      display: block;
+      padding: 8px 10px;
+      margin: 2px 0;
+      color: var(--ink);
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    nav a:hover {
+      background: var(--chip);
+    }
+
+    main {
+      padding: 36px clamp(22px, 4vw, 58px) 64px;
+      max-width: 1400px;
+      width: 100%;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+      gap: 24px;
+      align-items: stretch;
+      margin-bottom: 28px;
+    }
+
+    .hero-text,
+    .panel,
+    .card,
+    .image-box,
+    .callout {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero-text {
+      padding: 30px;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--green);
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    h1 {
+      margin: 0 0 16px;
+      font-size: clamp(30px, 4vw, 52px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 17px;
+      max-width: 820px;
+    }
+
+    .hero-side {
+      padding: 24px;
+    }
+
+    .hero-side h2,
+    .panel h2,
+    section h2 {
+      margin: 0 0 14px;
+      font-size: 22px;
+      line-height: 1.25;
+    }
+
+    .verdict {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .verdict div {
+      padding: 12px;
+      border-left: 4px solid var(--green);
+      background: #f3f8f5;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    section {
+      margin-top: 28px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .section-head p {
+      margin: 0;
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid.cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid.cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .card,
+    .panel {
+      padding: 18px;
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      line-height: 1.35;
+    }
+
+    .card p,
+    .card ul,
+    .panel p,
+    .panel ul {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    ul {
+      padding-left: 18px;
+    }
+
+    li + li {
+      margin-top: 6px;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: var(--chip);
+      color: #435052;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .lifecycle {
+      display: grid;
+      gap: 12px;
+      counter-reset: phase;
+    }
+
+    .phase {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr) minmax(240px, 0.75fr);
+      gap: 16px;
+      align-items: start;
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .phase-no {
+      width: 54px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: #e8f1f5;
+      color: var(--blue);
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    .phase h3 {
+      margin: 0 0 6px;
+      font-size: 18px;
+    }
+
+    .phase p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .phase ul {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 820px;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #eef3f5;
+      color: #2d3b40;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .flow-step {
+      position: relative;
+      padding: 14px;
+      min-height: 118px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .flow-step h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+
+    .flow-step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .risk {
+      border-left: 5px solid var(--red);
+    }
+
+    .advice {
+      border-left: 5px solid var(--green);
+    }
+
+    .decision {
+      border-left: 5px solid var(--gold);
+    }
+
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .image-box {
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .image-box img {
+      display: block;
+      width: 100%;
+      height: 280px;
+      object-fit: contain;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+
+    .image-box h3 {
+      margin: 10px 0 4px;
+      font-size: 15px;
+    }
+
+    .image-box p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .callout {
+      padding: 18px;
+    }
+
+    .callout h3 {
+      margin: 0 0 8px;
+    }
+
+    .callout p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #eef1ed;
+      color: #243034;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92em;
+    }
+
+    footer {
+      margin-top: 34px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1100px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .hero,
+      .grid.cols-2,
+      .grid.cols-3,
+      .grid.cols-4,
+      .image-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .phase {
+        grid-template-columns: 56px 1fr;
+      }
+
+      .phase ul {
+        grid-column: 2;
+      }
+
+      .flow {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      main {
+        padding: 24px 16px 48px;
+      }
+
+      .hero-text,
+      .hero-side,
+      .card,
+      .panel,
+      .callout {
+        padding: 16px;
+      }
+
+      .section-head {
+        display: block;
+      }
+
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .phase {
+        grid-template-columns: 1fr;
+      }
+
+      .phase ul {
+        grid-column: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <div class="brand">
+        <strong>IntentHub 生命周期规划</strong>
+        <span>需求、架构、选型、服务、实现与风险建议合并阅读版</span>
+      </div>
+      <nav aria-label="页面导航">
+        <a href="#summary">总览结论</a>
+        <a href="#scope">需求拆分</a>
+        <a href="#core-changes">核心变更</a>
+        <a href="#architecture">架构蓝图</a>
+        <a href="#services">服务规划</a>
+        <a href="#technology">技术选型</a>
+        <a href="#confirmed">确认回执</a>
+        <a href="#p0">P0 设计</a>
+        <a href="#p1">P1 闭环</a>
+        <a href="#flow">识别流程</a>
+        <a href="#data">数据与契约</a>
+        <a href="#lifecycle">实施生命周期</a>
+        <a href="#risks">风险与修正</a>
+        <a href="#assets">原始资料</a>
+      </nav>
+    </aside>
+
+    <main>
+      <section id="summary" class="hero">
+        <div class="hero-text">
+          <p class="eyebrow">v1 规划结论</p>
+          <h1>先把意图识别闭环跑通，再扩展成平台。</h1>
+          <p class="lead">
+            这版规划最重要的差异化是三件事：双阶段路由、LLM 受控、防腐层。
+            它们决定系统不是普通 NLU 分类器，而是能治理多业务动作的意图中枢。
+          </p>
+          <div class="tag-row">
+            <span class="tag">先选怎么认</span>
+            <span class="tag">再选谁来干</span>
+            <span class="tag">LLM 最后防线</span>
+            <span class="tag">防腐层只发指令</span>
+          </div>
+        </div>
+
+        <div class="panel hero-side">
+          <h2>一眼判断</h2>
+          <div class="verdict">
+            <div>现有资料方向正确，但仍偏概念；确认后将补 DB Schema、配置版本、幂等重试和失败补偿。</div>
+            <div>v1 不建议拆成太多微服务，优先用模块化单体 + 独立模型服务验证闭环。</div>
+            <div>核心差异化：双阶段路由、LLM 受控、防腐层只发指令不碰业务数据。</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="scope">
+        <div class="section-head">
+          <div>
+            <h2>需求拆分</h2>
+            <p>按必做、可选和暂不做划清第一版边界，后续评审和排期都围绕这个边界展开。</p>
+          </div>
+        </div>
+        <div class="grid cols-3">
+          <article class="card">
+            <h3>v1 必做</h3>
+            <ul>
+              <li>标准 Envelope 输入模型和 IntentResult 输出模型。</li>
+              <li>REST API 接入，Webhook 预留。</li>
+              <li>Redis 会话上下文、规则识别、模型接口、LLM 兜底接口。</li>
+              <li>拒识 decision、双阶段场景路由、配置版本、TraceID、核心指标。</li>
+              <li>Bad Case 记录，用于后续标注和模型迭代。</li>
+              <li>DB Schema、槽位生命周期、幂等重试、同步/异步分离。</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>v1 可选</h3>
+            <ul>
+              <li>MQ 异步执行通道。</li>
+              <li>管理后台最小页面。</li>
+              <li>示例检索或同义表达召回用向量库。</li>
+              <li>按租户、场景、模型版本灰度。</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>暂不做</h3>
+            <ul>
+              <li>图片、视频等完整多模态识别。</li>
+              <li>自动训练平台和完整 MLOps。</li>
+              <li>复杂工作流编排和高阶多 Agent 对话管理。</li>
+              <li>通用执行器直接写业务数据库，v1 严禁通用直写 DB。</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="core-changes">
+        <div class="section-head">
+          <div>
+            <h2>三大核心变更点</h2>
+            <p>这是区别于普通 NLU 系统的关键：不只识别意图，还要治理识别策略、业务动作和系统边界。</p>
+          </div>
+        </div>
+        <div class="grid cols-3">
+          <article class="card decision">
+            <h3>双阶段路由</h3>
+            <p>先选怎么认，再选谁来干。前置路由按租户、来源、渠道选择规则集、模型版本、阈值和 LLM 开关；后置路由按意图、槽位、置信度选择业务动作。</p>
+          </article>
+          <article class="card decision">
+            <h3>LLM 受控</h3>
+            <p>LLM 是最后一道防线，不是主力。只处理规则和模型覆盖不了的低置信度、长尾表达和复杂指代，并且必须有超时、预算、熔断、降级、注入防护和审计。</p>
+          </article>
+          <article class="card decision">
+            <h3>防腐层</h3>
+            <p>输出适配层只发指令，不碰业务数据。v1 仅允许 API、MQ、Webhook、MQTT 交互，严禁把意图中枢做成通用业务数据库写入器。</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="architecture">
+        <div class="section-head">
+          <div>
+            <h2>架构蓝图</h2>
+            <p>建议把原六层架构落成七个逻辑模块，明确运行链路和平台能力的边界。</p>
+          </div>
+        </div>
+        <div class="grid cols-4">
+          <article class="card"><h3>Traffic Gateway</h3><p>鉴权、限流、WAF、TraceID、灰度入口。外部入口治理尽量前置，保护核心识别服务。</p></article>
+          <article class="card"><h3>Input Adapter</h3><p>协议转换、Envelope 标准化、会话上下文加载，屏蔽 Chat、IVR、Webhook、IoT 差异。</p></article>
+          <article class="card"><h3>Intent Runtime</h3><p>预处理、规则识别、模型分类、LLM 兜底、拒识，核心要求是可解释、可降级。</p></article>
+          <article class="card"><h3>Scene Router</h3><p>已确认双阶段路由：前置选策略，后置选业务动作，按租户、渠道、意图、置信度决定场景和下游。</p></article>
+          <article class="card"><h3>Output Adapter</h3><p>防腐层：只发指令，不碰业务数据。v1 仅允许 API、MQ、Webhook、MQTT，不做通用直写 DB。</p></article>
+          <article class="card"><h3>Config & Admin</h3><p>意图、槽位、同义词、路由、阈值、模型版本管理，按 tenant + scene + version 发布和回滚。</p></article>
+          <article class="card"><h3>Feedback</h3><p>Bad case、人工修正、低置信度样本、下游失败样本沉淀，服务后续训练和优化。</p></article>
+          <article class="card"><h3>Observability</h3><p>日志、指标、追踪、审计，确保每次识别能回溯到配置版本和模型版本。</p></article>
+        </div>
+      </section>
+
+      <section id="services">
+        <div class="section-head">
+          <div>
+            <h2>服务规划</h2>
+            <p>第一版建议采用模块化单体加独立模型服务；当 QPS、团队边界或隔离要求升高后再拆分。</p>
+          </div>
+        </div>
+        <div class="grid cols-2">
+          <article class="card">
+            <h3>v1 推荐服务</h3>
+            <ul>
+              <li><code>intent-hub-api</code>：接入、输入适配、核心路由、输出适配、配置读取。</li>
+              <li><code>intent-model-service</code>：BERT/DeBERTa/ERNIE 分类推理，独立部署。</li>
+              <li><code>intent-admin</code>：配置管理 API 或最小管理后台。</li>
+              <li><code>intent-worker</code>：bad case 回流、异步日志、数据导出、后续训练数据准备。</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>后续拆分条件</h3>
+            <ul>
+              <li>识别链路和管理链路发布频率差异明显。</li>
+              <li>模型推理资源需要 GPU 或独立伸缩。</li>
+              <li>多租户隔离、安全合规、网关治理要求增强。</li>
+              <li>异步执行和回流任务吞吐明显影响在线识别。</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="technology">
+        <div class="section-head">
+          <div>
+            <h2>已确认技术选型</h2>
+            <p>这是 2026-06-01 已确认的 P1 默认技术基线。执行时只需在网关和模型服务两个条件化选项上按团队能力定版。</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>领域</th>
+                <th>主选</th>
+                <th>备选</th>
+                <th>取舍</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>后端框架</td><td>Java 17/21 + Spring Boot 4.x</td><td>Spring Boot 3.5.x</td><td>采用 Java LTS 和最新 Spring Boot 大版本；若企业基线未放开 4.x，短期可落 3.5.x 并保持迁移友好。</td></tr>
+              <tr><td>网关</td><td>Apache APISIX 或 Spring Cloud Gateway</td><td>Nginx/OpenResty</td><td>有 K8s/独立网关平台选 APISIX；深度 Spring 体系、低运维面选 Spring Cloud Gateway。</td></tr>
+              <tr><td>配置中心</td><td>Nacos 3.x</td><td>Apollo</td><td>Nacos 负责服务发现与运行时配置分发；意图配置事实源仍是 Admin Portal + PostgreSQL config_version。</td></tr>
+              <tr><td>数据库</td><td>PostgreSQL 16+</td><td>MySQL 8.x</td><td>PostgreSQL JSONB 适合 recognition_trace、context_snapshot、latency_breakdown 等半结构化数据。</td></tr>
+              <tr><td>缓存/会话</td><td>Redis 7.x</td><td>Valkey/KeyDB</td><td>用于会话缓存、配置缓存、限流辅助、分布式锁和短期幂等状态。</td></tr>
+              <tr><td>消息队列</td><td>Kafka</td><td>RocketMQ/RabbitMQ</td><td>承载训练数据回流、bad case 异步标注、审计事件、异步动作和最终一致性回调。</td></tr>
+              <tr><td>规则引擎</td><td>轻量规则 + AC 自动机/正则</td><td>Drools</td><td>P1 不默认引入 Drools，先保证高频意图可解释、可热更新。</td></tr>
+              <tr><td>模型服务</td><td>Python/FastAPI 或 Triton</td><td>Java ONNX Runtime</td><td>P1/P2 用 FastAPI stub 或快速迭代服务；GPU、高并发、多模型场景升级 Triton。</td></tr>
+              <tr><td>LLM 接入</td><td>Spring AI 抽象 + Spring AI Alibaba 默认实现 + Provider Adapter</td><td>LangChain4j / 直接 SDK</td><td>P1 默认用 Spring AI Alibaba 对接通义/DashScope；核心仍保持 Spring AI/端口抽象，LLM 受控兜底。</td></tr>
+              <tr><td>可观测</td><td>OpenTelemetry + Prometheus + Grafana + Loki/ELK</td><td>SkyWalking</td><td>跨 Java、Python、网关和 worker，打通 trace、metrics、logs。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="grid cols-2" style="margin-top:14px;">
+          <article class="card">
+            <h3>网关定版规则</h3>
+            <p>已有 APISIX 平台和 K8s 网关治理能力时选 APISIX；否则 P1 优先用 Spring Cloud Gateway 跑通闭环。</p>
+          </article>
+          <article class="card">
+            <h3>模型服务定版规则</h3>
+            <p>P1 先用 FastAPI stub/mock 验证识别闭环；GPU、高并发、多模型生产推理阶段再升级 Triton。</p>
+          </article>
+        </div>
+        <div class="callout" style="margin-top:14px;">
+          <h3>LLM 默认实现</h3>
+          <p>P1 采用 Spring AI Alibaba 作为默认 Provider 实现，但只放在基础设施适配层。应用层和领域层保持 Spring AI/自定义端口抽象，避免通义或 DashScope 细节侵入核心识别策略。</p>
+        </div>
+      </section>
+
+      <section id="confirmed">
+        <div class="section-head">
+          <div>
+            <h2>确认回执</h2>
+            <p>以下事项已确认，后续需求、设计、实施和验收均按这些约束执行。</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>风险/问题</th>
+                <th>确认状态</th>
+                <th>固化方案</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>数据流向图 v2</td><td>确认</td><td>采纳 <code>数据流向图v2.png</code> 作为当前数据流向基线；DB Schema 仍以 P0 契约与 Schema 设计为准。</td></tr>
+              <tr><td>场景路由顺序</td><td>确认</td><td>采用双阶段路由：前置选策略，后置选业务动作。</td></tr>
+              <tr><td>LLM 兜底边界</td><td>确认</td><td>LLM 是最后一道防线，不是主力；仅作为受控兜底，配置熔断、降级、注入防护、超时、预算和审计。</td></tr>
+              <tr><td>防腐层/输出适配</td><td>确认</td><td>输出适配层只发指令，不碰业务数据；v1 严禁通用直写业务数据库，仅允许 API、MQ、Webhook、MQTT。</td></tr>
+              <tr><td>租户与配置版本</td><td>确认</td><td>全链路按 <code>tenant_id + scene_id + version</code> 管理，支持回滚。</td></tr>
+              <tr><td>槽位生命周期</td><td>确认</td><td>纳入 v1，支持待确认、已过期和缺槽追问。</td></tr>
+              <tr><td>拒识策略</td><td>确认</td><td>标准化输出 <code>decision</code> 字段，例如 <code>REJECTED</code>、<code>HANDOFF</code>。</td></tr>
+              <tr><td>时序图响应链路</td><td>确认</td><td>区分同步识别与异步执行，异步通过 MQ/Callback/Webhook。</td></tr>
+              <tr><td>幂等与重试</td><td>确认</td><td>补幂等表设计，防止下游重复执行。</td></tr>
+              <tr><td>多模态</td><td>确认</td><td>v1 延期，仅预留字段，不做实际解析。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="p0">
+        <div class="section-head">
+          <div>
+            <h2>P0 契约与 DB Schema</h2>
+            <p>P0 已产出可评审设计稿，目标是在开发前冻结输入输出契约、核心枚举、路由模型、LLM 策略、防腐层动作和数据库表结构。</p>
+          </div>
+        </div>
+        <div class="grid cols-3">
+          <article class="card">
+            <h3>契约冻结</h3>
+            <p><code>Envelope</code>、<code>IntentResult</code>、<code>Decision</code>、<code>InputType</code>、<code>SlotState</code>、<code>RouteStage</code>。</p>
+          </article>
+          <article class="card">
+            <h3>模型冻结</h3>
+            <p>双阶段路由模型、LLM 受控策略模型、防腐层 downstream action 模型、幂等状态模型。</p>
+          </article>
+          <article class="card">
+            <h3>表结构冻结</h3>
+            <p>配置域和运行域 DB Schema，包括配置版本、意图、槽位、路由、策略、trace、bad case、idempotency 和 audit。</p>
+          </article>
+        </div>
+        <div class="callout" style="margin-top:14px;">
+          <h3>P0 设计稿</h3>
+          <p>详见 <code>docs/codex/v1/designs/intent-hub-p0-contract-schema-design.md</code>。P0 评审结论已通过（Approved），可以进入 P1 最小识别闭环开发。</p>
+        </div>
+        <div class="grid cols-2" style="margin-top:14px;">
+          <article class="card advice">
+            <h3>P0 微调已固化</h3>
+            <ul>
+              <li>attachments 只存 URL 或 Object Key。</li>
+              <li>confidence 明确为 [0.0, 1.0] 并定义默认行为区间。</li>
+              <li>input_snapshot 写入前必须脱敏。</li>
+              <li>match_condition 增加 slot 条件示例。</li>
+              <li>LLM 增加 max_retries。</li>
+              <li>downstream action 增加 timeout_ms。</li>
+            </ul>
+          </article>
+          <article class="card risk">
+            <h3>P1 高风险点</h3>
+            <p>配置管理一致性是 P1 必须优先解决的风险。禁止手工改数据库作为正式配置发布方式，必须配套 Admin Portal 或 GitOps 流程，确保配置可审计、可回滚、可同步。</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="p1">
+        <div class="section-head">
+          <div>
+            <h2>P1 最小识别闭环</h2>
+            <p>P1 已开始实现：Maven 多模块 DDD 工程骨架已落地，内存版 REST 识别入口、规则识别、双阶段路由、trace、bad case 和幂等记录已进入代码。</p>
+          </div>
+        </div>
+        <div class="grid cols-3">
+          <article class="card">
+            <h3>配置治理</h3>
+            <p>默认采用轻量 Admin Portal：草稿、校验、发布、回滚、审计、导入导出。GitOps 作为后续增强。</p>
+          </article>
+          <article class="card">
+            <h3>试点场景</h3>
+            <p>订单查询、订单取消、库存 Webhook。覆盖同步成功、异步接收、缺槽澄清、拒识和幂等。</p>
+          </article>
+          <article class="card">
+            <h3>验收重点</h3>
+            <p>P1 验收用例全部通过；trace 可回溯；bad case 可记录；Output Adapter 不触碰业务数据库。</p>
+          </article>
+        </div>
+        <div class="callout" style="margin-top:14px;">
+          <h3>P1 实现进展</h3>
+          <p>详见 <code>docs/codex/v1/designs/intent-hub-p1-minimal-loop-design.md</code>。已创建 <code>intent-hub-domain</code>、<code>intent-hub-application</code>、<code>intent-hub-infrastructure</code>、<code>intent-hub-interfaces</code> 四个模块，并实现内存版最小识别闭环。当前已使用 JDK 17.0.19 与 Maven 3.9.7 完成构建；P1-2 自动化验收、P1-3 PostgreSQL/Flyway 联调和 P1-4 配置版本生命周期 API JDBC 联调均已完成，<code>mvn test</code> 与 <code>mvn clean package</code> 均通过，共 13 个测试。</p>
+        </div>
+        <div class="callout" style="margin-top:14px;">
+          <h3>P1 下一步</h3>
+          <p>P1-1 构建启动已通过，P1-2 自动化验收已通过，P1-3 PostgreSQL/Flyway 持久化闭环已通过真实库联调，P1-4 配置治理 API 版本生命周期与 JDBC 联调已落地。当前已支持配置版本草稿、查询、校验、发布、回滚、导入导出和审计端口；默认 memory 模式已完成 API 冒烟，<code>local-jdbc</code> 下已验证写入 <code>config_version</code> 与 <code>audit_log</code>。下一步继续 P1-4：补配置对象 CRUD，并把识别配置读取切到已发布版本。</p>
+        </div>
+        <div class="table-wrap" style="margin-top:14px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Maven Module</th>
+                <th>职责</th>
+                <th>关键内容</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><code>intent-hub-application</code></td><td>应用层</td><td><code>RecognizeAppService</code> 编排识别用例，调用领域服务。</td></tr>
+              <tr><td><code>intent-hub-domain</code></td><td>领域层</td><td><code>recognition</code>、<code>conversation</code>、<code>config</code>；包含 <code>RecognitionTask</code>、<code>IntentRecognizer</code> 和 Rule/Model/Llm 策略抽象。</td></tr>
+              <tr><td><code>intent-hub-infrastructure</code></td><td>基础设施层</td><td>DB、Redis、Kafka/RocketMQ、LLM 适配；<code>llm/TongyiLlmAdapter.java</code> 使用 Spring AI Alibaba。</td></tr>
+              <tr><td><code>intent-hub-interfaces</code></td><td>用户接口层</td><td><code>web</code> REST API 与 <code>admin</code> 管理后台 API，只做入参出参转换。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" style="margin-top:14px;">
+          <h3>模块依赖铁律</h3>
+          <p><code>intent-hub-domain</code> 不依赖 Spring AI Alibaba、DB、Redis、Kafka 或 Web；Provider 替换只能发生在 <code>intent-hub-infrastructure/llm</code>，不能侵入 <code>recognition/policy</code>。</p>
+        </div>
+      </section>
+
+      <section id="flow">
+        <div class="section-head">
+          <div>
+            <h2>识别流程</h2>
+            <p>把场景路由拆成前置策略选择和后置动作选择，解决原资料里路由顺序不一致的问题。</p>
+          </div>
+        </div>
+        <div class="flow">
+          <div class="flow-step"><h3>1. 接入治理</h3><p>鉴权、限流、安全拦截、生成 TraceID。</p></div>
+          <div class="flow-step"><h3>2. 输入适配</h3><p>转为 Envelope，加载 session 上下文。</p></div>
+          <div class="flow-step"><h3>3. 前置路由</h3><p>按租户、来源、渠道选择策略、模型、阈值和 LLM 开关。</p></div>
+          <div class="flow-step"><h3>4. 意图识别</h3><p>预处理、规则、模型、受控 LLM 兜底、拒识 decision。</p></div>
+          <div class="flow-step"><h3>5. 后置路由</h3><p>按意图、槽位、置信度选择 API/MQ/Webhook/MQTT 动作。</p></div>
+          <div class="flow-step"><h3>6. 输出闭环</h3><p>同步返回 IntentResult；异步执行记录幂等、trace 和 bad case。</p></div>
+        </div>
+      </section>
+
+      <section id="data">
+        <div class="section-head">
+          <div>
+            <h2>数据与契约</h2>
+            <p>开发前最该先定的不是页面，而是输入、输出、配置和追踪数据模型。</p>
+          </div>
+        </div>
+        <div class="grid cols-2">
+          <article class="card">
+            <h3>输入 Envelope</h3>
+            <p><code>request_id</code>、<code>tenant_id</code>、<code>source</code>、<code>channel</code>、<code>session_id</code>、<code>user_id</code>、<code>input_type</code>、<code>text</code>、<code>event</code>、<code>metadata</code>、<code>timestamp</code></p>
+          </article>
+          <article class="card">
+            <h3>输出 IntentResult</h3>
+            <p><code>request_id</code>、<code>trace_id</code>、<code>scene_id</code>、<code>intent_code</code>、<code>slots</code>、<code>confidence</code>、<code>recognition_path</code>、<code>decision</code>、<code>idempotency_key</code>、<code>debug</code></p>
+          </article>
+          <article class="card">
+            <h3>配置模型</h3>
+            <p>意图、槽位、同义词、场景、策略、路由规则、模型版本、阈值、发布版本、回滚版本，统一按 <code>tenant_id + scene_id + version</code> 管理。</p>
+          </article>
+          <article class="card">
+            <h3>追踪模型</h3>
+            <p>预处理结果、规则候选、模型候选、LLM 结果、拒识原因、最终意图、配置版本、模型版本、分层耗时。</p>
+          </article>
+          <article class="card">
+            <h3>DB Schema 配置域</h3>
+            <p><code>tenant</code>、<code>scene</code>、<code>config_version</code>、<code>intent_definition</code>、<code>slot_definition</code>、<code>synonym_mapping</code>、<code>nlu_strategy</code>、<code>scene_routing_rule</code></p>
+          </article>
+          <article class="card">
+            <h3>DB Schema 运行域</h3>
+            <p><code>conversation_session</code>、<code>slot_state</code>、<code>recognition_trace</code>、<code>bad_case</code>、<code>idempotency_record</code>、<code>audit_log</code></p>
+          </article>
+          <article class="card">
+            <h3>槽位生命周期</h3>
+            <p><code>EMPTY</code>、<code>EXTRACTED</code>、<code>PENDING_CONFIRM</code>、<code>CONFIRMED</code>、<code>EXPIRED</code>，支持缺槽追问、上下文继承、校验和归一化。</p>
+          </article>
+          <article class="card">
+            <h3>幂等记录</h3>
+            <p><code>idempotency_key</code>、请求摘要、下游动作、执行状态、重试次数、过期时间，防止重复扣款、重复下单等风险。</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="lifecycle">
+        <div class="section-head">
+          <div>
+            <h2>实施生命周期</h2>
+            <p>从需求到生产化增强，每个阶段都有明确产物和验证方式。</p>
+          </div>
+        </div>
+        <div class="lifecycle">
+          <div class="phase">
+            <div class="phase-no">P0</div>
+            <div><h3>项目骨架与契约</h3><p>定义 Maven 多模块结构、DTO、错误码、拒识码、TraceID、OpenAPI 示例和 DB Schema。</p></div>
+            <ul><li>契约样例通过 schema 校验。</li><li>DB Schema 评审通过。</li></ul>
+          </div>
+          <div class="phase">
+            <div class="phase-no">P1</div>
+            <div><h3>最小识别闭环</h3><p>REST 入口、输入适配、会话、预处理、规则引擎、双阶段路由、标准输出。</p></div>
+            <ul><li>3 个业务意图可识别。</li><li>decision 可表达澄清、拒识、转人工和阻断。</li></ul>
+          </div>
+          <div class="phase">
+            <div class="phase-no">P2</div>
+            <div><h3>模型分类与 LLM 兜底</h3><p>抽象模型接口，接入分类服务；LLM 默认实现采用 Spring AI Alibaba，但保持 Spring AI/端口抽象，并加入预算、审计、熔断和注入防护。</p></div>
+            <ul><li>冲突候选可解释选择。</li><li>LLM 不默认走主链路，超时失败可降级。</li></ul>
+          </div>
+          <div class="phase">
+            <div class="phase-no">P3</div>
+            <div><h3>配置管理与发布</h3><p>建立意图、槽位、同义词、场景、策略、路由表，按 tenant + scene + version 发布和回滚。</p></div>
+            <ul><li>新版本发布后生效。</li><li>租户之间配置互不污染。</li></ul>
+          </div>
+          <div class="phase">
+            <div class="phase-no">P4</div>
+            <div><h3>反馈闭环与观测</h3><p>记录 RecognitionTrace、bad case、idempotency_record、Prometheus 指标和 OpenTelemetry trace。</p></div>
+            <ul><li>任一请求可按 trace_id 回溯。</li><li>重复请求不会重复触发下游动作。</li></ul>
+          </div>
+          <div class="phase">
+            <div class="phase-no">P5</div>
+            <div><h3>生产化增强</h3><p>鉴权、租户隔离、RBAC、限流、熔断、降级、异步执行、灰度策略。</p></div>
+            <ul><li>限流和降级有明确响应。</li><li>Output Adapter 不存在通用直写业务 DB 能力。</li></ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="risks">
+        <div class="section-head">
+          <div>
+            <h2>风险与固化方案</h2>
+            <p>原始资料中的风险项已完成确认，下面不再是建议，而是 v1 设计约束。</p>
+          </div>
+        </div>
+        <div class="grid cols-2">
+          <article class="card risk">
+            <h3>资料问题</h3>
+            <ul>
+              <li><code>数据流向图v2.png</code> 已作为当前数据流向基线，明确三阶段流转和双阶段路由。</li>
+              <li>场景路由采用前置选策略、后置选动作。</li>
+              <li>时序图拆成同步识别与异步执行。</li>
+              <li>幂等键、重试、失败补偿落到 idempotency_record。</li>
+            </ul>
+          </article>
+          <article class="card decision">
+            <h3>关键决策</h3>
+            <ul>
+              <li>先做模块化单体，不直接细拆微服务。</li>
+              <li>双阶段路由：先选怎么认，再选谁来干。</li>
+              <li>LLM 受控：最后一道防线，不是主力。</li>
+              <li>防腐层：输出适配只发指令，不碰业务数据。</li>
+              <li>多模态延期，仅预留字段，不做实际解析。</li>
+            </ul>
+          </article>
+          <article class="card advice">
+            <h3>优先补齐</h3>
+            <ul>
+              <li>Envelope、IntentResult、意图、槽位、路由、策略配置模型和 DB Schema。</li>
+              <li>规则、模型、LLM、拒识的候选融合优先级。</li>
+              <li>配置发布、回滚、审计和灰度策略。</li>
+              <li>Bad case 标注字段、下游动作契约、幂等表和重试策略。</li>
+            </ul>
+          </article>
+          <article class="card advice">
+            <h3>落地建议</h3>
+            <ul>
+              <li>先选 2-3 个业务场景试点，例如订单查询、订单取消、库存事件。</li>
+              <li>第一周完成契约、DB Schema 和最小规则识别闭环。</li>
+              <li>模型服务可以先用模拟接口，等闭环稳定后替换真实模型。</li>
+              <li>每次配置和模型变更都必须按 tenant + scene + version 回溯。</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="assets">
+        <div class="section-head">
+          <div>
+            <h2>原始资料</h2>
+            <p>保留原始图作为讨论依据。当前 HTML 已采用数据流向图 v2，并融合其三阶段流转、双阶段路由、Nacos 配置加载和 Bad Case 回流。</p>
+          </div>
+        </div>
+        <div class="image-grid">
+          <figure class="image-box">
+            <img src="designs/意图中枢架构图.png" alt="意图中枢架构图">
+            <h3>架构图</h3>
+            <p>展示接入治理、输入适配、场景路由、核心意图漏斗、输出适配、配置闭环。</p>
+          </figure>
+          <figure class="image-box">
+            <img src="designs/数据流向图v2.png" alt="数据流向图 v2">
+            <h3>数据流向图 v2</h3>
+            <p>当前数据流向基线：接入与治理、核心意图漏斗、输出与执行三阶段；前置路由先选识别策略，后置路由再选下游动作。</p>
+          </figure>
+          <figure class="image-box">
+            <img src="designs/核心交互时序图.png" alt="核心交互时序图">
+            <h3>核心交互时序图</h3>
+            <p>已确认区分同步识别与异步执行，并补充失败补偿和幂等判重。</p>
+          </figure>
+        </div>
+      </section>
+
+      <section>
+        <div class="callout">
+          <h3>下一步最小可执行动作：P1-4 配置对象 CRUD 与已发布配置读取</h3>
+          <p>
+            P1 代码第一步已落地，JDK 17 与 Maven 构建环境已可用。已执行 <code>mvn clean package</code>，并通过 <code>java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar</code> 启动服务；
+            <code>POST /api/v1/intent/recognize</code> 已验证订单查询、订单取消、缺槽澄清、未知意图拒识和重复异步请求幂等。P1-3 已把 trace、bad case、idempotency 的 JDBC 适配器和 Flyway 表结构落地，并使用 <code>local-jdbc</code> profile 连接 Docker PostgreSQL 16 空库完成真实联调。P1-4 第一阶段已实现配置版本草稿、查询、校验、发布、回滚、审计、导入导出 API，并完成默认 memory 模式冒烟和 JDBC 模式联调；数据库终态验证 <code>v-jdbc-1=PUBLISHED</code>、<code>v-jdbc-2=ARCHIVED</code>、<code>audit_log_count=6</code>。下一步补意图、槽位、策略、路由、动作配置对象 CRUD，并把识别配置读取切到已发布版本。
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        生成时间：2026-06-01。页面版本：P1 Admin Config JDBC Verified / Data Flow v2 Synced。来源：`docs/codex/v1/requirements`、`designs`、`plans`、`trace` 中的意图中枢规划资料；已固化用户确认回执、P0 评审结论、技术选型确认、Spring AI Alibaba 默认实现、DDD/Maven Module 骨架、数据流向图 v2、P1 下一步执行计划、P1 构建冒烟结果、P1-2 自动化验收结果、P1-3 PostgreSQL/Flyway 真实联调结果和 P1-4 配置治理 API JDBC 联调结果。
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

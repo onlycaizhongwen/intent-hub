@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: intent-hub
+  flyway:
+    enabled: false
+
+server:
+  port: 8080
+
+intent-hub:
+  persistence:
+    mode: memory
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local-jdbc
+  datasource:
+    url: jdbc:postgresql://localhost:5432/intent_hub
+    username: intent_hub
+    password: intent_hub
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+intent-hub:
+  persistence:
+    mode: jdbc

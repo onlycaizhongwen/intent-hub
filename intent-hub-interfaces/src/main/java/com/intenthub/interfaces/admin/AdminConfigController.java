@@ -1,6 +1,8 @@
 package com.intenthub.interfaces.admin;
 
 import com.intenthub.application.config.ConfigBundle;
+import com.intenthub.application.config.ConfigObjectAppService;
+import com.intenthub.application.config.ConfigObjectType;
 import com.intenthub.application.config.ConfigValidationResult;
 import com.intenthub.application.config.ConfigVersionAppService;
 import com.intenthub.application.config.ConfigVersionInfo;
@@ -13,13 +15,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/v1/admin/config")
 public class AdminConfigController {
     private final ConfigVersionAppService configVersionAppService;
+    private final ConfigObjectAppService configObjectAppService;
 
-    public AdminConfigController(ConfigVersionAppService configVersionAppService) {
+    public AdminConfigController(ConfigVersionAppService configVersionAppService, ConfigObjectAppService configObjectAppService) {
         this.configVersionAppService = configVersionAppService;
+        this.configObjectAppService = configObjectAppService;
     }
 
     @PostMapping("/versions")
@@ -91,6 +98,40 @@ public class AdminConfigController {
                 request.version(),
                 request.bundle(),
                 request.normalizedActor()
+        );
+    }
+
+    @PostMapping("/versions/{version}/{objectType}")
+    public Map<String, Object> upsertConfigObject(
+            @RequestParam String tenantId,
+            @RequestParam String sceneId,
+            @PathVariable String version,
+            @PathVariable String objectType,
+            @RequestBody ConfigObjectRequest request
+    ) {
+        ConfigObjectRequest normalized = request == null ? new ConfigObjectRequest("system", Map.of()) : request;
+        return configObjectAppService.upsert(
+                tenantId,
+                sceneId,
+                version,
+                ConfigObjectType.fromPath(objectType),
+                normalized.payload(),
+                normalized.normalizedActor()
+        );
+    }
+
+    @GetMapping("/versions/{version}/{objectType}")
+    public List<Map<String, Object>> listConfigObjects(
+            @RequestParam String tenantId,
+            @RequestParam String sceneId,
+            @PathVariable String version,
+            @PathVariable String objectType
+    ) {
+        return configObjectAppService.list(
+                tenantId,
+                sceneId,
+                version,
+                ConfigObjectType.fromPath(objectType)
         );
     }
 }

@@ -802,11 +802,11 @@
         </div>
         <div class="callout" style="margin-top:14px;">
           <h3>P1 实现进展</h3>
-          <p>详见 <code>docs/codex/v1/designs/intent-hub-p1-minimal-loop-design.md</code>。已创建 <code>intent-hub-domain</code>、<code>intent-hub-application</code>、<code>intent-hub-infrastructure</code>、<code>intent-hub-interfaces</code> 四个模块，并实现内存版最小识别闭环。当前已使用 JDK 17.0.19 与 Maven 3.9.7 完成构建；P1-2 自动化验收、P1-3 PostgreSQL/Flyway 联调和 P1-4 配置版本生命周期 API JDBC 联调均已完成，<code>mvn test</code> 与 <code>mvn clean package</code> 均通过，共 13 个测试。</p>
+          <p>详见 <code>docs/codex/v1/designs/intent-hub-p1-minimal-loop-design.md</code>。已创建 <code>intent-hub-domain</code>、<code>intent-hub-application</code>、<code>intent-hub-infrastructure</code>、<code>intent-hub-interfaces</code> 四个模块，并实现内存版最小识别闭环。当前已使用 JDK 17.0.19 与 Maven 3.9.7 完成构建；P1-2 自动化验收、P1-3 PostgreSQL/Flyway 联调、P1-4 配置版本生命周期 API JDBC 联调和配置对象最小 CRUD 均已完成，<code>mvn test</code> 通过，共 15 个测试。</p>
         </div>
         <div class="callout" style="margin-top:14px;">
           <h3>P1 下一步</h3>
-          <p>P1-1 构建启动已通过，P1-2 自动化验收已通过，P1-3 PostgreSQL/Flyway 持久化闭环已通过真实库联调，P1-4 配置治理 API 版本生命周期与 JDBC 联调已落地。当前已支持配置版本草稿、查询、校验、发布、回滚、导入导出和审计端口；默认 memory 模式已完成 API 冒烟，<code>local-jdbc</code> 下已验证写入 <code>config_version</code> 与 <code>audit_log</code>。下一步继续 P1-4：补配置对象 CRUD，并把识别配置读取切到已发布版本。</p>
+          <p>P1-1 构建启动已通过，P1-2 自动化验收已通过，P1-3 PostgreSQL/Flyway 持久化闭环已通过真实库联调，P1-4 配置治理 API 版本生命周期、JDBC 联调与配置对象最小 CRUD 已落地。当前已支持配置版本草稿、查询、校验、发布、回滚、导入导出、审计端口和配置对象 Upsert/List；默认 memory 模式已完成 API 冒烟，<code>local-jdbc</code> 下已验证写入 <code>config_version</code> 与 <code>audit_log</code>。下一步继续 P1-4：把识别配置读取切到已发布版本。</p>
         </div>
         <div class="table-wrap" style="margin-top:14px;">
           <table>
@@ -1008,16 +1008,16 @@
 
       <section>
         <div class="callout">
-          <h3>下一步最小可执行动作：P1-4 配置对象 CRUD 与已发布配置读取</h3>
+          <h3>下一步最小可执行动作：P1-4 已发布配置读取</h3>
           <p>
             P1 代码第一步已落地，JDK 17 与 Maven 构建环境已可用。已执行 <code>mvn clean package</code>，并通过 <code>java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar</code> 启动服务；
-            <code>POST /api/v1/intent/recognize</code> 已验证订单查询、订单取消、缺槽澄清、未知意图拒识和重复异步请求幂等。P1-3 已把 trace、bad case、idempotency 的 JDBC 适配器和 Flyway 表结构落地，并使用 <code>local-jdbc</code> profile 连接 Docker PostgreSQL 16 空库完成真实联调。P1-4 第一阶段已实现配置版本草稿、查询、校验、发布、回滚、审计、导入导出 API，并完成默认 memory 模式冒烟和 JDBC 模式联调；数据库终态验证 <code>v-jdbc-1=PUBLISHED</code>、<code>v-jdbc-2=ARCHIVED</code>、<code>audit_log_count=6</code>。下一步补意图、槽位、策略、路由、动作配置对象 CRUD，并把识别配置读取切到已发布版本。
+            <code>POST /api/v1/intent/recognize</code> 已验证订单查询、订单取消、缺槽澄清、未知意图拒识和重复异步请求幂等。P1-3 已把 trace、bad case、idempotency 的 JDBC 适配器和 Flyway 表结构落地，并使用 <code>local-jdbc</code> profile 连接 Docker PostgreSQL 16 空库完成真实联调。P1-4 已实现配置版本草稿、查询、校验、发布、回滚、审计、导入导出 API，并完成默认 memory 模式冒烟和 JDBC 模式联调；数据库终态验证 <code>v-jdbc-1=PUBLISHED</code>、<code>v-jdbc-2=ARCHIVED</code>、<code>audit_log_count=6</code>。当前还已支持 <code>POST/GET /api/v1/admin/config/versions/{version}/{objectType}</code> 管理意图、槽位、同义词、策略、路由、下游动作，并限制仅 <code>DRAFT</code> 版本可写。下一步把识别配置读取切到已发布版本。
           </p>
         </div>
       </section>
 
       <footer>
-        生成时间：2026-06-01。页面版本：P1 Admin Config JDBC Verified / Data Flow v2 Synced。来源：`docs/codex/v1/requirements`、`designs`、`plans`、`trace` 中的意图中枢规划资料；已固化用户确认回执、P0 评审结论、技术选型确认、Spring AI Alibaba 默认实现、DDD/Maven Module 骨架、数据流向图 v2、P1 下一步执行计划、P1 构建冒烟结果、P1-2 自动化验收结果、P1-3 PostgreSQL/Flyway 真实联调结果和 P1-4 配置治理 API JDBC 联调结果。
+        生成时间：2026-06-01。页面版本：P1 Admin Config Object CRUD Verified / Data Flow v2 Synced。来源：`docs/codex/v1/requirements`、`designs`、`plans`、`trace` 中的意图中枢规划资料；已固化用户确认回执、P0 评审结论、技术选型确认、Spring AI Alibaba 默认实现、DDD/Maven Module 骨架、数据流向图 v2、P1 下一步执行计划、P1 构建冒烟结果、P1-2 自动化验收结果、P1-3 PostgreSQL/Flyway 真实联调结果、P1-4 配置治理 API JDBC 联调结果和配置对象 CRUD 结果。
       </footer>
     </main>
   </div>

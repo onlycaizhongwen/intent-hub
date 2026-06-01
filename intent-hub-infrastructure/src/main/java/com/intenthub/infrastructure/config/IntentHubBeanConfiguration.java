@@ -6,6 +6,8 @@ import com.intenthub.application.RecognitionTracePort;
 import com.intenthub.application.RecognizeAppService;
 import com.intenthub.application.SceneConfigPort;
 import com.intenthub.application.config.AuditLogPort;
+import com.intenthub.application.config.ConfigObjectAppService;
+import com.intenthub.application.config.ConfigObjectPort;
 import com.intenthub.application.config.ConfigVersionAppService;
 import com.intenthub.application.config.ConfigVersionPort;
 import com.intenthub.domain.recognition.policy.LlmClientPort;
@@ -37,5 +39,14 @@ public class IntentHubBeanConfiguration {
             AuditLogPort auditLogPort
     ) {
         return new ConfigVersionAppService(configVersionPort, auditLogPort);
+    }
+
+    @Bean
+    ConfigObjectAppService configObjectAppService(
+            ConfigVersionPort configVersionPort,
+            ConfigObjectPort configObjectPort,
+            AuditLogPort auditLogPort
+    ) {
+        return new ConfigObjectAppService(configVersionPort, configObjectPort, auditLogPort);
     }
 }

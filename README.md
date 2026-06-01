@@ -85,6 +85,19 @@ intent-hub-parent
 - `POST /api/v1/admin/config/versions/{version}/rollback`：回滚配置
 - `GET /api/v1/admin/config/versions/{version}/export`：导出配置
 - `POST /api/v1/admin/config/versions/import`：导入配置
+- `POST /api/v1/admin/config/versions/{version}/{objectType}`：新增或更新配置对象
+- `GET /api/v1/admin/config/versions/{version}/{objectType}`：查询配置对象列表
+
+`objectType` 支持：
+
+- `intents`
+- `slots`
+- `synonyms`
+- `strategies`
+- `routes`
+- `downstream-actions`
+
+配置对象编辑仅允许发生在 `DRAFT` 版本，已发布版本通过发布/回滚控制线上生效。
 
 ### 持久化
 
@@ -123,7 +136,7 @@ mvn test
 mvn clean package
 ```
 
-当前验证结果：`mvn test` 和 `mvn clean package` 均通过，共 13 个测试。
+当前验证结果：`mvn test` 通过，共 15 个测试。
 
 ### 启动默认内存模式
 
@@ -195,6 +208,7 @@ java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar 
 - P1-2 自动化验收已完成。
 - P1-3 PostgreSQL/Flyway 持久化真实联调已完成。
 - P1-4 Admin 配置版本生命周期 API 已完成，并通过 JDBC 联调。
+- P1-4 配置对象最小 Upsert/List API 已完成，并通过默认 memory 模式 HTTP 冒烟。
 
 P1-4 JDBC 联调结果：
 
@@ -205,8 +219,8 @@ P1-4 JDBC 联调结果：
 
 ## 下一步
 
-- 补齐意图、槽位、同义词、策略、前置/后置路由、下游动作的细粒度 CRUD。
 - 将识别配置读取从内存 `SceneConfig` 切换到 PostgreSQL 已发布版本。
+- 补齐配置对象删除、批量导入和更细的字段校验。
 - 完善可观测指标与 bad case 查询回流。
 - 完成 P1 退出评审，明确 P2 准入条件。
 

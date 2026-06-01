@@ -2,6 +2,9 @@ package com.intenthub.interfaces.admin;
 
 import com.intenthub.application.config.AuditLogPort;
 import com.intenthub.application.config.ConfigBundle;
+import com.intenthub.application.config.ConfigObjectAppService;
+import com.intenthub.application.config.ConfigObjectPort;
+import com.intenthub.application.config.ConfigObjectType;
 import com.intenthub.application.config.ConfigVersionAppService;
 import com.intenthub.application.config.ConfigVersionInfo;
 import com.intenthub.application.config.ConfigVersionPort;
@@ -10,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -20,7 +24,12 @@ class AdminConfigControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new AdminConfigController(new ConfigVersionAppService(new InMemoryPort(), new NoopAuditLogPort()));
+        InMemoryPort port = new InMemoryPort();
+        NoopAuditLogPort auditLogPort = new NoopAuditLogPort();
+        controller = new AdminConfigController(
+                new ConfigVersionAppService(port, auditLogPort),
+                new ConfigObjectAppService(port, port, auditLogPort)
+        );
     }
 
     @Test
@@ -49,7 +58,21 @@ class AdminConfigControllerTest {
         assertThat(imported.status()).isEqualTo("DRAFT");
     }
 
-    private static final class InMemoryPort implements ConfigVersionPort {
+    @Test
+    void managesConfigObjectsThroughControllerContract() {
+        controller.createDraft(new ConfigDraftRequest("demo", "order-scene", "v1", "base", "admin"));
+
+        Map<String, Object> saved = controller.upsertConfigObject("demo", "order-scene", "v1", "intents", new ConfigObjectRequest("admin", Map.of(
+                "intentCode", "ORDER_QUERY",
+                "intentName", "订单查询"
+        )));
+
+        assertThat(saved).containsEntry("intentCode", "ORDER_QUERY");
+        assertThat(controller.listConfigObjects("demo", "order-scene", "v1", "intents")).hasSize(1);
+        assertThat(controller.exportBundle("demo", "order-scene", "v1", "admin").intents()).hasSize(1);
+    }
+
+    private static final class InMemoryPort implements ConfigVersionPort, ConfigObjectPort {
         private final Map<String, ConfigBundle> bundles = new LinkedHashMap<>();
 
         @Override
@@ -89,6 +112,18 @@ class AdminConfigControllerTest {
         @Override
         public void rollback(String tenantId, String sceneId, String targetVersion, String actor) {
             publish(tenantId, sceneId, targetVersion, actor);
+        }
+
+        @Override
+        public Map<String, Object> upsert(String tenantId, String sceneId, String version, ConfigObjectType type, Map<String, Object> payload) {
+            ConfigBundle bundle = bundles.get(key(tenantId, sceneId, version));
+            bundles.put(key(tenantId, sceneId, version), new ConfigBundle(bundle.version(), List.of(payload), bundle.slots(), bundle.synonyms(), bundle.strategies(), bundle.routes(), bundle.downstreamActions()));
+            return payload;
+        }
+
+        @Override
+        public java.util.List<Map<String, Object>> list(String tenantId, String sceneId, String version, ConfigObjectType type) {
+            return bundles.get(key(tenantId, sceneId, version)).intents();
         }
 
         private String key(String tenantId, String sceneId, String version) {

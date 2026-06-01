@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ConfigVersionAppServiceTest {
     private InMemoryPort port;
@@ -68,7 +69,30 @@ class ConfigVersionAppServiceTest {
         assertThat(auditLogPort.actions).contains("CONFIG_IMPORTED");
     }
 
-    private static final class InMemoryPort implements ConfigVersionPort {
+    @Test
+    void upsertsConfigObjectsOnlyForDraftVersions() {
+        service.createDraft("demo", "order-scene", "v1", "base", "admin");
+        ConfigObjectAppService objectService = new ConfigObjectAppService(port, port, auditLogPort);
+
+        Map<String, Object> saved = objectService.upsert("demo", "order-scene", "v1", ConfigObjectType.INTENT, Map.of(
+                "intentCode", "ORDER_QUERY",
+                "intentName", "订单查询"
+        ), "admin");
+
+        assertThat(saved).containsEntry("intentCode", "ORDER_QUERY");
+        assertThat(objectService.list("demo", "order-scene", "v1", ConfigObjectType.INTENT)).hasSize(1);
+        assertThat(service.exportBundle("demo", "order-scene", "v1", "admin").intents()).hasSize(1);
+        assertThat(auditLogPort.actions).contains("CONFIG_OBJECT_UPSERTED");
+
+        service.publish("demo", "order-scene", "v1", "admin");
+        assertThatThrownBy(() -> objectService.upsert("demo", "order-scene", "v1", ConfigObjectType.INTENT, Map.of(
+                "intentCode", "ORDER_CANCEL",
+                "intentName", "订单取消"
+        ), "admin")).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("only DRAFT");
+    }
+
+    private static final class InMemoryPort implements ConfigVersionPort, ConfigObjectPort {
         private final Map<String, ConfigBundle> bundles = new LinkedHashMap<>();
 
         @Override
@@ -115,6 +139,20 @@ class ConfigVersionAppServiceTest {
         @Override
         public void rollback(String tenantId, String sceneId, String targetVersion, String actor) {
             publish(tenantId, sceneId, targetVersion, actor);
+        }
+
+        @Override
+        public Map<String, Object> upsert(String tenantId, String sceneId, String version, ConfigObjectType type, Map<String, Object> payload) {
+            ConfigBundle bundle = bundles.get(key(tenantId, sceneId, version));
+            List<Map<String, Object>> intents = type == ConfigObjectType.INTENT ? List.of(payload) : bundle.intents();
+            bundles.put(key(tenantId, sceneId, version), new ConfigBundle(bundle.version(), intents, bundle.slots(), bundle.synonyms(), bundle.strategies(), bundle.routes(), bundle.downstreamActions()));
+            return payload;
+        }
+
+        @Override
+        public List<Map<String, Object>> list(String tenantId, String sceneId, String version, ConfigObjectType type) {
+            ConfigBundle bundle = bundles.get(key(tenantId, sceneId, version));
+            return type == ConfigObjectType.INTENT ? bundle.intents() : List.of();
         }
 
         private ConfigBundle withInfo(ConfigBundle bundle, ConfigVersionInfo info) {

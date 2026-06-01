@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P1-4 Admin Portal 最小配置治理 API JDBC 联调已完成，下一步做细粒度配置对象 CRUD 与已发布配置读取
+- 当前阶段：P1-4 Admin Portal 最小配置治理 API 配置对象 CRUD 已完成，下一步做已发布配置读取
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -15,7 +15,7 @@
 
 | 主题 | Requirements | Design | Plan | Trace/Review | 整体状态 |
 | --- | --- | --- | --- | --- | --- |
-| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1-4 配置版本生命周期 API JDBC 联调已完成，下一步配置对象 CRUD 与已发布配置读取 |
+| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1-4 配置版本生命周期 API 与配置对象 CRUD 已完成，下一步已发布配置读取 |
 
 ## 交付物
 
@@ -53,3 +53,4 @@
 - 2026-06-01：完成 P1-3 真实 PostgreSQL/Flyway 联调：补齐 Spring Boot 4 `spring-boot-flyway` 自动配置依赖，使用 Docker `postgres:16-alpine` 空库启动 `local-jdbc` profile，Flyway 成功应用 `V1 - p1 minimal persistence` 并创建 12 张 public 表；接口验证 `ORDER_QUERY/SUCCESS`、`ORDER_CANCEL/ASYNC_ACCEPTED`、`UNKNOWN/REJECTED`，数据库查询 `recognition_trace=7`、`bad_case=4`、`idempotency_record=1`；重复 `REQ-JDBC-102` 返回相同幂等键且幂等表不新增重复记录。下一步进入 P1-4 Admin Portal 最小配置治理 API。
 - 2026-06-01：完成 P1-4 Admin Portal 最小配置治理 API 第一阶段：新增 `ConfigVersionAppService`、配置版本端口、审计端口、内存/JDBC 适配器和 `AdminConfigController`；支持配置草稿、查询、校验、发布、回滚、导入、导出并写入审计端口。`mvn test` 与 `mvn clean package` 均通过，共 13 个测试；默认 memory 模式 jar 启动后已冒烟草稿创建、校验、发布和导出接口。
 - 2026-06-01：完成 P1-4 Admin API `local-jdbc` 联调：使用 PostgreSQL 验证创建 `v-jdbc-1`、`v-jdbc-2` 草稿、校验、发布、发布新版本、回滚和导出；数据库终态为 `v-jdbc-1=PUBLISHED`、`v-jdbc-2=ARCHIVED`，`config_version_count=2`、`audit_log_count=6`，审计覆盖草稿、发布、回滚、导出。当前健康检查口径为 `GET /api/v1/admin/health`，`/actuator/health` 未暴露。下一步补意图、槽位、策略、路由、下游动作的细粒度 CRUD，并把识别配置读取切到已发布版本。
+- 2026-06-01：完成 P1-4 配置对象最小 CRUD：新增 `ConfigObjectAppService`、`ConfigObjectPort`、`ConfigObjectType`、`JdbcConfigObjectRepository` 和 `ConfigObjectRequest`；支持 `POST/GET /api/v1/admin/config/versions/{version}/{objectType}` 管理意图、槽位、同义词、策略、路由、下游动作，并限制仅 `DRAFT` 版本可编辑。`mvn test` 通过，共 15 个测试；默认 memory 模式 HTTP 冒烟验证 intent、slot、downstream-action 写入后可通过 export bundle 导出。下一步把识别配置读取切到已发布版本。

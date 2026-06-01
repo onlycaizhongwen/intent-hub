@@ -2,19 +2,23 @@ package com.intenthub.infrastructure.config;
 
 import com.intenthub.application.config.AuditLogPort;
 import com.intenthub.application.config.ConfigBundle;
+import com.intenthub.application.config.ConfigObjectPort;
+import com.intenthub.application.config.ConfigObjectType;
 import com.intenthub.application.config.ConfigVersionInfo;
 import com.intenthub.application.config.ConfigVersionPort;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 @Component
 @ConditionalOnProperty(name = "intent-hub.persistence.mode", havingValue = "memory", matchIfMissing = true)
-public class InMemoryConfigGovernanceRepository implements ConfigVersionPort, AuditLogPort {
+public class InMemoryConfigGovernanceRepository implements ConfigVersionPort, ConfigObjectPort, AuditLogPort {
     private final Map<String, ConfigBundle> bundles = new LinkedHashMap<>();
 
     @Override
@@ -98,12 +102,70 @@ public class InMemoryConfigGovernanceRepository implements ConfigVersionPort, Au
         // Memory mode keeps audit side effects in-process only; P1 JDBC mode persists audit_log.
     }
 
+    @Override
+    public Map<String, Object> upsert(String tenantId, String sceneId, String version, ConfigObjectType type, Map<String, Object> payload) {
+        String key = key(tenantId, sceneId, version);
+        ConfigBundle bundle = bundles.get(key);
+        if (bundle == null) {
+            throw new IllegalArgumentException("config version not found");
+        }
+        List<Map<String, Object>> target = new ArrayList<>(listFrom(bundle, type));
+        String objectKey = objectKey(type, payload);
+        target.removeIf(candidate -> objectKey.equals(objectKey(type, candidate)));
+        target.add(new LinkedHashMap<>(payload));
+        bundles.put(key, replaceList(bundle, type, target));
+        return payload;
+    }
+
+    @Override
+    public List<Map<String, Object>> list(String tenantId, String sceneId, String version, ConfigObjectType type) {
+        ConfigBundle bundle = bundles.get(key(tenantId, sceneId, version));
+        if (bundle == null) {
+            throw new IllegalArgumentException("config version not found");
+        }
+        return listFrom(bundle, type);
+    }
+
     private ConfigBundle emptyBundle(ConfigVersionInfo info) {
         return new ConfigBundle(info, null, null, null, null, null, null);
     }
 
     private ConfigBundle withVersion(ConfigBundle bundle, ConfigVersionInfo info) {
         return new ConfigBundle(info, bundle.intents(), bundle.slots(), bundle.synonyms(), bundle.strategies(), bundle.routes(), bundle.downstreamActions());
+    }
+
+    private List<Map<String, Object>> listFrom(ConfigBundle bundle, ConfigObjectType type) {
+        return switch (type) {
+            case INTENT -> bundle.intents();
+            case SLOT -> bundle.slots();
+            case SYNONYM -> bundle.synonyms();
+            case STRATEGY -> bundle.strategies();
+            case ROUTE -> bundle.routes();
+            case DOWNSTREAM_ACTION -> bundle.downstreamActions();
+        };
+    }
+
+    private ConfigBundle replaceList(ConfigBundle bundle, ConfigObjectType type, List<Map<String, Object>> values) {
+        return new ConfigBundle(
+                bundle.version(),
+                type == ConfigObjectType.INTENT ? values : bundle.intents(),
+                type == ConfigObjectType.SLOT ? values : bundle.slots(),
+                type == ConfigObjectType.SYNONYM ? values : bundle.synonyms(),
+                type == ConfigObjectType.STRATEGY ? values : bundle.strategies(),
+                type == ConfigObjectType.ROUTE ? values : bundle.routes(),
+                type == ConfigObjectType.DOWNSTREAM_ACTION ? values : bundle.downstreamActions()
+        );
+    }
+
+    private String objectKey(ConfigObjectType type, Map<String, Object> payload) {
+        return switch (type) {
+            case INTENT -> payload.get("intentCode").toString();
+            case SLOT -> payload.get("intentCode") + "|" + payload.get("slotCode");
+            case SYNONYM -> payload.get("term").toString();
+            case STRATEGY -> payload.get("strategyCode").toString();
+            case ROUTE -> payload.get("routeStage") + "|" + payload.get("routeTarget");
+            case DOWNSTREAM_ACTION -> payload.get("actionCode").toString();
+        };
     }
 
     private String key(String tenantId, String sceneId, String version) {

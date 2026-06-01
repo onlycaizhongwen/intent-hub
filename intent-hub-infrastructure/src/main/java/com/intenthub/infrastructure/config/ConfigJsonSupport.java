@@ -20,6 +20,44 @@ final class ConfigJsonSupport {
         return json.append('}').toString();
     }
 
+    static String objectMap(Map<String, Object> values) {
+        StringBuilder json = new StringBuilder("{");
+        Iterator<Map.Entry<String, Object>> iterator = values.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, Object> entry = iterator.next();
+            json.append(quote(entry.getKey())).append(':').append(value(entry.getValue()));
+            if (iterator.hasNext()) {
+                json.append(',');
+            }
+        }
+        return json.append('}').toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String value(Object value) {
+        if (value == null) {
+            return "null";
+        }
+        if (value instanceof Map<?, ?> map) {
+            return objectMap((Map<String, Object>) map);
+        }
+        if (value instanceof Iterable<?> iterable) {
+            StringBuilder json = new StringBuilder("[");
+            Iterator<?> iterator = iterable.iterator();
+            while (iterator.hasNext()) {
+                json.append(value(iterator.next()));
+                if (iterator.hasNext()) {
+                    json.append(',');
+                }
+            }
+            return json.append(']').toString();
+        }
+        if (value instanceof Number || value instanceof Boolean) {
+            return value.toString();
+        }
+        return quote(value.toString());
+    }
+
     static String quote(String value) {
         if (value == null) {
             return "null";

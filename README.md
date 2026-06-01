@@ -2,7 +2,7 @@
 
 Intent Hub 是一个面向企业业务系统的意图识别与路由中枢。它不是单纯的 NLU 服务，而是把输入接入、意图识别、双阶段路由、受控 LLM 兜底、下游动作适配、配置治理、审计追踪和 bad case 回流放在同一套工程闭环中管理。
 
-当前项目处于 P1 阶段：最小识别闭环已经可编译、可启动、可测试，并完成 PostgreSQL/Flyway 持久化和 Admin 配置版本生命周期 API 的 JDBC 联调。
+当前项目处于 P1 阶段：最小识别闭环已经可编译、可启动、可测试，并完成 PostgreSQL/Flyway 持久化、Admin 配置治理 API、已发布配置读取和可观测查询 API 的 JDBC 联调。
 
 ## 核心原则
 
@@ -99,6 +99,18 @@ intent-hub-parent
 
 配置对象编辑仅允许发生在 `DRAFT` 版本，已发布版本通过发布/回滚控制线上生效。
 
+### 可观测查询
+
+- `GET /api/v1/admin/observability/traces/{traceId}`：按 `trace_id` 查询识别路径、决策、槽位、下游动作和输入快照。
+- `GET /api/v1/admin/observability/bad-cases`：按租户、场景、意图、状态和 limit 查询 bad case。
+
+示例：
+
+```bash
+curl "http://localhost:8080/api/v1/admin/observability/traces/TRACE-001"
+curl "http://localhost:8080/api/v1/admin/observability/bad-cases?tenantId=demo&status=OPEN&limit=20"
+```
+
 ### 持久化
 
 Flyway 已落地 P1 必需表：
@@ -136,7 +148,7 @@ mvn test
 mvn clean package
 ```
 
-当前验证结果：`mvn test` 通过，共 15 个测试。
+当前验证结果：`mvn test` 通过，共 17 个测试。
 
 ### 启动默认内存模式
 
@@ -210,6 +222,7 @@ java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar 
 - P1-4 Admin 配置版本生命周期 API 已完成，并通过 JDBC 联调。
 - P1-4 配置对象最小 Upsert/List API 已完成，并通过默认 memory 模式 HTTP 冒烟。
 - P1-4 识别链路读取 PostgreSQL 最新 `PUBLISHED` 配置已完成，并通过 `local-jdbc` 冒烟。
+- P1-5 可观测查询 API 已完成，并通过默认 memory 与 `local-jdbc` 冒烟。
 
 P1-4 JDBC 联调结果：
 
@@ -218,11 +231,17 @@ P1-4 JDBC 联调结果：
 - 数据库终态：`v-jdbc-1=PUBLISHED`、`v-jdbc-2=ARCHIVED`。
 - 审计结果：`audit_log_count=6`。
 
+P1-5 可观测联调结果：
+
+- 默认 memory 模式：`TRACE-OBS-SMOKE-003` 可查询到 `ORDER_QUERY/SUCCESS`，路径包含 `POST_ROUTE:ORDER_QUERY_SYNC`。
+- `local-jdbc` 模式：`TRACE-JDBC-OBS-003` 可从 PostgreSQL 查询到 `INVOICE_QUERY/SUCCESS`，路径包含 `PRE_ROUTE:order-scene:v-published-read-1` 与 `POST_ROUTE:INVOICE_QUERY_API`。
+- bad case 查询支持 `tenantId`、`sceneId`、`intentCode`、`status` 和 `limit` 过滤，已验证 `tenantId=demo&status=OPEN` 可返回拒识样本。
+
 ## 下一步
 
 - 补齐配置对象删除、批量导入和更细的字段校验。
 - 补更多场景的已发布配置读取测试，并让前置路由动态决定 scene。
-- 完善可观测指标与 bad case 查询回流。
+- 补充 Prometheus/OpenTelemetry 指标和 bad case 标注状态流转。
 - 完成 P1 退出评审，明确 P2 准入条件。
 
 ## 关键文档

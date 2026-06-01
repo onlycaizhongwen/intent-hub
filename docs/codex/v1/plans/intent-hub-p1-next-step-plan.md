@@ -31,6 +31,7 @@
 - P1-2 自动化验收已固化：`mvn test` 与 `mvn clean package` 均通过，共 9 个测试。
 - P1-3 已完成：Flyway migration、JDBC adapter、默认 memory fallback、`local-jdbc` PostgreSQL profile 和真实 PostgreSQL 联调均已通过。
 - P1-4 已完成配置版本生命周期、JDBC 联调、配置对象最小 CRUD 和已发布配置读取：配置版本草稿、查询、校验、发布、回滚、导入导出、审计端口/API、配置对象 Upsert/List、识别链路读取最新 PUBLISHED 配置均已落地。
+- P1-5 已完成可观测最小查询闭环：trace_id 查询和 bad case 筛选 API 已落地，并通过 memory 与 local-jdbc 冒烟。
 
 ## 总体顺序
 
@@ -40,7 +41,7 @@ P1 下一步按 6 个工作包推进：
 2. P1-2：识别接口验收用例固化。已完成。
 3. P1-3：PostgreSQL/Flyway 持久化最小落地。已完成。
 4. P1-4：Admin Portal 最小配置治理 API。版本生命周期、JDBC 联调、配置对象最小 CRUD 与已发布配置读取已完成。
-5. P1-5：可观测与数据回流闭环。
+5. P1-5：可观测与数据回流闭环。已完成最小查询 API。
 6. P1-6：P1 退出评审与 P2 准入。
 
 ## P1-1 工程可编译与本地可启动
@@ -285,7 +286,7 @@ P1 下一步按 6 个工作包推进：
 
 实施项：
 
-- 全链路贯穿 `trace_id`。
+- 全链路贯穿 `trace_id`。已完成。
 - `recognition_trace` 记录：
   - pre-route 结果。
   - 规则/模型/LLM/拒识路径。
@@ -307,13 +308,31 @@ P1 下一步按 6 个工作包推进：
 
 验收证据：
 
-- 任一 `trace_id` 可定位识别路径。
-- bad case 可按租户、场景、意图、错误类型筛选。
+- 任一 `trace_id` 可定位识别路径。已通过 `GET /api/v1/admin/observability/traces/{traceId}` 验证。
+- bad case 可按租户、场景、意图、状态筛选。已通过 `GET /api/v1/admin/observability/bad-cases` 验证。
 - 指标可用于判断规则误命中、低置信度和 LLM 兜底比例。
 
 停点：
 
 - P1 只要求记录与导出，不要求自动训练或自动优化规则。
+
+当前结果：
+
+- 已新增应用层模型与端口：`RecognitionTraceRecord`、`BadCaseRecord`、`BadCaseQuery`、`ObservabilityQueryPort`、`ObservabilityAppService`。
+- 已新增 REST 入口：`AdminObservabilityController`。
+- 已支持接口：
+  - `GET /api/v1/admin/observability/traces/{traceId}`
+  - `GET /api/v1/admin/observability/bad-cases?tenantId=&sceneId=&intentCode=&status=&limit=`
+- 内存模式通过 `InMemoryRecognitionTraceRepository` 聚合 trace 查询，并委托 `InMemoryBadCaseRepository` 查询 bad case。
+- JDBC 模式通过 `JdbcRecognitionTraceRepository` 读取 `recognition_trace` 与 `bad_case`。
+- `mvn test` 通过，共 17 个测试。
+- 默认 memory 冒烟：`TRACE-OBS-SMOKE-003` 可查询到 `ORDER_QUERY/SUCCESS`，路径包含 `POST_ROUTE:ORDER_QUERY_SYNC`。
+- `local-jdbc` 冒烟：`TRACE-JDBC-OBS-003` 可从 PostgreSQL 查询到 `INVOICE_QUERY/SUCCESS`，路径包含 `PRE_ROUTE:order-scene:v-published-read-1` 和 `POST_ROUTE:INVOICE_QUERY_API`。
+
+剩余工作：
+
+- 补 Prometheus/OpenTelemetry 指标采集。
+- 补 bad case 标注、关闭、导出和训练数据回流状态流转。
 
 ## P1-6 P1 退出评审与 P2 准入
 
@@ -355,7 +374,7 @@ P2 准入建议：
 | 2 | P1-2 识别接口验收用例固化 | 单元/接口测试 | 已通过：`mvn test` 与 `mvn clean package` 均 9 个测试通过 |
 | 3 | P1-3 持久化最小落地 | Flyway + repository | 已完成：真实 PostgreSQL 验证 trace/bad case/idempotency 可查 |
 | 4 | P1-4 配置治理 API | 草稿/发布/回滚/审计 API、配置对象 Upsert/List、已发布配置读取 | 已完成到 P1 最小闭环；下一步配置治理细化或 P1-5 |
-| 5 | P1-5 可观测与回流 | trace、指标、bad case 筛选 | 可按 trace_id 回溯 |
+| 5 | P1-5 可观测与回流 | trace 查询、bad case 筛选、后续指标 | 已完成最小查询闭环；后续补指标与标注流转 |
 | 6 | P1-6 退出评审 | P1 验收报告 | 满足 P2 准入条件 |
 
 ## 下一步最小动作
@@ -380,4 +399,4 @@ mvn clean package
 java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar
 ```
 
-当前 P1-1、P1-2、P1-3 与 P1-4 配置治理最小闭环均已通过。下一步可进入配置治理细化，或推进 P1-5 可观测与数据回流闭环。
+当前 P1-1、P1-2、P1-3、P1-4 与 P1-5 最小闭环均已通过。下一步建议进入 P1-6 退出评审，同时并行补配置治理细化、指标采集和 bad case 标注流转。

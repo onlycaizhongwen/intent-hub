@@ -1,10 +1,15 @@
 package com.intenthub.infrastructure.trace;
 
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 final class TraceJsonSupport {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private TraceJsonSupport() {
     }
 
@@ -58,5 +63,50 @@ final class TraceJsonSupport {
             }
         }
         return escaped.append('"').toString();
+    }
+
+    static Map<String, Object> objectMap(String json) {
+        if (json == null || json.isBlank()) {
+            return Map.of();
+        }
+        try {
+            JsonNode node = OBJECT_MAPPER.readTree(json);
+            if (!node.isObject()) {
+                return Map.of();
+            }
+            return OBJECT_MAPPER.convertValue(node, Map.class);
+        } catch (RuntimeException ex) {
+            return Map.of();
+        }
+    }
+
+    static Map<String, String> stringMap(String json) {
+        if (json == null || json.isBlank()) {
+            return Map.of();
+        }
+        try {
+            JsonNode node = OBJECT_MAPPER.readTree(json);
+            if (!node.isObject()) {
+                return Map.of();
+            }
+            return OBJECT_MAPPER.convertValue(node, Map.class);
+        } catch (RuntimeException ex) {
+            return Map.of();
+        }
+    }
+
+    static List<String> stringList(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            JsonNode node = OBJECT_MAPPER.readTree(json);
+            if (!node.isArray()) {
+                return List.of();
+            }
+            return OBJECT_MAPPER.convertValue(node, List.class);
+        } catch (RuntimeException ex) {
+            return List.of();
+        }
     }
 }

@@ -10,6 +10,8 @@ import com.intenthub.application.config.ConfigObjectAppService;
 import com.intenthub.application.config.ConfigObjectPort;
 import com.intenthub.application.config.ConfigVersionAppService;
 import com.intenthub.application.config.ConfigVersionPort;
+import com.intenthub.application.observability.ObservabilityAppService;
+import com.intenthub.application.observability.ObservabilityQueryPort;
 import com.intenthub.domain.recognition.policy.LlmClientPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -48,5 +50,10 @@ public class IntentHubBeanConfiguration {
             AuditLogPort auditLogPort
     ) {
         return new ConfigObjectAppService(configVersionPort, configObjectPort, auditLogPort);
+    }
+
+    @Bean
+    ObservabilityAppService observabilityAppService(ObservabilityQueryPort observabilityQueryPort) {
+        return new ObservabilityAppService(observabilityQueryPort);
     }
 }

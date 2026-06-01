@@ -4,6 +4,19 @@ Intent Hub 是一个面向企业业务系统的意图识别与路由中枢。它
 
 当前项目已完成 P1 最小识别闭环并进入 P2 试点扩展：已具备可编译、可启动、可测试的识别主链路，并完成 PostgreSQL/Flyway 持久化、Admin 配置治理 API、已发布配置读取、可观测查询 API 和 P2-1 动态 scene 读取的最小闭环。
 
+## 快速导航
+
+- [核心原则](#核心原则)
+- [总体视图](#总体视图)
+- [技术栈](#技术栈)
+- [模块结构](#模块结构)
+- [已实现能力](#已实现能力)
+- [本地运行](#本地运行)
+- [当前进度](#当前进度)
+- [关键文档](#关键文档)
+
+推荐先阅读 HTML 总览：[IntentHub 生命周期规划阅读版](docs/codex/v1/intent-hub-lifecycle.html)，再按需查看 [P0 契约与 Schema](docs/codex/v1/designs/intent-hub-p0-contract-schema-design.md)、[P1 最小闭环设计](docs/codex/v1/designs/intent-hub-p1-minimal-loop-design.md) 和 [P2-1 动态 scene 读取审查](docs/codex/v1/trace/intent-hub-p2-dynamic-scene-routing-trace.md)。
+
 ## 核心原则
 
 ### 双阶段路由
@@ -28,6 +41,26 @@ LLM 是最后一道防线，不是主力识别路径。
 - 下游动作只表达“调用什么动作”，不携带 SQL、DB 连接串或业务库写入能力。
 - P1 允许的动作类型包括 API、MQ、Webhook、MQTT。
 - Intent Hub 不成为业务数据孤岛，也不越界成为业务执行系统。
+
+## 总体视图
+
+### 架构图
+
+![Intent Hub 架构图](docs/codex/v1/designs/意图中枢架构图.png)
+
+这张图用于理解系统边界：接入治理、输入适配、前置路由、核心意图漏斗、后置路由、输出适配、配置治理和观测回流。
+
+### 数据流向图 v2
+
+![Intent Hub 数据流向图 v2](docs/codex/v1/designs/数据流向图v2.png)
+
+v2 是当前数据流向基线，强调三段式流转：接入与治理、核心意图漏斗、输出与执行。P2-1 动态 scene 读取即落在前置路由与配置读取这一段。
+
+### 核心交互时序
+
+![Intent Hub 核心交互时序图](docs/codex/v1/designs/核心交互时序图.png)
+
+时序图用于区分同步识别和异步执行：识别链路返回标准 `IntentResult`，异步动作通过幂等记录、trace 和 bad case 进入后续运营闭环。
 
 ## 技术栈
 
@@ -212,7 +245,7 @@ java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar 
 
 `local-jdbc` 会连接 `localhost:5432/intent_hub`，并启用 Flyway migration。
 
-## 当前 P1 进度
+## 当前进度
 
 - P0 契约与 DB Schema 已评审通过。
 - 技术选型已确认。
@@ -255,11 +288,23 @@ P2-1 动态 scene 验证结果：
 
 ## 关键文档
 
-- 总体状态：`docs/codex/v1/status.md`
-- 需求文档：`docs/codex/v1/requirements/intent-hub-requirements.md`
-- 总体设计：`docs/codex/v1/designs/intent-hub-design.md`
-- P0 契约与 Schema：`docs/codex/v1/designs/intent-hub-p0-contract-schema-design.md`
-- P1 最小闭环设计：`docs/codex/v1/designs/intent-hub-p1-minimal-loop-design.md`
-- P1 下一步计划：`docs/codex/v1/plans/intent-hub-p1-next-step-plan.md`
-- P1 退出评审：`docs/codex/v1/trace/intent-hub-p1-exit-review.md`
-- HTML 阅读版：`docs/codex/v1/intent-hub-lifecycle.html`
+| 文档 | 用途 |
+| --- | --- |
+| [总体状态](docs/codex/v1/status.md) | 当前阶段、交付物索引和变更记录 |
+| [需求文档](docs/codex/v1/requirements/intent-hub-requirements.md) | 业务目标、边界、核心需求和验收口径 |
+| [总体设计](docs/codex/v1/designs/intent-hub-design.md) | 整体架构、技术方案、服务规划和关键约束 |
+| [P0 契约与 Schema](docs/codex/v1/designs/intent-hub-p0-contract-schema-design.md) | Envelope、IntentResult、DB Schema、双阶段路由和防腐层契约 |
+| [P1 最小闭环设计](docs/codex/v1/designs/intent-hub-p1-minimal-loop-design.md) | P1 工程结构、识别闭环、配置治理、持久化和观测查询 |
+| [P1 下一步计划](docs/codex/v1/plans/intent-hub-p1-next-step-plan.md) | P1 执行拆分、验证顺序和退出标准 |
+| [P1 退出评审](docs/codex/v1/trace/intent-hub-p1-exit-review.md) | P1 有条件通过结论、遗留风险和 P2 准入建议 |
+| [P2-1 动态 scene 读取审查](docs/codex/v1/trace/intent-hub-p2-dynamic-scene-routing-trace.md) | 动态 scene 读取实现结果、验证证据和剩余风险 |
+| [HTML 阅读版](docs/codex/v1/intent-hub-lifecycle.html) | 面向阅读的全生命周期规划页 |
+
+## 原始设计资料
+
+| 资料 | 说明 |
+| --- | --- |
+| [意图中枢架构图](docs/codex/v1/designs/意图中枢架构图.png) | 当前架构边界参考图 |
+| [数据流向图 v2](docs/codex/v1/designs/数据流向图v2.png) | 当前数据流向基线 |
+| [核心交互时序图](docs/codex/v1/designs/核心交互时序图.png) | 同步识别与异步执行参考 |
+| [原始需求说明](docs/codex/v1/designs/意图中枢需求说明.md) | 初始需求资料 |

@@ -276,7 +276,7 @@ P1 下一步按 6 个工作包推进：
 剩余工作：
 
 - 补齐配置对象删除、批量导入和更细的字段校验。
-- 补前置路由动态 scene 选择，替换当前 `order-scene` 最小试点固定值。
+- 前置路由动态 scene 选择已在 P2-1 完成最小闭环：JDBC 已发布配置读取支持 `metadata.scene_id` / `metadata.sceneId` 显式选择 scene，未指定时读取租户最新 `PUBLISHED` scene，未命中时回退内置配置。
 
 ## P1-5 可观测与数据回流闭环
 
@@ -399,4 +399,4 @@ mvn clean package
 java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar
 ```
 
-当前 P1-1、P1-2、P1-3、P1-4 与 P1-5 最小闭环均已通过。下一步建议进入 P1-6 退出评审，同时并行补配置治理细化、指标采集和 bad case 标注流转。
+当前 P1-1、P1-2、P1-3、P1-4、P1-5 与 P1-6 均已完成；P2-1 动态 scene 读取最小闭环也已完成。下一步建议进入 P2-2 bad case 标注流转，同时并行补指标采集和配置治理细化。

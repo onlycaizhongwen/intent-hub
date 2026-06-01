@@ -2,7 +2,7 @@
 
 Intent Hub 是一个面向企业业务系统的意图识别与路由中枢。它不是单纯的 NLU 服务，而是把输入接入、意图识别、双阶段路由、受控 LLM 兜底、下游动作适配、配置治理、审计追踪和 bad case 回流放在同一套工程闭环中管理。
 
-当前项目处于 P1 阶段：最小识别闭环已经可编译、可启动、可测试，并完成 PostgreSQL/Flyway 持久化、Admin 配置治理 API、已发布配置读取和可观测查询 API 的 JDBC 联调。
+当前项目已完成 P1 最小识别闭环并进入 P2 试点扩展：已具备可编译、可启动、可测试的识别主链路，并完成 PostgreSQL/Flyway 持久化、Admin 配置治理 API、已发布配置读取、可观测查询 API 和 P2-1 动态 scene 读取的最小闭环。
 
 ## 核心原则
 
@@ -75,6 +75,7 @@ intent-hub-parent
 - 缺槽澄清
 - 异步动作幂等键
 - trace、bad case、idempotency 内存与 JDBC 记录
+- `local-jdbc` 模式下支持按 Envelope `metadata.scene_id` / `metadata.sceneId` 显式选择已发布 scene；未指定时读取租户最新 `PUBLISHED` scene；未命中时回退内置 `order-scene`
 
 ### 配置治理
 
@@ -148,7 +149,7 @@ mvn test
 mvn clean package
 ```
 
-当前验证结果：`mvn test` 通过，共 17 个测试。
+当前验证结果：`mvn test` 通过，共 20 个测试。
 
 ### 启动默认内存模式
 
@@ -224,6 +225,7 @@ java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar 
 - P1-4 识别链路读取 PostgreSQL 最新 `PUBLISHED` 配置已完成，并通过 `local-jdbc` 冒烟。
 - P1-5 可观测查询 API 已完成，并通过默认 memory 与 `local-jdbc` 冒烟。
 - P1-6 退出评审已完成，结论为有条件通过，可进入 P2 规划与试点扩展。
+- P2-1 动态 scene 读取最小闭环已完成：JDBC 已发布配置读取不再固定 `order-scene`，支持 metadata 指定 scene、租户最新发布 scene 兜底和内置配置最终回退。
 
 P1-4 JDBC 联调结果：
 
@@ -238,9 +240,14 @@ P1-5 可观测联调结果：
 - `local-jdbc` 模式：`TRACE-JDBC-OBS-003` 可从 PostgreSQL 查询到 `INVOICE_QUERY/SUCCESS`，路径包含 `PRE_ROUTE:order-scene:v-published-read-1` 与 `POST_ROUTE:INVOICE_QUERY_API`。
 - bad case 查询支持 `tenantId`、`sceneId`、`intentCode`、`status` 和 `limit` 过滤，已验证 `tenantId=demo&status=OPEN` 可返回拒识样本。
 
+P2-1 动态 scene 验证结果：
+
+- 新增 `JdbcSceneConfigRepositoryTest` 覆盖 `metadata.scene_id=invoice-scene` 时读取 `invoice-scene/v-invoice`。
+- 未指定 metadata scene 时，读取当前租户最新 `PUBLISHED` scene。
+- 指定 scene 无发布版本时，回退 P1 内置 `order-scene/v1-p1`，保持历史兼容。
+
 ## 下一步
 
-- P2-1：动态 scene 路由与多租户/多场景配置读取。
 - P2-2：bad case 标注流转、导出和训练样本格式。
 - P2-3：Prometheus/OpenTelemetry 指标、Grafana 看板和基础告警。
 - P2-4：接入一个真实模型服务，FastAPI 优先，Triton 后置。

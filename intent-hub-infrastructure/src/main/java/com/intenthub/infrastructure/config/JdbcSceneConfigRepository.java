@@ -23,6 +23,8 @@ import java.util.stream.Collectors;
 @Component
 @ConditionalOnProperty(name = "intent-hub.persistence.mode", havingValue = "jdbc")
 public class JdbcSceneConfigRepository implements SceneConfigPort {
+    private static final String DEFAULT_SCENE_ID = "order-scene";
+
     private final JdbcTemplate jdbcTemplate;
     private final JsonMapper jsonMapper;
 
@@ -33,12 +35,12 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
 
     @Override
     public SceneConfig loadPublishedConfig(Envelope envelope) {
-        return findPublishedVersion(envelope.tenantId(), "order-scene")
-                .map(version -> load(envelope, version))
+        return resolvePublishedScene(envelope)
+                .map(publishedScene -> load(envelope, publishedScene))
                 .orElseGet(() -> BuiltinSceneConfigFactory.orderScene(envelope));
     }
 
-    private SceneConfig load(Envelope envelope, String version) {
+    private SceneConfig load(Envelope envelope, PublishedScene publishedScene) {
         List<IntentRule> rules = jdbcTemplate.query("""
                         select intent_code, definition
                         from intent_definition
@@ -57,8 +59,8 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
                     );
                 },
                 envelope.tenantId(),
-                "order-scene",
-                version
+                publishedScene.sceneId(),
+                publishedScene.version()
         );
 
         Map<String, List<String>> requiredSlots = jdbcTemplate.queryForList("""
@@ -68,8 +70,8 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
                         order by id
                         """,
                 envelope.tenantId(),
-                "order-scene",
-                version
+                publishedScene.sceneId(),
+                publishedScene.version()
         ).stream().collect(Collectors.groupingBy(
                 row -> row.get("intent_code").toString(),
                 LinkedHashMap::new,
@@ -83,8 +85,8 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
                         order by id
                         """,
                 envelope.tenantId(),
-                "order-scene",
-                version
+                publishedScene.sceneId(),
+                publishedScene.version()
         ).stream().collect(Collectors.toMap(
                 row -> inferIntentCode(row.get("action_code").toString()),
                 row -> new DownstreamAction(
@@ -100,14 +102,48 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
 
         return new SceneConfig(
                 envelope.tenantId(),
-                "order-scene",
-                version,
+                publishedScene.sceneId(),
+                publishedScene.version(),
                 0.60,
                 rules.isEmpty() ? BuiltinSceneConfigFactory.orderScene(envelope).rules() : rules,
                 requiredSlots,
                 actions,
                 LlmPolicy.disabled()
         );
+    }
+
+    private Optional<PublishedScene> resolvePublishedScene(Envelope envelope) {
+        Optional<String> requestedSceneId = requestedSceneId(envelope);
+        if (requestedSceneId.isPresent()) {
+            return findPublishedVersion(envelope.tenantId(), requestedSceneId.get())
+                    .map(version -> new PublishedScene(requestedSceneId.get(), version));
+        }
+        return findLatestPublishedScene(envelope.tenantId())
+                .or(() -> findPublishedVersion(envelope.tenantId(), DEFAULT_SCENE_ID)
+                        .map(version -> new PublishedScene(DEFAULT_SCENE_ID, version)));
+    }
+
+    private Optional<String> requestedSceneId(Envelope envelope) {
+        return Optional.ofNullable(envelope.metadata().get("scene_id"))
+                .or(() -> Optional.ofNullable(envelope.metadata().get("sceneId")))
+                .filter(value -> !value.isBlank());
+    }
+
+    private Optional<PublishedScene> findLatestPublishedScene(String tenantId) {
+        try {
+            return Optional.ofNullable(jdbcTemplate.queryForObject("""
+                            select scene_id, version
+                            from config_version
+                            where tenant_id = ? and status = 'PUBLISHED'
+                            order by published_at desc nulls last, id desc
+                            limit 1
+                            """,
+                    (rs, rowNum) -> new PublishedScene(rs.getString("scene_id"), rs.getString("version")),
+                    tenantId
+            ));
+        } catch (EmptyResultDataAccessException ex) {
+            return Optional.empty();
+        }
     }
 
     private Optional<String> findPublishedVersion(String tenantId, String sceneId) {
@@ -173,5 +209,8 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
             return actionCode.substring(0, actionCode.length() - 8);
         }
         return actionCode;
+    }
+
+    private record PublishedScene(String sceneId, String version) {
     }
 }

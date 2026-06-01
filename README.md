@@ -223,6 +223,7 @@ java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar 
 - P1-4 配置对象最小 Upsert/List API 已完成，并通过默认 memory 模式 HTTP 冒烟。
 - P1-4 识别链路读取 PostgreSQL 最新 `PUBLISHED` 配置已完成，并通过 `local-jdbc` 冒烟。
 - P1-5 可观测查询 API 已完成，并通过默认 memory 与 `local-jdbc` 冒烟。
+- P1-6 退出评审已完成，结论为有条件通过，可进入 P2 规划与试点扩展。
 
 P1-4 JDBC 联调结果：
 
@@ -239,10 +240,11 @@ P1-5 可观测联调结果：
 
 ## 下一步
 
-- 补齐配置对象删除、批量导入和更细的字段校验。
-- 补更多场景的已发布配置读取测试，并让前置路由动态决定 scene。
-- 补充 Prometheus/OpenTelemetry 指标和 bad case 标注状态流转。
-- 完成 P1 退出评审，明确 P2 准入条件。
+- P2-1：动态 scene 路由与多租户/多场景配置读取。
+- P2-2：bad case 标注流转、导出和训练样本格式。
+- P2-3：Prometheus/OpenTelemetry 指标、Grafana 看板和基础告警。
+- P2-4：接入一个真实模型服务，FastAPI 优先，Triton 后置。
+- P2-5：小流量启用 Spring AI Alibaba 兜底，验证超时、预算、熔断和 fallback。
 
 ## 关键文档
 
@@ -252,4 +254,5 @@ P1-5 可观测联调结果：
 - P0 契约与 Schema：`docs/codex/v1/designs/intent-hub-p0-contract-schema-design.md`
 - P1 最小闭环设计：`docs/codex/v1/designs/intent-hub-p1-minimal-loop-design.md`
 - P1 下一步计划：`docs/codex/v1/plans/intent-hub-p1-next-step-plan.md`
+- P1 退出评审：`docs/codex/v1/trace/intent-hub-p1-exit-review.md`
 - HTML 阅读版：`docs/codex/v1/intent-hub-lifecycle.html`

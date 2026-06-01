@@ -13,7 +13,13 @@
 - 恢复提示：读取 process.md，从配置对象删除/批量导入、更多已发布配置读取场景或 P1-5 可观测与回流继续。
 
 ## P1-5 可观测与数据回流闭环
-- 状态：待提交推送
+- 状态：已完成
 - 摘要：已补齐识别 trace 与 bad case 的只读查询能力，提供 Admin API 支撑按 trace_id 定位识别路径，以及按租户/场景/意图/状态筛选 bad case；memory 与 local-jdbc 冒烟均通过。
 - 过程文件：`.codex/plans/main/p1-observability/process.md`
+- 恢复提示：P1-5 已提交并推送，提交 `e92ffa6`。
+
+## P1-6 P1 退出评审与 P2 准入
+- 状态：待提交推送
+- 摘要：已形成 P1 退出评审报告，结论为有条件通过；P1 可进入 P2 规划与试点扩展，遗留项进入 P2/P1.x。
+- 过程文件：`.codex/plans/main/p1-exit-review/process.md`
 - 恢复提示：读取 process.md，从提交和推送继续。

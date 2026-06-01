@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P1-5 可观测与数据回流最小查询闭环已完成，下一步进入 P1-6 退出评审或补配置治理细化
+- 当前阶段：P1-6 退出评审已完成，P1 有条件通过，可进入 P2 规划与试点扩展
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -15,7 +15,7 @@
 
 | 主题 | Requirements | Design | Plan | Trace/Review | 整体状态 |
 | --- | --- | --- | --- | --- | --- |
-| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1-5 可观测查询闭环已完成，下一步 P1-6 退出评审或配置治理细化 |
+| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1 有条件通过，可进入 P2；遗留项进入 P2/P1.x |
 
 ## 交付物
 
@@ -30,6 +30,7 @@
 - P0 评审报告：`docs/codex/v1/trace/intent-hub-p0-review-report.md`
 - 技术选型确认：`docs/codex/v1/trace/intent-hub-tech-selection-confirmation.md`
 - 数据流向图 v2 影响评估：`docs/codex/v1/trace/intent-hub-data-flow-v2-review.md`
+- P1 退出评审：`docs/codex/v1/trace/intent-hub-p1-exit-review.md`
 - HTML 阅读版：`docs/codex/v1/intent-hub-lifecycle.html`
 
 ## 变更记录
@@ -56,3 +57,4 @@
 - 2026-06-01：完成 P1-4 配置对象最小 CRUD：新增 `ConfigObjectAppService`、`ConfigObjectPort`、`ConfigObjectType`、`JdbcConfigObjectRepository` 和 `ConfigObjectRequest`；支持 `POST/GET /api/v1/admin/config/versions/{version}/{objectType}` 管理意图、槽位、同义词、策略、路由、下游动作，并限制仅 `DRAFT` 版本可编辑。`mvn test` 通过，共 15 个测试；默认 memory 模式 HTTP 冒烟验证 intent、slot、downstream-action 写入后可通过 export bundle 导出。下一步把识别配置读取切到已发布版本。
 - 2026-06-01：完成 P1-4 已发布配置读取：新增 `JdbcSceneConfigRepository` 与 `BuiltinSceneConfigFactory`，`local-jdbc` 模式优先读取 PostgreSQL 最新 `PUBLISHED` 配置，未找到发布版本时回退 P1 内置配置；发布 `v-published-read-1` 后，`POST /api/v1/intent/recognize` 对 `REQ-PUBLISHED-READ-1` 命中 `INVOICE_QUERY/SUCCESS`，路径包含 `PRE_ROUTE:order-scene:v-published-read-1` 和 `POST_ROUTE:INVOICE_QUERY_API`，数据库 trace 已记录。`mvn test` 通过，共 15 个测试。
 - 2026-06-01：完成 P1-5 可观测与数据回流最小查询闭环：新增 `ObservabilityAppService`、`ObservabilityQueryPort`、trace/bad case 查询模型和 `AdminObservabilityController`；支持 `GET /api/v1/admin/observability/traces/{traceId}` 与 `GET /api/v1/admin/observability/bad-cases`。`mvn test` 通过，共 17 个测试；默认 memory 模式已验证 `TRACE-OBS-SMOKE-003` 查询到 `ORDER_QUERY/SUCCESS`，`local-jdbc` 模式已验证 `TRACE-JDBC-OBS-003` 从 PostgreSQL 查询到 `INVOICE_QUERY/SUCCESS`。
+- 2026-06-01：完成 P1-6 退出评审，结论为有条件通过（Conditionally Approved）；P1 已具备可运行、可配置、可回溯、可持久化的最小闭环，可进入 P2 规划与试点扩展。非阻塞遗留项包括指标采集、bad case 标注流转、动态 scene 路由、配置对象删除/批量导入、真实模型服务和真实 LLM 小流量验证。

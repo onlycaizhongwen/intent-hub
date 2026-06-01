@@ -4,9 +4,9 @@
 
 - 任务需求：替换 P1 中 `JdbcSceneConfigRepository` 固定读取 `order-scene` 的实现，支持多租户/多场景下根据 Envelope 选择已发布配置。
 - 关键决策：P2-1 先做最小闭环，不改变 application/domain 契约；scene 解析放在 infrastructure 的 `SceneConfigPort` 实现内，后续 P2-2 再扩展基于 `scene_routing_rule` 的复杂条件表达式。
-- 当前阶段：实现与文档同步已完成，待提交和推送。
+- 当前阶段：本地已提交，待推送确认。
 - 已完成产物：动态 scene 读取实现、仓储级测试、README/status/design/plan/HTML/trace 文档同步。
-- 剩余工作：提交并尝试推送。
+- 剩余工作：尝试推送并确认远端 main 包含 `8b9e187`。
 - 重要发现：P1-6 本地提交 `1a04b19` 已存在，但 GitHub 443 超时导致远端推送暂未确认。
 
 ## 步骤列表
@@ -18,9 +18,9 @@
   - 涉及文件：`intent-hub-infrastructure/src/main/java/com/intenthub/infrastructure/config/JdbcSceneConfigRepository.java`
 - [v] 同步文档与 HTML。
 - [v] 运行测试。
-- [~] 提交并推送。
-  - 当前产物：`mvn test` 通过，共 20 个测试。
-  - 下一步：执行 git status、提交、推送。
+- [~] 推送远端。
+  - 当前产物：本地提交 `8b9e187` 已完成；`mvn test` 通过，共 20 个测试。
+  - 下一步：执行 `git push origin main`，确认远端 main 包含 `8b9e187`。
 
 ## 研究发现
 

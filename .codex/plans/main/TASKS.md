@@ -25,7 +25,7 @@
 - 恢复提示：网络恢复后执行 `git push origin main` 并确认远端 main 包含 `1a04b19`。
 
 ## P2-1 动态 scene 路由与多场景配置读取
-- 状态：进行中
-- 摘要：替换 P1 已发布配置读取中的固定 `order-scene`，实现 Envelope metadata 显式 scene 优先、已发布版本兜底、内置配置最终回退的最小动态 scene 读取闭环。
+- 状态：本地已提交，远端推送待确认
+- 摘要：替换 P1 已发布配置读取中的固定 `order-scene`，实现 Envelope metadata 显式 scene 优先、已发布版本兜底、内置配置最终回退的最小动态 scene 读取闭环。本地提交 `8b9e187` 已完成。
 - 过程文件：`.codex/plans/main/p2-dynamic-scene-routing/process.md`
-- 恢复提示：读取 process.md，从 JdbcSceneConfigRepository 实现、测试、文档同步和提交推送继续。
+- 恢复提示：网络恢复后执行 `git push origin main` 并确认远端 main 包含 `8b9e187`。

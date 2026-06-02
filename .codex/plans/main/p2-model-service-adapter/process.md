@@ -4,9 +4,9 @@
 
 - 任务需求：继续 P2，接入一个真实模型服务的最小适配，FastAPI 优先，Triton 后置。
 - 关键决策：模型服务作为规则之后、LLM 之前的候选来源；默认关闭或无 `base-url` 时 no-op，不影响规则主链路；不修改 `SceneConfig` 契约。
-- 当前阶段：已完成并推送。
-- 已完成产物：模型端口/策略、HTTP/no-op adapter、配置、测试、README/status/design/HTML/trace 文档同步。
-- 剩余工作：无。
+- 当前阶段：已完成，后续增强已随 P2-5 本地批次补齐，待集中提交。
+- 已完成产物：模型端口/策略、HTTP/no-op adapter、配置、测试、README/status/design/HTML/trace 文档同步、FastAPI 示例、HTTP 冒烟、健康检查接入和本地真实联调。
+- 剩余工作：部署化模型服务联调、样本/阈值/模型版本策略细化。
 - 重要发现：当前 `IntentRecognizer` 只组合 `RuleRecognitionPolicy` 和 `LlmRecognizePolicy`；`LlmRecognizePolicy` 受 `sceneConfig.llmPolicy.enabled()` 控制。
 
 ## 步骤列表
@@ -31,8 +31,8 @@
   - request：`text`、`sceneId`
   - response：`intentCode`、`confidence`、`slots`、`explanation`
 - 默认 no-op 能保证未配置模型服务时，现有 26 个测试和本地启动不受影响。
-- P2-4 已完成后，`mvn test` 通过，共 29 个测试。
-- P2-4 当前只完成 adapter；真实 FastAPI 服务示例和 HTTP 冒烟后续补。
+- P2-4 首版完成后，`mvn test` 通过，共 29 个测试；后续 P2 批次已推进到 43 个测试。
+- P2-4 后续已补 FastAPI 示例、JDK 本地 HTTP server 冒烟、模型服务健康检查和本地真实联调；部署化模型服务联调仍待补。
 
 ## 错误记录
 

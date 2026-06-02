@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中
+- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备与 LLM 预算持久化审计已完成
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -67,4 +67,6 @@
 - 2026-06-02：完成 P2-2 Bad Case 标注流转与样本导出最小闭环：新增 `BadCaseWorkflowAppService`、`BadCaseWorkflowPort`、标注/关闭/导出训练样本 Admin API，并接入 memory/JDBC 双实现；最小状态流转复用 `bad_case.status` 表达 `OPEN/ANNOTATED/CLOSED/EXPORTED`，暂不新增破坏性 DB migration。`mvn test` 通过，共 24 个测试。
 - 2026-06-02：完成 P2-3 最小指标采集与观测接口：新增 `IntentMetricsPort`、`MetricsAppService`、`MetricsSnapshot`、`InMemoryIntentMetricsRepository` 和 `AdminMetricsController`；支持 `GET /api/v1/admin/metrics` JSON 快照与 `GET /api/v1/admin/metrics/prometheus` 文本导出。当前不引入 Actuator/Micrometer，不改变 `/api/v1/admin/health` 口径。`mvn test` 通过，共 26 个测试。
 - 2026-06-02：完成 P2-4 模型服务适配最小闭环：新增 `ModelClientPort`、`ModelRecognitionPolicy`、`ModelServiceProperties`、`HttpModelClientAdapter` 和 `NoopModelClientAdapter`；识别策略顺序为 Rule -> Model -> LLM，默认关闭/no-op，不影响规则主链路。`mvn test` 通过，共 29 个测试。
-- 2026-06-02：完成 P2-5 LLM 受控兜底最小闭环：新增 `LlmGovernanceProperties`、LLM HTTP adapter 请求/响应契约、已发布 `nlu_strategy.llm_policy` 读取、预算/超时门禁、有限重试和 fallback 失败关闭；默认 `intent-hub.llm.enabled=false` 且预算为 0，不影响规则和模型主链路。`mvn test` 通过，共 36 个测试。
+- 2026-06-02：完成 P2-5 LLM 受控兜底最小闭环：新增 `LlmGovernanceProperties`、LLM adapter 请求/响应契约、已发布 `nlu_strategy.llm_policy` 读取、预算/超时门禁、有限重试和 fallback 失败关闭；默认 `intent-hub.llm.enabled=false` 且预算为 0，不影响规则和模型主链路。后续已补齐模型服务与 LLM HTTP timeout 绑定、模型服务异常失败关闭、模型/LLM fallback 指标口径、LLM 预算消费最小计数、模型 adapter 本地 HTTP 冒烟、FastAPI 模型服务示例、模型服务健康检查接入、本地真实联调、Spring AI Alibaba `ChatClient` 预接入和 DashScope 沙箱冒烟 profile/script 准备。联调中发现并修复真实 jar 启动缺少 `RestClient.Builder` Bean 的问题。当前复验 `mvn test` 通过，共 47 个测试。
+- 2026-06-02：修复 DashScope 冒烟脚本的 PowerShell 字符串语法问题，改用 ASCII 冒烟输入规避 Windows 终端编码破坏；已通过 PowerShell Parser 语法检查、`mvn test`、`mvn package -DskipTests`、`python -m py_compile examples/model-service-fastapi/app.py` 和 `git diff --check`（仅 CRLF 提示）。本轮按用户要求暂不提交、不推送。
+- 2026-06-02：补齐 LLM 预算持久化审计最小闭环，新增 `LlmBudgetAuditPort`、`LlmBudgetUsage`、memory/JDBC 实现和 Flyway `V2__p2_llm_budget_usage.sql`；`TongyiLlmAdapter` 在真实外呼尝试前同时写入指标和预算审计。`mvn -pl intent-hub-infrastructure -am test` 通过，相关模块共 31 个测试。本轮按用户要求暂不提交、不推送。

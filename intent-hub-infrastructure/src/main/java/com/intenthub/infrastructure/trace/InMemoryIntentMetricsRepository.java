@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.DoubleAdder;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Component
@@ -17,7 +18,10 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
     private final Instant startedAt = Instant.now();
     private final AtomicLong totalRequests = new AtomicLong();
     private final AtomicLong totalBadCases = new AtomicLong();
+    private final AtomicLong totalModelFallbacks = new AtomicLong();
     private final AtomicLong totalLlmFallbacks = new AtomicLong();
+    private final AtomicLong totalLlmBudgetAttempts = new AtomicLong();
+    private final DoubleAdder totalLlmBudgetConsumed = new DoubleAdder();
     private final AtomicLong totalLatencyMillis = new AtomicLong();
     private final AtomicLong maxLatencyMillis = new AtomicLong();
     private final ConcurrentHashMap<String, AtomicLong> decisions = new ConcurrentHashMap<>();
@@ -31,7 +35,10 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
         if (result.decision() == Decision.REJECTED || result.confidence() < 0.60) {
             totalBadCases.incrementAndGet();
         }
-        if (result.recognitionPath().stream().anyMatch(step -> step.toUpperCase().contains("LLM"))) {
+        if (result.recognitionPath().stream().anyMatch(step -> step.toUpperCase().contains("MODEL_FALLBACK"))) {
+            totalModelFallbacks.incrementAndGet();
+        }
+        if (result.recognitionPath().stream().anyMatch(step -> step.toUpperCase().contains("LLM_FALLBACK"))) {
             totalLlmFallbacks.incrementAndGet();
         }
         long boundedLatency = Math.max(0L, latencyMillis);
@@ -50,7 +57,10 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
         return new MetricsSnapshot(
                 requests,
                 totalBadCases.get(),
+                totalModelFallbacks.get(),
                 totalLlmFallbacks.get(),
+                totalLlmBudgetAttempts.get(),
+                totalLlmBudgetConsumed.sum(),
                 latency,
                 requests == 0 ? 0.0 : (double) latency / requests,
                 maxLatencyMillis.get(),
@@ -60,6 +70,17 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
                 startedAt,
                 updatedAt
         );
+    }
+
+    @Override
+    public void recordLlmBudgetConsumption(double units) {
+        double boundedUnits = Math.max(0.0, units);
+        if (boundedUnits == 0.0) {
+            return;
+        }
+        totalLlmBudgetAttempts.incrementAndGet();
+        totalLlmBudgetConsumed.add(boundedUnits);
+        updatedAt = Instant.now();
     }
 
     private void increment(ConcurrentHashMap<String, AtomicLong> counters, String key) {

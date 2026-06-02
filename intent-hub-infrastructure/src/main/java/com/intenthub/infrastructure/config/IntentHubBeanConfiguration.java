@@ -10,6 +10,7 @@ import com.intenthub.application.config.ConfigObjectAppService;
 import com.intenthub.application.config.ConfigObjectPort;
 import com.intenthub.application.config.ConfigVersionAppService;
 import com.intenthub.application.config.ConfigVersionPort;
+import com.intenthub.application.llm.LlmBudgetAuditPort;
 import com.intenthub.application.metrics.IntentMetricsPort;
 import com.intenthub.application.metrics.MetricsAppService;
 import com.intenthub.application.observability.BadCaseWorkflowAppService;
@@ -23,6 +24,8 @@ import com.intenthub.infrastructure.llm.TongyiLlmAdapter;
 import com.intenthub.infrastructure.model.HttpModelClientAdapter;
 import com.intenthub.infrastructure.model.ModelServiceProperties;
 import com.intenthub.infrastructure.model.NoopModelClientAdapter;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -85,6 +88,11 @@ public class IntentHubBeanConfiguration {
     }
 
     @Bean
+    RestClient.Builder restClientBuilder() {
+        return RestClient.builder();
+    }
+
+    @Bean
     ModelClientPort modelClientPort(RestClient.Builder restClientBuilder, ModelServiceProperties properties) {
         if (!properties.active()) {
             return new NoopModelClientAdapter();
@@ -93,7 +101,13 @@ public class IntentHubBeanConfiguration {
     }
 
     @Bean
-    LlmClientPort llmClientPort(RestClient.Builder restClientBuilder, LlmGovernanceProperties properties) {
-        return new TongyiLlmAdapter(restClientBuilder, properties);
+    LlmClientPort llmClientPort(
+            RestClient.Builder restClientBuilder,
+            ObjectProvider<ChatClient.Builder> chatClientBuilderProvider,
+            LlmGovernanceProperties properties,
+            IntentMetricsPort metricsPort,
+            LlmBudgetAuditPort budgetAuditPort
+    ) {
+        return new TongyiLlmAdapter(restClientBuilder, chatClientBuilderProvider.getIfAvailable(), properties, metricsPort, budgetAuditPort);
     }
 }

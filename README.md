@@ -158,11 +158,11 @@ curl "http://localhost:8080/api/v1/admin/metrics/prometheus"
 
 P2-2 当前采用最小流转：复用 `bad_case.status` 表达 `OPEN`、`ANNOTATED`、`CLOSED`、`EXPORTED`，暂不新增独立标注表；JDBC 标注会用现有 `intent_code` 和 `reason` 字段承载修正意图与备注，后续 P2.x 再扩展为完整标注历史和审核流。
 
-P2-3 当前采用最小指标闭环：不引入 Actuator/Micrometer，不改变 `/api/v1/admin/health` 口径；先通过应用层 `IntentMetricsPort` 与内存实现记录请求量、decision、intent、scene、bad case 候选数、LLM fallback 次数和耗时统计，后续再替换或桥接到 OpenTelemetry/Micrometer。
+P2-3 当前采用最小指标闭环：不引入 Actuator/Micrometer，不改变 `/api/v1/admin/health` 口径；先通过应用层 `IntentMetricsPort` 与内存实现记录请求量、decision、intent、scene、bad case 候选数、模型 fallback、LLM fallback、LLM 预算消费尝试和耗时统计，后续再替换或桥接到 OpenTelemetry/Micrometer。
 
-P2-4 当前采用最小模型服务适配：新增 `ModelClientPort` 和 `ModelRecognitionPolicy`，识别顺序为 Rule -> Model -> LLM；默认 `intent-hub.model-service.enabled=false`，无 `base-url` 时 no-op，不影响规则主链路。HTTP adapter 按 FastAPI 风格调用 `POST {baseUrl}/recognize`。
+P2-4 当前采用最小模型服务适配：新增 `ModelClientPort` 和 `ModelRecognitionPolicy`，识别顺序为 Rule -> Model -> LLM；默认 `intent-hub.model-service.enabled=false`，无 `base-url` 时 no-op，不影响规则主链路。HTTP adapter 按 FastAPI 风格调用 `POST {baseUrl}/recognize`，并通过 `GET {baseUrl}/health` 接入 Admin 健康检查；模型服务异常会记录 `MODEL_FALLBACK:CLOSED` 并失败关闭，不打断识别链路。当前已新增 [FastAPI 模型服务示例](examples/model-service-fastapi/README.md)。
 
-P2-5 当前采用受控 LLM 兜底：新增 `intent-hub.llm.*` 全局治理开关，并从已发布 `nlu_strategy.llm_policy` 读取 scene 级策略。只有全局开关、endpoint、预算、策略开关、策略预算和超时同时满足时，`TongyiLlmAdapter` 才会尝试调用 `POST {baseUrl}/recognize`；调用失败会在识别路径中记录 `LLM_FALLBACK:{fallbackDecision}` 并失败关闭，不影响规则和模型链路。
+P2-5 当前采用受控 LLM 兜底：新增 `intent-hub.llm.*` 全局治理开关，并从已发布 `nlu_strategy.llm_policy` 读取 scene 级策略。只有全局开关、endpoint、预算、策略开关、策略预算和超时同时满足时，`TongyiLlmAdapter` 才会尝试外呼；当 provider 为 `spring-ai-alibaba` 且存在 `ChatClient.Builder` 时优先走 Spring AI Alibaba `ChatClient`，否则保留 HTTP 契约 fallback 调用 `POST {baseUrl}/recognize`。调用失败会在识别路径中记录 `LLM_FALLBACK:{fallbackDecision}` 并失败关闭，不影响规则和模型链路。当前已在最小指标中记录 LLM 外呼预算消费尝试，完整按日配额扣减和持久化审计后续补齐。
 
 ### 持久化
 
@@ -201,7 +201,7 @@ mvn test
 mvn clean package
 ```
 
-当前验证结果：`mvn test` 通过，共 36 个测试。
+当前验证结果：`mvn test` 通过，共 47 个测试。
 
 ### 启动默认内存模式
 
@@ -216,6 +216,18 @@ curl http://localhost:8080/api/v1/admin/health
 ```
 
 当前项目暴露的是 `/api/v1/admin/health`，未暴露 `/actuator/health`。
+
+响应会包含核心服务状态和模型服务健康状态，例如：
+
+```json
+{
+  "status": "UP",
+  "scope": "p1-minimal-loop",
+  "model_service": {
+    "healthy": false
+  }
+}
+```
 
 ### 识别请求示例
 
@@ -263,6 +275,26 @@ java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar 
 ```
 
 `local-jdbc` 会连接 `localhost:5432/intent_hub`，并启用 Flyway migration。
+
+### DashScope 沙箱冒烟准备
+
+DashScope 冒烟只通过环境变量读取密钥，仓库不保存任何明文凭证。该链路仍受 `intent-hub.llm.*` 全局治理和已发布 scene 级 `llmPolicy` 双重约束，LLM 只作为 Rule -> Model 之后的最后兜底。
+
+启动服务：
+
+```powershell
+$env:DASHSCOPE_API_KEY="<your-dashscope-api-key>"
+$env:DASHSCOPE_CHAT_MODEL="qwen-plus"
+java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar --spring.profiles.active=dashscope-smoke
+```
+
+另开终端执行冒烟脚本：
+
+```powershell
+.\scripts\dashscope-smoke.ps1 -BaseUrl "http://localhost:8080"
+```
+
+脚本会自动创建并发布 `dashscope-smoke-scene`，写入 `provider=spring-ai-alibaba` 的 `llmPolicy`，发送一条规则/模型不命中的识别请求，并输出 `traceId`、`decision`、`intentCode`、`recognitionPath` 和 LLM 预算消费指标。
 
 ## 当前进度
 
@@ -312,7 +344,7 @@ P2-2 Bad Case 流转验证结果：
 P2-3 指标采集验证结果：
 
 - 新增 `IntentMetricsPort`、`MetricsAppService`、`MetricsSnapshot`。
-- 新增 `InMemoryIntentMetricsRepository`，识别链路自动记录请求总数、bad case 候选、LLM fallback、decision、intent、scene 和耗时。
+- 新增 `InMemoryIntentMetricsRepository`，识别链路自动记录请求总数、bad case 候选、模型 fallback、LLM fallback、LLM 预算消费尝试、decision、intent、scene 和耗时。
 - 新增 `GET /api/v1/admin/metrics` 与 `GET /api/v1/admin/metrics/prometheus`。
 - `mvn test` 通过，共 26 个测试。
 
@@ -321,6 +353,10 @@ P2-4 模型服务适配验证结果：
 - 新增 `ModelClientPort`、`ModelRecognitionPolicy`、`HttpModelClientAdapter`、`NoopModelClientAdapter`。
 - `RecognizeAppService` 策略顺序调整为 Rule -> Model -> LLM，LLM 仍是最后一道防线。
 - 默认配置关闭模型服务：`intent-hub.model-service.enabled=false`。
+- `GET /api/v1/admin/health` 已追加 `model_service.healthy`，开启模型服务时通过 `GET {baseUrl}/health` 查询远端状态。
+- 模型服务异常时记录 `MODEL_FALLBACK:CLOSED`，继续进入后续 LLM 或拒识路径。
+- `ModelClientAdapterTest` 已通过 JDK 本地 HTTP server 覆盖真实 POST/JSON 解析冒烟。
+- 已使用 `examples/model-service-fastapi` 启动本地 FastAPI 服务完成真实联调：Admin health 返回 `model_service.healthy=true`，`cancel A100` 识别路径包含 `ModelRecognitionPolicy`。
 - `mvn test` 通过，共 29 个测试。
 
 P2-5 LLM 受控兜底验证结果：
@@ -329,12 +365,17 @@ P2-5 LLM 受控兜底验证结果：
 - `JdbcSceneConfigRepository` 已从已发布 `nlu_strategy.llm_policy` 读取 `enabled/provider/model/timeoutMs/maxRetries/dailyBudget/fallbackDecision`。
 - 应用层已验证 LLM provider 异常时失败关闭并记录 `LLM_FALLBACK:REJECTED`。
 - 基础设施层已验证治理关闭、策略预算为 0、成功返回候选、有限重试后失败四类场景。
-- `mvn test` 通过，共 36 个测试。
+- 模型服务和 LLM HTTP adapter 已通过 `SimpleClientHttpRequestFactory` 绑定 connect/read timeout。
+- LLM adapter 仅在真实外呼尝试前记录预算消费，治理关闭或 scene 预算为 0 时不记账。
+- 已新增 LLM 预算审计端口和 `llm_budget_usage` 持久化表，按 tenant、scene、日期、provider、model 记录外呼尝试次数和消费单位；当前用于审计，后续升级为强配额扣减。
+- `TongyiLlmAdapter` 已预接入 Spring AI Alibaba `ChatClient` 分支，并保留 HTTP 契约 fallback。
+- 新增 `dashscope-smoke` profile 与 `scripts/dashscope-smoke.ps1`，真实沙箱冒烟所需的配置模板、凭证注入方式和验证步骤已准备好；真实外呼需运行时提供 `DASHSCOPE_API_KEY`。
+- `mvn test` 通过，共 47 个测试。
 
 ## 下一步
 
-- P2.x：增加 FastAPI 模型服务示例工程、真实 HTTP 冒烟和模型服务健康检查。
-- P2.x：把 LLM adapter 从当前 HTTP mock 契约升级为真实 Spring AI Alibaba `ChatClient` 调用，并补 DashScope 沙箱冒烟。
+- P2.x：补更完整的模型服务样本、阈值、版本策略和部署化联调；FastAPI 示例工程、adapter 本地 HTTP server 冒烟、健康检查和本地真实联调已覆盖。
+- P2.x：已完成 LLM adapter 的 Spring AI Alibaba `ChatClient` 预接入和 DashScope 沙箱冒烟脚本准备；下一步在提供沙箱凭证后补真实 trace/metrics/bad case 证据。
 - P2.x：将当前最小指标端口桥接 Micrometer/OpenTelemetry，补 Grafana 看板和基础告警。
 - P2.x：补 Bad Case 独立标注历史表、批量导入导出、审核状态和训练任务联动。
 
@@ -352,7 +393,7 @@ P2-5 LLM 受控兜底验证结果：
 | [P2-1 动态 scene 读取审查](docs/codex/v1/trace/intent-hub-p2-dynamic-scene-routing-trace.md) | 动态 scene 读取实现结果、验证证据和剩余风险 |
 | [P2-2 Bad Case 标注流转审查](docs/codex/v1/trace/intent-hub-p2-bad-case-workflow-trace.md) | Bad Case 标注、关闭、导出训练样本的实现结果、验证证据和剩余风险 |
 | [P2-3 指标观测审查](docs/codex/v1/trace/intent-hub-p2-metrics-observability-trace.md) | 最小指标采集、JSON 快照和 Prometheus 文本导出的实现结果与剩余风险 |
-| [P2-4 模型服务适配审查](docs/codex/v1/trace/intent-hub-p2-model-service-adapter-trace.md) | FastAPI 风格模型服务 adapter、策略顺序和默认关闭边界 |
+| [P2-4 模型服务适配审查](docs/codex/v1/trace/intent-hub-p2-model-service-adapter-trace.md) | FastAPI 风格模型服务 adapter、策略顺序、健康检查和默认关闭边界 |
 | [P2-5 LLM 受控兜底审查](docs/codex/v1/trace/intent-hub-p2-llm-governance-trace.md) | LLM 全局治理、scene 策略读取、预算门禁、有限重试和 fallback 失败关闭 |
 | [HTML 阅读版](docs/codex/v1/intent-hub-lifecycle.html) | 面向阅读的全生命周期规划页 |
 

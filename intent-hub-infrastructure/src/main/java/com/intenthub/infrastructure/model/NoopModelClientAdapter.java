@@ -10,4 +10,9 @@ public class NoopModelClientAdapter implements ModelClientPort {
     public Optional<RecognitionCandidate> recognize(String text, String sceneId) {
         return Optional.empty();
     }
+
+    @Override
+    public boolean healthy() {
+        return false;
+    }
 }

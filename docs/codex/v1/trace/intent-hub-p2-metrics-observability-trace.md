@@ -4,7 +4,7 @@
 
 通过。
 
-P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径、不引入新运维依赖的情况下，为识别链路提供 JSON 快照和 Prometheus 文本格式指标出口。
+P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径、不引入新运维依赖的情况下，为识别链路提供 JSON 快照和 Prometheus 文本格式指标出口。后续 P2-4/P2-5 已把模型 fallback、LLM fallback 失败关闭与 LLM 预算消费尝试纳入指标口径。
 
 ## 范围
 
@@ -40,7 +40,9 @@ P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径
 
 - 请求总数。
 - Bad Case 候选数。
+- 模型 fallback 次数。
 - LLM fallback 次数。
+- LLM 预算消费尝试次数与消费单位。
 - 总耗时、平均耗时、最大耗时。
 - 按 decision 计数。
 - 按 intent 计数。
@@ -54,7 +56,7 @@ P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径
 
 ### LLM 受控
 
-P2-3 没有新增 LLM 调用。`totalLlmFallbacks` 仅根据 `recognitionPath` 中是否包含 LLM 路径做统计，为后续受控兜底比例评估提供指标口径。
+P2-3 没有新增 LLM 调用。当前 `totalModelFallbacks` 根据 `recognitionPath` 中的 `MODEL_FALLBACK` 统计，`totalLlmFallbacks` 根据 `LLM_FALLBACK` 统计；后续 P2-5 增加 `totalLlmBudgetAttempts` 与 `totalLlmBudgetConsumed`，仅在 LLM adapter 真实外呼尝试前记账。
 
 ### 防腐层
 
@@ -81,6 +83,7 @@ mvn test
 覆盖点：
 
 - `RecognizeAppServiceTest` 验证识别链路会调用 metrics port。
+- `InMemoryIntentMetricsRepositoryTest` 验证模型 fallback、LLM fallback 和 LLM 预算消费分别计数。
 - `AdminMetricsControllerTest` 验证 JSON 快照和 Prometheus 文本出口。
 - 既有 P1、P2-1、P2-2 测试仍全部通过。
 
@@ -90,13 +93,13 @@ mvn test
 - 指标为进程内内存指标，服务重启后清零。
 - 多实例部署时需要后续通过 Prometheus scrape 或 Micrometer/OpenTelemetry 做聚合。
 - 暂未提供 Grafana dashboard JSON、告警规则和 SLO。
-- 当前 LLM fallback 统计依赖 `recognitionPath` 字符串，后续可改为结构化 recognition span/event。
+- 当前模型/LLM fallback 统计依赖 `recognitionPath` 字符串，后续可改为结构化 recognition span/event。
 
 ## 后续建议
 
 P2 后续建议：
 
 - 将 `IntentMetricsPort` 桥接到 Micrometer 或 OpenTelemetry Metrics。
-- 增加 Grafana dashboard：请求量、拒识率、澄清率、异步接收率、bad case 生成率、LLM fallback 率、平均/P95 耗时。
+- 增加 Grafana dashboard：请求量、拒识率、澄清率、异步接收率、bad case 生成率、模型 fallback 率、LLM fallback 率、平均/P95 耗时。
 - 增加基础告警：拒识率突增、P95 耗时超阈、bad case 堆积、LLM fallback 超预算。
 - 多实例部署时由 Prometheus 统一聚合，避免依赖单实例内存快照。

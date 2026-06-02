@@ -6,5 +6,8 @@ import com.intenthub.domain.recognition.IntentResult;
 public interface IntentMetricsPort {
     void recordRecognition(Envelope envelope, IntentResult result, long latencyMillis);
 
+    default void recordLlmBudgetConsumption(double units) {
+    }
+
     MetricsSnapshot snapshot();
 }

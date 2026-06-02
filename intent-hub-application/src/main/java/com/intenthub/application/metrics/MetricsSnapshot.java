@@ -6,7 +6,10 @@ import java.util.Map;
 public record MetricsSnapshot(
         long totalRequests,
         long totalBadCases,
+        long totalModelFallbacks,
         long totalLlmFallbacks,
+        long totalLlmBudgetAttempts,
+        double totalLlmBudgetConsumed,
         long totalLatencyMillis,
         double averageLatencyMillis,
         long maxLatencyMillis,

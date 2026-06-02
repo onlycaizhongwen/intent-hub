@@ -135,13 +135,41 @@ class RecognizeAppServiceTest {
     }
 
     @Test
+    void failsClosedWhenModelServiceThrowsAndContinuesToReject() {
+        service = new RecognizeAppService(
+                new TestSceneConfigPort(),
+                tracePort,
+                badCasePort,
+                idempotencyPort,
+                new DisabledLlmClient(),
+                metricsPort,
+                (text, sceneId) -> {
+                    throw new IllegalStateException("model unavailable");
+                }
+        );
+
+        IntentResult result = service.recognize(envelope("REQ-P2-MODEL-002", "模型服务异常场景"));
+
+        assertThat(result.intentCode()).isEqualTo("UNKNOWN");
+        assertThat(result.decision()).isEqualTo(Decision.REJECTED);
+        assertThat(result.recognitionPath()).containsExactly(
+                "PRE_ROUTE:order-scene:v1-p1",
+                "RuleRecognitionPolicy",
+                "MODEL_FALLBACK:CLOSED",
+                "POST_ROUTE:NONE"
+        );
+        assertThat(tracePort.results).containsExactly(result);
+        assertThat(badCasePort.results).containsExactly(result);
+    }
+
+    @Test
     void failsClosedWhenLlmFallbackThrows() {
         service = new RecognizeAppService(
                 envelope -> llmEnabledScene(envelope, 10.0),
                 tracePort,
                 badCasePort,
                 idempotencyPort,
-                (text, sceneId, policy) -> {
+                (text, tenantId, sceneId, policy) -> {
                     throw new IllegalStateException("llm unavailable");
                 },
                 metricsPort,
@@ -169,7 +197,7 @@ class RecognizeAppServiceTest {
                 tracePort,
                 badCasePort,
                 idempotencyPort,
-                (text, sceneId, policy) -> {
+                (text, tenantId, sceneId, policy) -> {
                     throw new AssertionError("LLM should be blocked by zero policy budget");
                 },
                 metricsPort,
@@ -289,13 +317,13 @@ class RecognizeAppServiceTest {
 
         @Override
         public MetricsSnapshot snapshot() {
-            return new MetricsSnapshot(0, 0, 0, 0, 0, 0, Map.of(), Map.of(), Map.of(), Instant.EPOCH, Instant.EPOCH);
+            return new MetricsSnapshot(0, 0, 0, 0, 0, 0.0, 0, 0.0, 0, Map.of(), Map.of(), Map.of(), Instant.EPOCH, Instant.EPOCH);
         }
     }
 
     private static final class DisabledLlmClient implements LlmClientPort {
         @Override
-        public Optional<RecognitionCandidate> recognize(String text, String sceneId, LlmPolicy policy) {
+        public Optional<RecognitionCandidate> recognize(String text, String tenantId, String sceneId, LlmPolicy policy) {
             return Optional.empty();
         }
     }

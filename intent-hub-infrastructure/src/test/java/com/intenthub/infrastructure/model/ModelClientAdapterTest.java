@@ -1,14 +1,28 @@
 package com.intenthub.infrastructure.model;
 
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.client.ExpectedCount.once;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class ModelClientAdapterTest {
     @Test
     void noopAdapterReturnsEmptyCandidate() {
         assertThat(new NoopModelClientAdapter().recognize("text", "scene")).isEmpty();
+        assertThat(new NoopModelClientAdapter().healthy()).isFalse();
     }
 
     @Test
@@ -17,5 +31,78 @@ class ModelClientAdapterTest {
         HttpModelClientAdapter adapter = new HttpModelClientAdapter(RestClient.builder(), properties);
 
         assertThat(adapter.recognize("text", "scene")).isEmpty();
+        assertThat(adapter.healthy()).isFalse();
+    }
+
+    @Test
+    void httpAdapterChecksRemoteHealth() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(once(), requestTo("https://model.example.test/health"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("{\"status\":\"UP\"}", MediaType.APPLICATION_JSON));
+        ModelServiceProperties properties = new ModelServiceProperties(true, "https://model.example.test", 2000);
+        HttpModelClientAdapter adapter = new HttpModelClientAdapter(builder.baseUrl(properties.baseUrl()).build(), properties);
+
+        assertThat(adapter.healthy()).isTrue();
+        server.verify();
+    }
+
+    @Test
+    void httpAdapterReturnsRemoteCandidate() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(once(), requestTo("https://model.example.test/recognize"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess("""
+                        {"intentCode":"ORDER_QUERY","confidence":0.81,"slots":{},"explanation":"model hit"}
+                        """, MediaType.APPLICATION_JSON));
+        ModelServiceProperties properties = new ModelServiceProperties(true, "https://model.example.test", 2000);
+        HttpModelClientAdapter adapter = new HttpModelClientAdapter(builder.baseUrl(properties.baseUrl()).build(), properties);
+
+        assertThat(adapter.recognize("text", "scene"))
+                .hasValueSatisfying(candidate -> {
+                    assertThat(candidate.intentCode()).isEqualTo("ORDER_QUERY");
+                    assertThat(candidate.confidence()).isEqualTo(0.81);
+                    assertThat(candidate.explanation()).isEqualTo("model hit");
+                });
+        server.verify();
+    }
+
+    @Test
+    void httpAdapterWorksAgainstLocalHttpServerSmoke() throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/recognize", exchange -> {
+            byte[] requestBody = exchange.getRequestBody().readAllBytes();
+            assertThat(exchange.getRequestMethod()).isEqualTo("POST");
+            assertThat(new String(requestBody, StandardCharsets.UTF_8)).contains("order-scene");
+            respond(exchange, """
+                    {"intentCode":"ORDER_CANCEL","confidence":0.86,"slots":{"order_id":"A100"},"explanation":"local smoke hit"}
+                    """);
+        });
+        server.start();
+        try {
+            String baseUrl = "http://localhost:" + server.getAddress().getPort();
+            ModelServiceProperties properties = new ModelServiceProperties(true, baseUrl, 2000);
+            HttpModelClientAdapter adapter = new HttpModelClientAdapter(RestClient.builder(), properties);
+
+            assertThat(adapter.recognize("cancel A100", "order-scene"))
+                    .hasValueSatisfying(candidate -> {
+                        assertThat(candidate.intentCode()).isEqualTo("ORDER_CANCEL");
+                        assertThat(candidate.confidence()).isEqualTo(0.86);
+                        assertThat(candidate.slots()).containsEntry("order_id", "A100");
+                        assertThat(candidate.explanation()).isEqualTo("local smoke hit");
+                    });
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    private void respond(HttpExchange exchange, String json) throws IOException {
+        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().add("Content-Type", "application/json");
+        exchange.sendResponseHeaders(200, bytes.length);
+        exchange.getResponseBody().write(bytes);
+        exchange.close();
     }
 }

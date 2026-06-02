@@ -21,6 +21,7 @@ public class LlmRecognizePolicy implements RecognitionPolicy {
         try {
             Optional<RecognitionCandidate> candidate = llmClientPort.recognize(
                     task.envelope().text(),
+                    task.envelope().tenantId(),
                     task.sceneConfig().sceneId(),
                     task.sceneConfig().llmPolicy()
             );

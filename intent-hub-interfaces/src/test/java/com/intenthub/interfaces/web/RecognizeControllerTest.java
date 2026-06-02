@@ -134,7 +134,7 @@ class RecognizeControllerTest {
 
     private static final class DisabledLlmClient implements LlmClientPort {
         @Override
-        public Optional<RecognitionCandidate> recognize(String text, String sceneId, LlmPolicy policy) {
+        public Optional<RecognitionCandidate> recognize(String text, String tenantId, String sceneId, LlmPolicy policy) {
             return Optional.empty();
         }
     }
@@ -153,7 +153,7 @@ class RecognizeControllerTest {
 
         @Override
         public MetricsSnapshot snapshot() {
-            return new MetricsSnapshot(0, 0, 0, 0, 0, 0, Map.of(), Map.of(), Map.of(), Instant.EPOCH, Instant.EPOCH);
+            return new MetricsSnapshot(0, 0, 0, 0, 0, 0.0, 0, 0.0, 0, Map.of(), Map.of(), Map.of(), Instant.EPOCH, Instant.EPOCH);
         }
     }
 }

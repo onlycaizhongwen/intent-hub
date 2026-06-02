@@ -2,7 +2,9 @@ package com.intenthub.infrastructure.model;
 
 import com.intenthub.domain.recognition.RecognitionCandidate;
 import com.intenthub.domain.recognition.policy.ModelClientPort;
+import com.intenthub.infrastructure.http.ExternalRestClients;
 import org.springframework.http.MediaType;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClient;
 
 import java.util.Map;
@@ -13,9 +15,11 @@ public class HttpModelClientAdapter implements ModelClientPort {
     private final ModelServiceProperties properties;
 
     public HttpModelClientAdapter(RestClient.Builder restClientBuilder, ModelServiceProperties properties) {
-        this.restClient = restClientBuilder
-                .baseUrl(properties.baseUrl())
-                .build();
+        this(ExternalRestClients.build(restClientBuilder, properties.baseUrl(), properties.timeoutMs()), properties);
+    }
+
+    HttpModelClientAdapter(RestClient restClient, ModelServiceProperties properties) {
+        this.restClient = restClient;
         this.properties = properties;
     }
 
@@ -39,5 +43,21 @@ public class HttpModelClientAdapter implements ModelClientPort {
                 response.slots() == null ? Map.of() : response.slots(),
                 response.explanation() == null ? "model service candidate" : response.explanation()
         ));
+    }
+
+    @Override
+    public boolean healthy() {
+        if (!properties.active()) {
+            return false;
+        }
+        try {
+            ModelHealthResponse response = restClient.get()
+                    .uri("/health")
+                    .retrieve()
+                    .body(ModelHealthResponse.class);
+            return response != null && "UP".equalsIgnoreCase(response.status());
+        } catch (RestClientException ex) {
+            return false;
+        }
     }
 }

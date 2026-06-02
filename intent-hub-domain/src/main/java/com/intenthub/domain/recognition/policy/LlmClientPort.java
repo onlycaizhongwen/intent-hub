@@ -6,5 +6,5 @@ import com.intenthub.domain.recognition.RecognitionCandidate;
 import java.util.Optional;
 
 public interface LlmClientPort {
-    Optional<RecognitionCandidate> recognize(String text, String sceneId, LlmPolicy policy);
+    Optional<RecognitionCandidate> recognize(String text, String tenantId, String sceneId, LlmPolicy policy);
 }

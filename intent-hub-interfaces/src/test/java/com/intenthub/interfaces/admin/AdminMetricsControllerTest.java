@@ -21,6 +21,10 @@ class AdminMetricsControllerTest {
 
         assertThat(snapshot.totalRequests()).isEqualTo(3);
         assertThat(snapshot.totalBadCases()).isEqualTo(1);
+        assertThat(snapshot.totalModelFallbacks()).isEqualTo(1);
+        assertThat(snapshot.totalLlmFallbacks()).isEqualTo(1);
+        assertThat(snapshot.totalLlmBudgetAttempts()).isEqualTo(2);
+        assertThat(snapshot.totalLlmBudgetConsumed()).isEqualTo(2.0);
         assertThat(snapshot.decisions()).containsEntry("SUCCESS", 2L);
     }
 
@@ -31,6 +35,10 @@ class AdminMetricsControllerTest {
         String text = controller.prometheus();
 
         assertThat(text).contains("intent_hub_requests_total 3");
+        assertThat(text).contains("intent_hub_model_fallbacks_total 1");
+        assertThat(text).contains("intent_hub_llm_fallbacks_total 1");
+        assertThat(text).contains("intent_hub_llm_budget_attempts_total 2");
+        assertThat(text).contains("intent_hub_llm_budget_consumed_total 2.0");
         assertThat(text).contains("intent_hub_decisions_total{decision=\"SUCCESS\"} 2");
         assertThat(text).contains("intent_hub_intents_total{intent=\"ORDER_QUERY\"} 2");
     }
@@ -45,7 +53,10 @@ class AdminMetricsControllerTest {
             return new MetricsSnapshot(
                     3,
                     1,
-                    0,
+                    1,
+                    1,
+                    2,
+                    2.0,
                     27,
                     9.0,
                     15,

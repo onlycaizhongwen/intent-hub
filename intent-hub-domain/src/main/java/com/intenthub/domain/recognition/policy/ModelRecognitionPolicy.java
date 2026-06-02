@@ -14,8 +14,13 @@ public class ModelRecognitionPolicy implements RecognitionPolicy {
 
     @Override
     public Optional<RecognitionCandidate> recognize(RecognitionTask task) {
-        Optional<RecognitionCandidate> candidate = modelClientPort.recognize(task.envelope().text(), task.sceneConfig().sceneId());
-        candidate.ifPresent(ignored -> task.markPath("ModelRecognitionPolicy"));
-        return candidate;
+        try {
+            Optional<RecognitionCandidate> candidate = modelClientPort.recognize(task.envelope().text(), task.sceneConfig().sceneId());
+            candidate.ifPresent(ignored -> task.markPath("ModelRecognitionPolicy"));
+            return candidate;
+        } catch (RuntimeException ex) {
+            task.markPath("MODEL_FALLBACK:CLOSED");
+            return Optional.empty();
+        }
     }
 }

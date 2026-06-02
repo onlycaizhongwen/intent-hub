@@ -2,7 +2,7 @@
 
 Intent Hub 是一个面向企业业务系统的意图识别与路由中枢。它不是单纯的 NLU 服务，而是把输入接入、意图识别、双阶段路由、受控 LLM 兜底、下游动作适配、配置治理、审计追踪和 bad case 回流放在同一套工程闭环中管理。
 
-当前项目已完成 P1 最小识别闭环并进入 P2 试点扩展：已具备可编译、可启动、可测试的识别主链路，并完成 PostgreSQL/Flyway 持久化、Admin 配置治理 API、已发布配置读取、可观测查询 API、P2-1 动态 scene 读取、P2-2 Bad Case 标注/导出和 P2-3 最小指标采集闭环。
+当前项目已完成 P1 最小识别闭环并进入 P2 试点扩展：已具备可编译、可启动、可测试的识别主链路，并完成 PostgreSQL/Flyway 持久化、Admin 配置治理 API、已发布配置读取、可观测查询 API、P2-1 动态 scene 读取、P2-2 Bad Case 标注/导出、P2-3 最小指标采集和 P2-4 模型服务适配闭环。
 
 ## 快速导航
 
@@ -15,7 +15,7 @@ Intent Hub 是一个面向企业业务系统的意图识别与路由中枢。它
 - [当前进度](#当前进度)
 - [关键文档](#关键文档)
 
-推荐先阅读 HTML 总览：[IntentHub 生命周期规划阅读版](docs/codex/v1/intent-hub-lifecycle.html)，再按需查看 [P0 契约与 Schema](docs/codex/v1/designs/intent-hub-p0-contract-schema-design.md)、[P1 最小闭环设计](docs/codex/v1/designs/intent-hub-p1-minimal-loop-design.md)、[P2-1 动态 scene 读取审查](docs/codex/v1/trace/intent-hub-p2-dynamic-scene-routing-trace.md)、[P2-2 Bad Case 标注流转审查](docs/codex/v1/trace/intent-hub-p2-bad-case-workflow-trace.md) 和 [P2-3 指标观测审查](docs/codex/v1/trace/intent-hub-p2-metrics-observability-trace.md)。
+推荐先阅读 HTML 总览：[IntentHub 生命周期规划阅读版](docs/codex/v1/intent-hub-lifecycle.html)，再按需查看 [P0 契约与 Schema](docs/codex/v1/designs/intent-hub-p0-contract-schema-design.md)、[P1 最小闭环设计](docs/codex/v1/designs/intent-hub-p1-minimal-loop-design.md)、[P2-1 动态 scene 读取审查](docs/codex/v1/trace/intent-hub-p2-dynamic-scene-routing-trace.md)、[P2-2 Bad Case 标注流转审查](docs/codex/v1/trace/intent-hub-p2-bad-case-workflow-trace.md)、[P2-3 指标观测审查](docs/codex/v1/trace/intent-hub-p2-metrics-observability-trace.md) 和 [P2-4 模型服务适配审查](docs/codex/v1/trace/intent-hub-p2-model-service-adapter-trace.md)。
 
 ## 核心原则
 
@@ -160,6 +160,8 @@ P2-2 当前采用最小流转：复用 `bad_case.status` 表达 `OPEN`、`ANNOTA
 
 P2-3 当前采用最小指标闭环：不引入 Actuator/Micrometer，不改变 `/api/v1/admin/health` 口径；先通过应用层 `IntentMetricsPort` 与内存实现记录请求量、decision、intent、scene、bad case 候选数、LLM fallback 次数和耗时统计，后续再替换或桥接到 OpenTelemetry/Micrometer。
 
+P2-4 当前采用最小模型服务适配：新增 `ModelClientPort` 和 `ModelRecognitionPolicy`，识别顺序为 Rule -> Model -> LLM；默认 `intent-hub.model-service.enabled=false`，无 `base-url` 时 no-op，不影响规则主链路。HTTP adapter 按 FastAPI 风格调用 `POST {baseUrl}/recognize`。
+
 ### 持久化
 
 Flyway 已落地 P1 必需表：
@@ -197,7 +199,7 @@ mvn test
 mvn clean package
 ```
 
-当前验证结果：`mvn test` 通过，共 26 个测试。
+当前验证结果：`mvn test` 通过，共 29 个测试。
 
 ### 启动默认内存模式
 
@@ -276,6 +278,7 @@ java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar 
 - P2-1 动态 scene 读取最小闭环已完成：JDBC 已发布配置读取不再固定 `order-scene`，支持 metadata 指定 scene、租户最新发布 scene 兜底和内置配置最终回退。
 - P2-2 Bad Case 标注流转与样本导出最小闭环已完成：支持标注、关闭、导出训练样本和导出后标记，memory/JDBC 双实现均已接入应用端口。
 - P2-3 最小指标采集闭环已完成：支持识别链路指标采集、Admin JSON 快照和 Prometheus 文本导出。
+- P2-4 模型服务适配最小闭环已完成：模型候选位于规则之后、LLM 之前，默认关闭/no-op，支持 FastAPI 风格 HTTP adapter。
 
 P1-4 JDBC 联调结果：
 
@@ -310,10 +313,17 @@ P2-3 指标采集验证结果：
 - 新增 `GET /api/v1/admin/metrics` 与 `GET /api/v1/admin/metrics/prometheus`。
 - `mvn test` 通过，共 26 个测试。
 
+P2-4 模型服务适配验证结果：
+
+- 新增 `ModelClientPort`、`ModelRecognitionPolicy`、`HttpModelClientAdapter`、`NoopModelClientAdapter`。
+- `RecognizeAppService` 策略顺序调整为 Rule -> Model -> LLM，LLM 仍是最后一道防线。
+- 默认配置关闭模型服务：`intent-hub.model-service.enabled=false`。
+- `mvn test` 通过，共 29 个测试。
+
 ## 下一步
 
-- P2-4：接入一个真实模型服务，FastAPI 优先，Triton 后置。
 - P2-5：小流量启用 Spring AI Alibaba 兜底，验证超时、预算、熔断和 fallback。
+- P2.x：增加 FastAPI 模型服务示例工程、真实 HTTP 冒烟和模型服务健康检查。
 - P2.x：将当前最小指标端口桥接 Micrometer/OpenTelemetry，补 Grafana 看板和基础告警。
 - P2.x：补 Bad Case 独立标注历史表、批量导入导出、审核状态和训练任务联动。
 
@@ -331,6 +341,7 @@ P2-3 指标采集验证结果：
 | [P2-1 动态 scene 读取审查](docs/codex/v1/trace/intent-hub-p2-dynamic-scene-routing-trace.md) | 动态 scene 读取实现结果、验证证据和剩余风险 |
 | [P2-2 Bad Case 标注流转审查](docs/codex/v1/trace/intent-hub-p2-bad-case-workflow-trace.md) | Bad Case 标注、关闭、导出训练样本的实现结果、验证证据和剩余风险 |
 | [P2-3 指标观测审查](docs/codex/v1/trace/intent-hub-p2-metrics-observability-trace.md) | 最小指标采集、JSON 快照和 Prometheus 文本导出的实现结果与剩余风险 |
+| [P2-4 模型服务适配审查](docs/codex/v1/trace/intent-hub-p2-model-service-adapter-trace.md) | FastAPI 风格模型服务 adapter、策略顺序和默认关闭边界 |
 | [HTML 阅读版](docs/codex/v1/intent-hub-lifecycle.html) | 面向阅读的全生命周期规划页 |
 
 ## 原始设计资料

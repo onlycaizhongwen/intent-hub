@@ -41,3 +41,9 @@
 - 摘要：补最小指标采集、JSON 查询和 Prometheus 文本导出；暂不引入 Actuator/Micrometer，保持当前健康检查契约；`mvn test` 已通过，共 26 个测试；已推送到 GitHub。
 - 过程文件：`.codex/plans/main/p2-metrics-observability/process.md`
 - 恢复提示：P2-3 已完成，可从真实模型服务、小流量 LLM 兜底或 Micrometer/OpenTelemetry 桥接继续。
+
+## P2-4 真实模型服务适配
+- 状态：已完成，待提交
+- 摘要：接入 FastAPI 风格模型服务最小 adapter，默认关闭/no-op；模型候选位于规则之后、LLM 之前；`mvn test` 已通过，共 29 个测试。
+- 过程文件：`.codex/plans/main/p2-model-service-adapter/process.md`
+- 恢复提示：读取 process.md，从提交、推送和远端确认继续。

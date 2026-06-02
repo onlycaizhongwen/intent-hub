@@ -17,10 +17,17 @@ import com.intenthub.application.observability.BadCaseWorkflowPort;
 import com.intenthub.application.observability.ObservabilityAppService;
 import com.intenthub.application.observability.ObservabilityQueryPort;
 import com.intenthub.domain.recognition.policy.LlmClientPort;
+import com.intenthub.domain.recognition.policy.ModelClientPort;
+import com.intenthub.infrastructure.model.HttpModelClientAdapter;
+import com.intenthub.infrastructure.model.ModelServiceProperties;
+import com.intenthub.infrastructure.model.NoopModelClientAdapter;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
 
 @Configuration
+@EnableConfigurationProperties(ModelServiceProperties.class)
 public class IntentHubBeanConfiguration {
     @Bean
     RecognizeAppService recognizeAppService(
@@ -29,7 +36,8 @@ public class IntentHubBeanConfiguration {
             BadCasePort badCasePort,
             IdempotencyPort idempotencyPort,
             LlmClientPort llmClientPort,
-            IntentMetricsPort metricsPort
+            IntentMetricsPort metricsPort,
+            ModelClientPort modelClientPort
     ) {
         return new RecognizeAppService(
                 sceneConfigPort,
@@ -37,7 +45,8 @@ public class IntentHubBeanConfiguration {
                 badCasePort,
                 idempotencyPort,
                 llmClientPort,
-                metricsPort
+                metricsPort,
+                modelClientPort
         );
     }
 
@@ -71,5 +80,13 @@ public class IntentHubBeanConfiguration {
     @Bean
     MetricsAppService metricsAppService(IntentMetricsPort metricsPort) {
         return new MetricsAppService(metricsPort);
+    }
+
+    @Bean
+    ModelClientPort modelClientPort(RestClient.Builder restClientBuilder, ModelServiceProperties properties) {
+        if (!properties.active()) {
+            return new NoopModelClientAdapter();
+        }
+        return new HttpModelClientAdapter(restClientBuilder, properties);
     }
 }

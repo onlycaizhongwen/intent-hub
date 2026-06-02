@@ -10,6 +10,7 @@ import com.intenthub.domain.recognition.InputType;
 import com.intenthub.domain.recognition.IntentResult;
 import com.intenthub.domain.recognition.RecognitionCandidate;
 import com.intenthub.domain.recognition.policy.LlmClientPort;
+import com.intenthub.domain.recognition.policy.ModelClientPort;
 import com.intenthub.application.metrics.IntentMetricsPort;
 import com.intenthub.application.metrics.MetricsSnapshot;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +47,8 @@ class RecognizeAppServiceTest {
                 badCasePort,
                 idempotencyPort,
                 new DisabledLlmClient(),
-                metricsPort
+                metricsPort,
+                new DisabledModelClient()
         );
     }
 
@@ -106,6 +108,30 @@ class RecognizeAppServiceTest {
         assertThat(result.downstreamAction().actionCode()).isEqualTo("NONE");
         assertThat(result.idempotencyKey()).isNull();
         assertThat(badCasePort.results).containsExactly(result);
+    }
+
+    @Test
+    void usesModelCandidateWhenRulesDoNotMatchAndKeepsLlmAsLaterFallback() {
+        service = new RecognizeAppService(
+                new TestSceneConfigPort(),
+                tracePort,
+                badCasePort,
+                idempotencyPort,
+                new DisabledLlmClient(),
+                metricsPort,
+                (text, sceneId) -> Optional.of(new RecognitionCandidate("ORDER_QUERY", 0.80, Map.of(), "model hit"))
+        );
+
+        IntentResult result = service.recognize(envelope("REQ-P2-MODEL-001", "模型判断这是查单"));
+
+        assertThat(result.intentCode()).isEqualTo("ORDER_QUERY");
+        assertThat(result.decision()).isEqualTo(Decision.SUCCESS);
+        assertThat(result.recognitionPath()).containsExactly(
+                "PRE_ROUTE:order-scene:v1-p1",
+                "RuleRecognitionPolicy",
+                "ModelRecognitionPolicy",
+                "POST_ROUTE:ORDER_QUERY_SYNC"
+        );
     }
 
     private Envelope envelope(String requestId, String text) {
@@ -202,6 +228,13 @@ class RecognizeAppServiceTest {
     }
 
     private static final class DisabledLlmClient implements LlmClientPort {
+        @Override
+        public Optional<RecognitionCandidate> recognize(String text, String sceneId) {
+            return Optional.empty();
+        }
+    }
+
+    private static final class DisabledModelClient implements ModelClientPort {
         @Override
         public Optional<RecognitionCandidate> recognize(String text, String sceneId) {
             return Optional.empty();

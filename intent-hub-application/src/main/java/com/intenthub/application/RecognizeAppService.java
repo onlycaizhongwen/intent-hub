@@ -10,6 +10,8 @@ import com.intenthub.domain.recognition.RecognitionCandidate;
 import com.intenthub.domain.recognition.RecognitionTask;
 import com.intenthub.domain.recognition.policy.LlmClientPort;
 import com.intenthub.domain.recognition.policy.LlmRecognizePolicy;
+import com.intenthub.domain.recognition.policy.ModelClientPort;
+import com.intenthub.domain.recognition.policy.ModelRecognitionPolicy;
 import com.intenthub.domain.recognition.policy.RuleRecognitionPolicy;
 import com.intenthub.application.metrics.IntentMetricsPort;
 
@@ -23,6 +25,7 @@ public class RecognizeAppService {
     private final IdempotencyPort idempotencyPort;
     private final LlmClientPort llmClientPort;
     private final IntentMetricsPort metricsPort;
+    private final ModelClientPort modelClientPort;
 
     public RecognizeAppService(
             SceneConfigPort sceneConfigPort,
@@ -30,7 +33,8 @@ public class RecognizeAppService {
             BadCasePort badCasePort,
             IdempotencyPort idempotencyPort,
             LlmClientPort llmClientPort,
-            IntentMetricsPort metricsPort
+            IntentMetricsPort metricsPort,
+            ModelClientPort modelClientPort
     ) {
         this.sceneConfigPort = sceneConfigPort;
         this.recognitionTracePort = recognitionTracePort;
@@ -38,6 +42,7 @@ public class RecognizeAppService {
         this.idempotencyPort = idempotencyPort;
         this.llmClientPort = llmClientPort;
         this.metricsPort = metricsPort;
+        this.modelClientPort = modelClientPort;
     }
 
     public IntentResult recognize(Envelope envelope) {
@@ -48,6 +53,7 @@ public class RecognizeAppService {
         task.markPath("PRE_ROUTE:" + sceneConfig.sceneId() + ":" + sceneConfig.version());
         IntentRecognizer recognizer = new IntentRecognizer(List.of(
                 new RuleRecognitionPolicy(),
+                new ModelRecognitionPolicy(modelClientPort),
                 new LlmRecognizePolicy(llmClientPort)
         ));
 

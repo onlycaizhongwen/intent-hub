@@ -10,6 +10,10 @@ server:
 intent-hub:
   persistence:
     mode: memory
+  model-service:
+    enabled: false
+    base-url: ""
+    timeout-ms: 2000
 
 ---
 spring:

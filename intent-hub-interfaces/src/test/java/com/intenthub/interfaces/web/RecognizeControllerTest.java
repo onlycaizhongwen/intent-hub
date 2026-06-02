@@ -13,6 +13,7 @@ import com.intenthub.domain.recognition.InputType;
 import com.intenthub.domain.recognition.IntentResult;
 import com.intenthub.domain.recognition.RecognitionCandidate;
 import com.intenthub.domain.recognition.policy.LlmClientPort;
+import com.intenthub.domain.recognition.policy.ModelClientPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +37,8 @@ class RecognizeControllerTest {
                 },
                 (envelope, action) -> envelope.tenantId() + "|" + envelope.requestId() + "|" + action.actionCode(),
                 new DisabledLlmClient(),
-                new NoopMetricsPort()
+                new NoopMetricsPort(),
+                new DisabledModelClient()
         ));
     }
 
@@ -131,6 +133,13 @@ class RecognizeControllerTest {
     }
 
     private static final class DisabledLlmClient implements LlmClientPort {
+        @Override
+        public Optional<RecognitionCandidate> recognize(String text, String sceneId) {
+            return Optional.empty();
+        }
+    }
+
+    private static final class DisabledModelClient implements ModelClientPort {
         @Override
         public Optional<RecognitionCandidate> recognize(String text, String sceneId) {
             return Optional.empty();

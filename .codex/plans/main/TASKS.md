@@ -43,7 +43,13 @@
 - 恢复提示：P2-3 已完成，可从真实模型服务、小流量 LLM 兜底或 Micrometer/OpenTelemetry 桥接继续。
 
 ## P2-4 真实模型服务适配
-- 状态：已完成，待提交
+- 状态：已提交并推送
 - 摘要：接入 FastAPI 风格模型服务最小 adapter，默认关闭/no-op；模型候选位于规则之后、LLM 之前；`mvn test` 已通过，共 29 个测试。
 - 过程文件：`.codex/plans/main/p2-model-service-adapter/process.md`
+- 恢复提示：P2-4 已完成并推送，可从 P2-5 或后续 P2.x 继续。
+
+## P2-5 LLM 受控兜底
+- 状态：已完成，待提交
+- 摘要：补全 LLM 受控兜底最小闭环：全局治理配置、scene 级 `llm_policy` 读取、预算/超时门禁、有限重试和 fallback 失败关闭；默认关闭且预算为 0，不影响规则和模型主链路；`mvn test` 已通过，共 36 个测试。
+- 过程文件：`.codex/plans/main/p2-llm-governance/process.md`
 - 恢复提示：读取 process.md，从提交、推送和远端确认继续。

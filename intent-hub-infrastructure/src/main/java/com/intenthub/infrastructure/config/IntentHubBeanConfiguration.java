@@ -18,6 +18,8 @@ import com.intenthub.application.observability.ObservabilityAppService;
 import com.intenthub.application.observability.ObservabilityQueryPort;
 import com.intenthub.domain.recognition.policy.LlmClientPort;
 import com.intenthub.domain.recognition.policy.ModelClientPort;
+import com.intenthub.infrastructure.llm.LlmGovernanceProperties;
+import com.intenthub.infrastructure.llm.TongyiLlmAdapter;
 import com.intenthub.infrastructure.model.HttpModelClientAdapter;
 import com.intenthub.infrastructure.model.ModelServiceProperties;
 import com.intenthub.infrastructure.model.NoopModelClientAdapter;
@@ -27,7 +29,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
 @Configuration
-@EnableConfigurationProperties(ModelServiceProperties.class)
+@EnableConfigurationProperties({ModelServiceProperties.class, LlmGovernanceProperties.class})
 public class IntentHubBeanConfiguration {
     @Bean
     RecognizeAppService recognizeAppService(
@@ -88,5 +90,10 @@ public class IntentHubBeanConfiguration {
             return new NoopModelClientAdapter();
         }
         return new HttpModelClientAdapter(restClientBuilder, properties);
+    }
+
+    @Bean
+    LlmClientPort llmClientPort(RestClient.Builder restClientBuilder, LlmGovernanceProperties properties) {
+        return new TongyiLlmAdapter(restClientBuilder, properties);
     }
 }

@@ -65,6 +65,37 @@ class JdbcSceneConfigRepositoryTest {
         assertThat(config.version()).isEqualTo("v1-p1");
     }
 
+    @Test
+    void loadsLlmPolicyFromPublishedStrategy() {
+        publishScene("demo", "order-scene", "v-order", "ORDER_QUERY", "order");
+        jdbcTemplate.update("""
+                        insert into nlu_strategy (tenant_id, scene_id, version, strategy_code, confidence_threshold, llm_policy)
+                        values (?, ?, ?, 'default', 0.60, ?)
+                        """,
+                "demo",
+                "order-scene",
+                "v-order",
+                ConfigJsonSupport.objectMap(Map.of(
+                        "enabled", true,
+                        "provider", "spring-ai-alibaba",
+                        "model", "qwen-plus",
+                        "timeoutMs", 2500,
+                        "maxRetries", 1,
+                        "dailyBudget", 10.0,
+                        "fallbackDecision", "REJECTED"
+                ))
+        );
+
+        SceneConfig config = repository.loadPublishedConfig(envelope(Map.of("scene_id", "order-scene")));
+
+        assertThat(config.llmPolicy().enabled()).isTrue();
+        assertThat(config.llmPolicy().provider()).isEqualTo("spring-ai-alibaba");
+        assertThat(config.llmPolicy().model()).isEqualTo("qwen-plus");
+        assertThat(config.llmPolicy().timeoutMs()).isEqualTo(2500);
+        assertThat(config.llmPolicy().maxRetries()).isEqualTo(1);
+        assertThat(config.llmPolicy().dailyBudget()).isEqualTo(10.0);
+    }
+
     private Envelope envelope(Map<String, String> metadata) {
         return new Envelope(
                 "demo",
@@ -119,6 +150,7 @@ class JdbcSceneConfigRepositoryTest {
 
     private void resetSchema() {
         jdbcTemplate.execute("drop table if exists downstream_action");
+        jdbcTemplate.execute("drop table if exists nlu_strategy");
         jdbcTemplate.execute("drop table if exists slot_definition");
         jdbcTemplate.execute("drop table if exists intent_definition");
         jdbcTemplate.execute("drop table if exists config_version");
@@ -154,6 +186,17 @@ class JdbcSceneConfigRepositoryTest {
                     intent_code varchar(128) not null,
                     slot_code varchar(128) not null,
                     required boolean not null default false
+                )
+                """);
+        jdbcTemplate.execute("""
+                create table nlu_strategy (
+                    id bigserial primary key,
+                    tenant_id varchar(64) not null,
+                    scene_id varchar(64) not null,
+                    version varchar(64) not null,
+                    strategy_code varchar(128) not null,
+                    confidence_threshold numeric(5,4) not null default 0.6000,
+                    llm_policy varchar(2048) not null default '{}'
                 )
                 """);
         jdbcTemplate.execute("""

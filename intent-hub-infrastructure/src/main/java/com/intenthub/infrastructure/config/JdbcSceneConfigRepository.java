@@ -99,6 +99,7 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
                 (left, right) -> left,
                 LinkedHashMap::new
         ));
+        LlmPolicy llmPolicy = loadLlmPolicy(envelope, publishedScene);
 
         return new SceneConfig(
                 envelope.tenantId(),
@@ -108,8 +109,37 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
                 rules.isEmpty() ? BuiltinSceneConfigFactory.orderScene(envelope).rules() : rules,
                 requiredSlots,
                 actions,
-                LlmPolicy.disabled()
+                llmPolicy
         );
+    }
+
+    private LlmPolicy loadLlmPolicy(Envelope envelope, PublishedScene publishedScene) {
+        try {
+            String rawPolicy = jdbcTemplate.queryForObject("""
+                            select llm_policy
+                            from nlu_strategy
+                            where tenant_id = ? and scene_id = ? and version = ?
+                            order by id
+                            limit 1
+                            """,
+                    String.class,
+                    envelope.tenantId(),
+                    publishedScene.sceneId(),
+                    publishedScene.version()
+            );
+            Map<String, Object> policy = json(rawPolicy);
+            return new LlmPolicy(
+                    bool(policy, "enabled", false),
+                    string(policy, "provider", "spring-ai-alibaba"),
+                    string(policy, "model", "qwen-plus"),
+                    integer(policy, "timeoutMs", integer(policy, "timeout_ms", 3000)),
+                    integer(policy, "maxRetries", integer(policy, "max_retries", 0)),
+                    decimal(policy, "dailyBudget", decimal(policy, "daily_budget", "0.0").toPlainString()).doubleValue(),
+                    string(policy, "fallbackDecision", string(policy, "fallback_decision", "REJECTED"))
+            );
+        } catch (EmptyResultDataAccessException ex) {
+            return LlmPolicy.disabled();
+        }
     }
 
     private Optional<PublishedScene> resolvePublishedScene(Envelope envelope) {
@@ -184,6 +214,16 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
     private BigDecimal decimal(Map<String, Object> values, String key, String defaultValue) {
         Object value = values.get(key);
         return value == null ? new BigDecimal(defaultValue) : new BigDecimal(value.toString());
+    }
+
+    private int integer(Map<String, Object> values, String key, int defaultValue) {
+        Object value = values.get(key);
+        return value == null ? defaultValue : Integer.parseInt(value.toString());
+    }
+
+    private boolean bool(Map<String, Object> values, String key, boolean defaultValue) {
+        Object value = values.get(key);
+        return value == null ? defaultValue : Boolean.parseBoolean(value.toString());
     }
 
     @SuppressWarnings("unchecked")

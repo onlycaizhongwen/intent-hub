@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-4 模型服务适配最小闭环已完成，P2 试点扩展进行中
+- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -15,7 +15,7 @@
 
 | 主题 | Requirements | Design | Plan | Trace/Review | 整体状态 |
 | --- | --- | --- | --- | --- | --- |
-| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1 有条件通过；P2-1 动态 scene 读取、P2-2 Bad Case 标注流转、P2-3 最小指标采集和 P2-4 模型服务适配均已完成 |
+| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1 有条件通过；P2-1 动态 scene 读取、P2-2 Bad Case 标注流转、P2-3 最小指标采集、P2-4 模型服务适配和 P2-5 LLM 受控兜底均已完成 |
 
 ## 交付物
 
@@ -35,6 +35,7 @@
 - P2-2 Bad Case 标注流转审查：`docs/codex/v1/trace/intent-hub-p2-bad-case-workflow-trace.md`
 - P2-3 指标观测审查：`docs/codex/v1/trace/intent-hub-p2-metrics-observability-trace.md`
 - P2-4 模型服务适配审查：`docs/codex/v1/trace/intent-hub-p2-model-service-adapter-trace.md`
+- P2-5 LLM 受控兜底审查：`docs/codex/v1/trace/intent-hub-p2-llm-governance-trace.md`
 - HTML 阅读版：`docs/codex/v1/intent-hub-lifecycle.html`
 
 ## 变更记录
@@ -66,3 +67,4 @@
 - 2026-06-02：完成 P2-2 Bad Case 标注流转与样本导出最小闭环：新增 `BadCaseWorkflowAppService`、`BadCaseWorkflowPort`、标注/关闭/导出训练样本 Admin API，并接入 memory/JDBC 双实现；最小状态流转复用 `bad_case.status` 表达 `OPEN/ANNOTATED/CLOSED/EXPORTED`，暂不新增破坏性 DB migration。`mvn test` 通过，共 24 个测试。
 - 2026-06-02：完成 P2-3 最小指标采集与观测接口：新增 `IntentMetricsPort`、`MetricsAppService`、`MetricsSnapshot`、`InMemoryIntentMetricsRepository` 和 `AdminMetricsController`；支持 `GET /api/v1/admin/metrics` JSON 快照与 `GET /api/v1/admin/metrics/prometheus` 文本导出。当前不引入 Actuator/Micrometer，不改变 `/api/v1/admin/health` 口径。`mvn test` 通过，共 26 个测试。
 - 2026-06-02：完成 P2-4 模型服务适配最小闭环：新增 `ModelClientPort`、`ModelRecognitionPolicy`、`ModelServiceProperties`、`HttpModelClientAdapter` 和 `NoopModelClientAdapter`；识别策略顺序为 Rule -> Model -> LLM，默认关闭/no-op，不影响规则主链路。`mvn test` 通过，共 29 个测试。
+- 2026-06-02：完成 P2-5 LLM 受控兜底最小闭环：新增 `LlmGovernanceProperties`、LLM HTTP adapter 请求/响应契约、已发布 `nlu_strategy.llm_policy` 读取、预算/超时门禁、有限重试和 fallback 失败关闭；默认 `intent-hub.llm.enabled=false` 且预算为 0，不影响规则和模型主链路。`mvn test` 通过，共 36 个测试。

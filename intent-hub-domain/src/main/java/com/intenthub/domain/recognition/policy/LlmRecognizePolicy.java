@@ -14,10 +14,29 @@ public class LlmRecognizePolicy implements RecognitionPolicy {
 
     @Override
     public Optional<RecognitionCandidate> recognize(RecognitionTask task) {
-        if (!task.sceneConfig().llmPolicy().enabled()) {
+        if (!active(task)) {
             return Optional.empty();
         }
         task.markPath("LlmRecognizePolicy");
-        return llmClientPort.recognize(task.envelope().text(), task.sceneConfig().sceneId());
+        try {
+            Optional<RecognitionCandidate> candidate = llmClientPort.recognize(
+                    task.envelope().text(),
+                    task.sceneConfig().sceneId(),
+                    task.sceneConfig().llmPolicy()
+            );
+            if (candidate.isEmpty()) {
+                task.markPath("LLM_FALLBACK:" + task.sceneConfig().llmPolicy().fallbackDecision());
+            }
+            return candidate;
+        } catch (RuntimeException ex) {
+            task.markPath("LLM_FALLBACK:" + task.sceneConfig().llmPolicy().fallbackDecision());
+            return Optional.empty();
+        }
+    }
+
+    private boolean active(RecognitionTask task) {
+        return task.sceneConfig().llmPolicy().enabled()
+                && task.sceneConfig().llmPolicy().dailyBudget() > 0.0
+                && task.sceneConfig().llmPolicy().timeoutMs() > 0;
     }
 }

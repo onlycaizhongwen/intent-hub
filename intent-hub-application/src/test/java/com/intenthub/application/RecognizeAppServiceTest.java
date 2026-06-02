@@ -134,6 +134,59 @@ class RecognizeAppServiceTest {
         );
     }
 
+    @Test
+    void failsClosedWhenLlmFallbackThrows() {
+        service = new RecognizeAppService(
+                envelope -> llmEnabledScene(envelope, 10.0),
+                tracePort,
+                badCasePort,
+                idempotencyPort,
+                (text, sceneId, policy) -> {
+                    throw new IllegalStateException("llm unavailable");
+                },
+                metricsPort,
+                new DisabledModelClient()
+        );
+
+        IntentResult result = service.recognize(envelope("REQ-P2-LLM-001", "长尾复杂表达"));
+
+        assertThat(result.intentCode()).isEqualTo("UNKNOWN");
+        assertThat(result.decision()).isEqualTo(Decision.REJECTED);
+        assertThat(result.recognitionPath()).containsExactly(
+                "PRE_ROUTE:order-scene:v-llm",
+                "RuleRecognitionPolicy",
+                "LlmRecognizePolicy",
+                "LLM_FALLBACK:REJECTED",
+                "POST_ROUTE:NONE"
+        );
+        assertThat(badCasePort.results).containsExactly(result);
+    }
+
+    @Test
+    void doesNotEnterLlmWhenPolicyBudgetIsZero() {
+        service = new RecognizeAppService(
+                envelope -> llmEnabledScene(envelope, 0.0),
+                tracePort,
+                badCasePort,
+                idempotencyPort,
+                (text, sceneId, policy) -> {
+                    throw new AssertionError("LLM should be blocked by zero policy budget");
+                },
+                metricsPort,
+                new DisabledModelClient()
+        );
+
+        IntentResult result = service.recognize(envelope("REQ-P2-LLM-002", "长尾复杂表达"));
+
+        assertThat(result.intentCode()).isEqualTo("UNKNOWN");
+        assertThat(result.decision()).isEqualTo(Decision.REJECTED);
+        assertThat(result.recognitionPath()).containsExactly(
+                "PRE_ROUTE:order-scene:v-llm",
+                "RuleRecognitionPolicy",
+                "POST_ROUTE:NONE"
+        );
+    }
+
     private Envelope envelope(String requestId, String text) {
         return new Envelope(
                 "demo",
@@ -147,6 +200,19 @@ class RecognizeAppServiceTest {
                 Instant.parse("2026-06-01T00:00:00Z"),
                 Map.of(),
                 List.of()
+        );
+    }
+
+    private SceneConfig llmEnabledScene(Envelope envelope, double dailyBudget) {
+        return new SceneConfig(
+                envelope.tenantId(),
+                "order-scene",
+                "v-llm",
+                0.60,
+                List.of(),
+                Map.of(),
+                Map.of("UNKNOWN", DownstreamAction.none()),
+                new LlmPolicy(true, "spring-ai-alibaba", "qwen-plus", 2000, 0, dailyBudget, "REJECTED")
         );
     }
 
@@ -168,7 +234,7 @@ class RecognizeAppServiceTest {
                             "ORDER_QUERY", new DownstreamAction("ORDER_QUERY_SYNC", "NONE", "", false, 0),
                             "ORDER_CANCEL", new DownstreamAction("ORDER_CANCEL_COMMAND", "MQ", "order.command.cancel", true, 3000)
                     ),
-                    new LlmPolicy(false, "spring-ai-alibaba", "qwen-plus", 2000, 0, "REJECTED")
+                    new LlmPolicy(false, "spring-ai-alibaba", "qwen-plus", 2000, 0, 0.0, "REJECTED")
             );
         }
     }
@@ -229,7 +295,7 @@ class RecognizeAppServiceTest {
 
     private static final class DisabledLlmClient implements LlmClientPort {
         @Override
-        public Optional<RecognitionCandidate> recognize(String text, String sceneId) {
+        public Optional<RecognitionCandidate> recognize(String text, String sceneId, LlmPolicy policy) {
             return Optional.empty();
         }
     }

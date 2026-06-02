@@ -128,13 +128,13 @@ class RecognizeControllerTest {
                         "ORDER_QUERY", new DownstreamAction("ORDER_QUERY_SYNC", "NONE", "", false, 0),
                         "ORDER_CANCEL", new DownstreamAction("ORDER_CANCEL_COMMAND", "MQ", "order.command.cancel", true, 3000)
                 ),
-                new LlmPolicy(false, "spring-ai-alibaba", "qwen-plus", 2000, 0, "REJECTED")
+                new LlmPolicy(false, "spring-ai-alibaba", "qwen-plus", 2000, 0, 0.0, "REJECTED")
         );
     }
 
     private static final class DisabledLlmClient implements LlmClientPort {
         @Override
-        public Optional<RecognitionCandidate> recognize(String text, String sceneId) {
+        public Optional<RecognitionCandidate> recognize(String text, String sceneId, LlmPolicy policy) {
             return Optional.empty();
         }
     }

@@ -14,6 +14,13 @@ intent-hub:
     enabled: false
     base-url: ""
     timeout-ms: 2000
+  llm:
+    enabled: false
+    base-url: ""
+    timeout-ms: 3000
+    max-retries: 0
+    daily-budget: 0.0
+    min-confidence: 0.70
 
 ---
 spring:

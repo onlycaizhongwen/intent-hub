@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-1 动态 scene 读取最小闭环已完成，P2 试点扩展进行中
+- 当前阶段：P2-2 Bad Case 标注流转与样本导出最小闭环已完成，P2 试点扩展进行中
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -15,7 +15,7 @@
 
 | 主题 | Requirements | Design | Plan | Trace/Review | 整体状态 |
 | --- | --- | --- | --- | --- | --- |
-| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1 有条件通过；P2-1 动态 scene 读取已完成最小闭环 |
+| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1 有条件通过；P2-1 动态 scene 读取与 P2-2 Bad Case 标注流转均已完成最小闭环 |
 
 ## 交付物
 
@@ -32,6 +32,7 @@
 - 数据流向图 v2 影响评估：`docs/codex/v1/trace/intent-hub-data-flow-v2-review.md`
 - P1 退出评审：`docs/codex/v1/trace/intent-hub-p1-exit-review.md`
 - P2-1 动态 scene 读取审查：`docs/codex/v1/trace/intent-hub-p2-dynamic-scene-routing-trace.md`
+- P2-2 Bad Case 标注流转审查：`docs/codex/v1/trace/intent-hub-p2-bad-case-workflow-trace.md`
 - HTML 阅读版：`docs/codex/v1/intent-hub-lifecycle.html`
 
 ## 变更记录
@@ -60,3 +61,4 @@
 - 2026-06-01：完成 P1-5 可观测与数据回流最小查询闭环：新增 `ObservabilityAppService`、`ObservabilityQueryPort`、trace/bad case 查询模型和 `AdminObservabilityController`；支持 `GET /api/v1/admin/observability/traces/{traceId}` 与 `GET /api/v1/admin/observability/bad-cases`。`mvn test` 通过，共 17 个测试；默认 memory 模式已验证 `TRACE-OBS-SMOKE-003` 查询到 `ORDER_QUERY/SUCCESS`，`local-jdbc` 模式已验证 `TRACE-JDBC-OBS-003` 从 PostgreSQL 查询到 `INVOICE_QUERY/SUCCESS`。
 - 2026-06-01：完成 P1-6 退出评审，结论为有条件通过（Conditionally Approved）；P1 已具备可运行、可配置、可回溯、可持久化的最小闭环，可进入 P2 规划与试点扩展。非阻塞遗留项包括指标采集、bad case 标注流转、动态 scene 路由、配置对象删除/批量导入、真实模型服务和真实 LLM 小流量验证。
 - 2026-06-01：完成 P2-1 动态 scene 读取最小闭环：`JdbcSceneConfigRepository` 不再固定 `order-scene`，支持 Envelope `metadata.scene_id` / `metadata.sceneId` 显式选择已发布 scene；未指定时读取租户最新 `PUBLISHED` scene；指定 scene 无发布版本时回退内置 `order-scene/v1-p1`。新增 `JdbcSceneConfigRepositoryTest` 覆盖 metadata 指定、租户最新发布和回退兼容，`mvn test` 通过，共 20 个测试。
+- 2026-06-02：完成 P2-2 Bad Case 标注流转与样本导出最小闭环：新增 `BadCaseWorkflowAppService`、`BadCaseWorkflowPort`、标注/关闭/导出训练样本 Admin API，并接入 memory/JDBC 双实现；最小状态流转复用 `bad_case.status` 表达 `OPEN/ANNOTATED/CLOSED/EXPORTED`，暂不新增破坏性 DB migration。`mvn test` 通过，共 24 个测试。

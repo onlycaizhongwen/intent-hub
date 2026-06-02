@@ -32,6 +32,7 @@
 - P1-3 已完成：Flyway migration、JDBC adapter、默认 memory fallback、`local-jdbc` PostgreSQL profile 和真实 PostgreSQL 联调均已通过。
 - P1-4 已完成配置版本生命周期、JDBC 联调、配置对象最小 CRUD 和已发布配置读取：配置版本草稿、查询、校验、发布、回滚、导入导出、审计端口/API、配置对象 Upsert/List、识别链路读取最新 PUBLISHED 配置均已落地。
 - P1-5 已完成可观测最小查询闭环：trace_id 查询和 bad case 筛选 API 已落地，并通过 memory 与 local-jdbc 冒烟。
+- P2-2 已完成 bad case 标注流转与样本导出最小闭环：标注、关闭、导出训练样本和导出后标记已落地，memory/JDBC 双实现已接入。
 
 ## 总体顺序
 
@@ -332,7 +333,48 @@ P1 下一步按 6 个工作包推进：
 剩余工作：
 
 - 补 Prometheus/OpenTelemetry 指标采集。
-- 补 bad case 标注、关闭、导出和训练数据回流状态流转。
+- bad case 标注、关闭、导出和训练数据回流状态流转已在 P2-2 完成最小闭环；后续补独立标注历史表、审核流、批量导出和训练任务联动。
+
+### P2-2 Bad Case 标注流转与样本导出结果
+
+目标：
+
+- 在 P1 bad case 查询基础上补齐最小运营闭环。
+- 让拒识/低置信度样本可以被人工标注、关闭，并导出为训练样本格式。
+- 不在 P2-2 引入破坏性 DB migration，优先复用现有 `bad_case.status` 字段。
+
+已落地内容：
+
+- 应用层：`BadCaseWorkflowAppService`、`BadCaseWorkflowPort`、`BadCaseActionResult`、`BadCaseTrainingSample`。
+- 接口层：`BadCaseAnnotationRequest`、`BadCaseActionRequest`，并扩展 `AdminObservabilityController`。
+- 基础设施层：`InMemoryBadCaseRepository` 与 `JdbcBadCaseRepository` 同时实现 `BadCaseWorkflowPort`。
+
+接口：
+
+| 接口 | 方法 | 说明 |
+| --- | --- | --- |
+| `/api/v1/admin/observability/bad-cases/{traceId}/annotate` | POST | 标注 bad case，写入修正意图与备注，状态变为 `ANNOTATED` |
+| `/api/v1/admin/observability/bad-cases/{traceId}/close` | POST | 关闭 bad case，状态变为 `CLOSED` |
+| `/api/v1/admin/observability/bad-cases/export` | GET | 按租户、场景、状态和 limit 导出训练样本，可选 `markExported=true` |
+
+状态流转：
+
+- `OPEN`：识别链路自动沉淀的原始 bad case。
+- `ANNOTATED`：人工补充修正意图和备注。
+- `EXPORTED`：导出训练样本后可选择标记。
+- `CLOSED`：人工确认已处理。
+
+验证：
+
+- `BadCaseWorkflowRepositoryTest` 覆盖 memory 模式 `OPEN -> ANNOTATED -> EXPORTED -> CLOSED`。
+- `AdminObservabilityControllerTest` 覆盖 annotate、close、export 接口契约。
+- `mvn test` 通过，共 24 个测试。
+
+当前边界：
+
+- P2-2 不新增独立标注历史表，JDBC 标注复用 `intent_code` 和 `reason` 承载修正意图与备注。
+- 导出训练样本先返回 JSON 列表，不做文件落盘、对象存储、Kafka 投递或训练任务触发。
+- actor 当前只体现在 API 返回和应用服务入参，尚未写入审计表。
 
 ## P1-6 P1 退出评审与 P2 准入
 
@@ -399,4 +441,4 @@ mvn clean package
 java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar
 ```
 
-当前 P1-1、P1-2、P1-3、P1-4、P1-5 与 P1-6 均已完成；P2-1 动态 scene 读取最小闭环也已完成。下一步建议进入 P2-2 bad case 标注流转，同时并行补指标采集和配置治理细化。
+当前 P1-1、P1-2、P1-3、P1-4、P1-5 与 P1-6 均已完成；P2-1 动态 scene 读取和 P2-2 bad case 标注流转最小闭环也已完成。下一步建议进入 P2-3 指标采集与观测看板，同时并行补配置治理细化和真实模型服务试点。

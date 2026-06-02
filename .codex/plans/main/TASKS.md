@@ -29,3 +29,9 @@
 - 摘要：替换 P1 已发布配置读取中的固定 `order-scene`，实现 Envelope metadata 显式 scene 优先、已发布版本兜底、内置配置最终回退的最小动态 scene 读取闭环。本地提交 `8b9e187` 已完成。
 - 过程文件：`.codex/plans/main/p2-dynamic-scene-routing/process.md`
 - 恢复提示：网络恢复后执行 `git push origin main` 并确认远端 main 包含 `8b9e187`。
+
+## P2-2 Bad Case 标注流转与样本导出
+- 状态：本地已提交，远端推送待网络恢复
+- 摘要：在 P1 bad case 查询基础上补最小运营闭环：标注、关闭、导出训练样本格式，并保持 memory/JDBC 双实现；`mvn test` 已通过，共 24 个测试；本地提交已完成，以当前 HEAD 为准，GitHub 443 超时导致远端同步暂未确认。
+- 过程文件：`.codex/plans/main/p2-bad-case-workflow/process.md`
+- 恢复提示：读取 process.md，如需恢复则从提交、推送和远端确认继续。

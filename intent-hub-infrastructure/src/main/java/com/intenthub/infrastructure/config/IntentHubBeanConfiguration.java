@@ -10,6 +10,8 @@ import com.intenthub.application.config.ConfigObjectAppService;
 import com.intenthub.application.config.ConfigObjectPort;
 import com.intenthub.application.config.ConfigVersionAppService;
 import com.intenthub.application.config.ConfigVersionPort;
+import com.intenthub.application.observability.BadCaseWorkflowAppService;
+import com.intenthub.application.observability.BadCaseWorkflowPort;
 import com.intenthub.application.observability.ObservabilityAppService;
 import com.intenthub.application.observability.ObservabilityQueryPort;
 import com.intenthub.domain.recognition.policy.LlmClientPort;
@@ -55,5 +57,10 @@ public class IntentHubBeanConfiguration {
     @Bean
     ObservabilityAppService observabilityAppService(ObservabilityQueryPort observabilityQueryPort) {
         return new ObservabilityAppService(observabilityQueryPort);
+    }
+
+    @Bean
+    BadCaseWorkflowAppService badCaseWorkflowAppService(BadCaseWorkflowPort badCaseWorkflowPort) {
+        return new BadCaseWorkflowAppService(badCaseWorkflowPort);
     }
 }

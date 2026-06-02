@@ -10,6 +10,8 @@ import com.intenthub.domain.recognition.InputType;
 import com.intenthub.domain.recognition.IntentResult;
 import com.intenthub.domain.recognition.RecognitionCandidate;
 import com.intenthub.domain.recognition.policy.LlmClientPort;
+import com.intenthub.application.metrics.IntentMetricsPort;
+import com.intenthub.application.metrics.MetricsSnapshot;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -29,6 +31,7 @@ class RecognizeAppServiceTest {
     private RecordingTracePort tracePort;
     private RecordingBadCasePort badCasePort;
     private StableIdempotencyPort idempotencyPort;
+    private RecordingMetricsPort metricsPort;
     private RecognizeAppService service;
 
     @BeforeEach
@@ -36,12 +39,14 @@ class RecognizeAppServiceTest {
         tracePort = new RecordingTracePort();
         badCasePort = new RecordingBadCasePort();
         idempotencyPort = new StableIdempotencyPort();
+        metricsPort = new RecordingMetricsPort();
         service = new RecognizeAppService(
                 new TestSceneConfigPort(),
                 tracePort,
                 badCasePort,
                 idempotencyPort,
-                new DisabledLlmClient()
+                new DisabledLlmClient(),
+                metricsPort
         );
     }
 
@@ -60,6 +65,7 @@ class RecognizeAppServiceTest {
         );
         assertThat(tracePort.results).containsExactly(result);
         assertThat(badCasePort.results).isEmpty();
+        assertThat(metricsPort.results).containsExactly(result);
     }
 
     @Test
@@ -178,6 +184,20 @@ class RecognizeAppServiceTest {
             } catch (NoSuchAlgorithmException ex) {
                 throw new IllegalStateException("SHA-256 is not available", ex);
             }
+        }
+    }
+
+    private static final class RecordingMetricsPort implements IntentMetricsPort {
+        private final List<IntentResult> results = new ArrayList<>();
+
+        @Override
+        public void recordRecognition(Envelope envelope, IntentResult result, long latencyMillis) {
+            results.add(result);
+        }
+
+        @Override
+        public MetricsSnapshot snapshot() {
+            return new MetricsSnapshot(0, 0, 0, 0, 0, 0, Map.of(), Map.of(), Map.of(), Instant.EPOCH, Instant.EPOCH);
         }
     }
 

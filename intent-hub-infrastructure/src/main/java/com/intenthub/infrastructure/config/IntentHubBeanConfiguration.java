@@ -10,6 +10,8 @@ import com.intenthub.application.config.ConfigObjectAppService;
 import com.intenthub.application.config.ConfigObjectPort;
 import com.intenthub.application.config.ConfigVersionAppService;
 import com.intenthub.application.config.ConfigVersionPort;
+import com.intenthub.application.metrics.IntentMetricsPort;
+import com.intenthub.application.metrics.MetricsAppService;
 import com.intenthub.application.observability.BadCaseWorkflowAppService;
 import com.intenthub.application.observability.BadCaseWorkflowPort;
 import com.intenthub.application.observability.ObservabilityAppService;
@@ -26,14 +28,16 @@ public class IntentHubBeanConfiguration {
             RecognitionTracePort recognitionTracePort,
             BadCasePort badCasePort,
             IdempotencyPort idempotencyPort,
-            LlmClientPort llmClientPort
+            LlmClientPort llmClientPort,
+            IntentMetricsPort metricsPort
     ) {
         return new RecognizeAppService(
                 sceneConfigPort,
                 recognitionTracePort,
                 badCasePort,
                 idempotencyPort,
-                llmClientPort
+                llmClientPort,
+                metricsPort
         );
     }
 
@@ -62,5 +66,10 @@ public class IntentHubBeanConfiguration {
     @Bean
     BadCaseWorkflowAppService badCaseWorkflowAppService(BadCaseWorkflowPort badCaseWorkflowPort) {
         return new BadCaseWorkflowAppService(badCaseWorkflowPort);
+    }
+
+    @Bean
+    MetricsAppService metricsAppService(IntentMetricsPort metricsPort) {
+        return new MetricsAppService(metricsPort);
     }
 }

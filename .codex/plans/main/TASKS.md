@@ -35,3 +35,9 @@
 - 摘要：在 P1 bad case 查询基础上补最小运营闭环：标注、关闭、导出训练样本格式，并保持 memory/JDBC 双实现；`mvn test` 已通过，共 24 个测试；本地提交已完成，以当前 HEAD 为准，GitHub 443 超时导致远端同步暂未确认。
 - 过程文件：`.codex/plans/main/p2-bad-case-workflow/process.md`
 - 恢复提示：读取 process.md，如需恢复则从提交、推送和远端确认继续。
+
+## P2-3 指标采集与观测接口
+- 状态：已完成，待提交
+- 摘要：补最小指标采集、JSON 查询和 Prometheus 文本导出；暂不引入 Actuator/Micrometer，保持当前健康检查契约；`mvn test` 已通过，共 26 个测试。
+- 过程文件：`.codex/plans/main/p2-metrics-observability/process.md`
+- 恢复提示：读取 process.md，从提交、推送和远端确认继续。

@@ -1,6 +1,8 @@
 package com.intenthub.interfaces.web;
 
 import com.intenthub.application.RecognizeAppService;
+import com.intenthub.application.metrics.IntentMetricsPort;
+import com.intenthub.application.metrics.MetricsSnapshot;
 import com.intenthub.domain.config.IntentRule;
 import com.intenthub.domain.config.LlmPolicy;
 import com.intenthub.domain.config.SceneConfig;
@@ -33,7 +35,8 @@ class RecognizeControllerTest {
                 (envelope, result) -> {
                 },
                 (envelope, action) -> envelope.tenantId() + "|" + envelope.requestId() + "|" + action.actionCode(),
-                new DisabledLlmClient()
+                new DisabledLlmClient(),
+                new NoopMetricsPort()
         ));
     }
 
@@ -131,6 +134,17 @@ class RecognizeControllerTest {
         @Override
         public Optional<RecognitionCandidate> recognize(String text, String sceneId) {
             return Optional.empty();
+        }
+    }
+
+    private static final class NoopMetricsPort implements IntentMetricsPort {
+        @Override
+        public void recordRecognition(Envelope envelope, IntentResult result, long latencyMillis) {
+        }
+
+        @Override
+        public MetricsSnapshot snapshot() {
+            return new MetricsSnapshot(0, 0, 0, 0, 0, 0, Map.of(), Map.of(), Map.of(), Instant.EPOCH, Instant.EPOCH);
         }
     }
 }

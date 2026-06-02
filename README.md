@@ -2,7 +2,7 @@
 
 Intent Hub 是一个面向企业业务系统的意图识别与路由中枢。它不是单纯的 NLU 服务，而是把输入接入、意图识别、双阶段路由、受控 LLM 兜底、下游动作适配、配置治理、审计追踪和 bad case 回流放在同一套工程闭环中管理。
 
-当前项目已完成 P1 最小识别闭环并进入 P2 试点扩展：已具备可编译、可启动、可测试的识别主链路，并完成 PostgreSQL/Flyway 持久化、Admin 配置治理 API、已发布配置读取、可观测查询 API、P2-1 动态 scene 读取和 P2-2 Bad Case 标注/导出最小闭环。
+当前项目已完成 P1 最小识别闭环并进入 P2 试点扩展：已具备可编译、可启动、可测试的识别主链路，并完成 PostgreSQL/Flyway 持久化、Admin 配置治理 API、已发布配置读取、可观测查询 API、P2-1 动态 scene 读取、P2-2 Bad Case 标注/导出和 P2-3 最小指标采集闭环。
 
 ## 快速导航
 
@@ -15,7 +15,7 @@ Intent Hub 是一个面向企业业务系统的意图识别与路由中枢。它
 - [当前进度](#当前进度)
 - [关键文档](#关键文档)
 
-推荐先阅读 HTML 总览：[IntentHub 生命周期规划阅读版](docs/codex/v1/intent-hub-lifecycle.html)，再按需查看 [P0 契约与 Schema](docs/codex/v1/designs/intent-hub-p0-contract-schema-design.md)、[P1 最小闭环设计](docs/codex/v1/designs/intent-hub-p1-minimal-loop-design.md)、[P2-1 动态 scene 读取审查](docs/codex/v1/trace/intent-hub-p2-dynamic-scene-routing-trace.md) 和 [P2-2 Bad Case 标注流转审查](docs/codex/v1/trace/intent-hub-p2-bad-case-workflow-trace.md)。
+推荐先阅读 HTML 总览：[IntentHub 生命周期规划阅读版](docs/codex/v1/intent-hub-lifecycle.html)，再按需查看 [P0 契约与 Schema](docs/codex/v1/designs/intent-hub-p0-contract-schema-design.md)、[P1 最小闭环设计](docs/codex/v1/designs/intent-hub-p1-minimal-loop-design.md)、[P2-1 动态 scene 读取审查](docs/codex/v1/trace/intent-hub-p2-dynamic-scene-routing-trace.md)、[P2-2 Bad Case 标注流转审查](docs/codex/v1/trace/intent-hub-p2-bad-case-workflow-trace.md) 和 [P2-3 指标观测审查](docs/codex/v1/trace/intent-hub-p2-metrics-observability-trace.md)。
 
 ## 核心原则
 
@@ -140,6 +140,8 @@ intent-hub-parent
 - `POST /api/v1/admin/observability/bad-cases/{traceId}/annotate`：标注 bad case，写入修正意图与备注，状态变为 `ANNOTATED`。
 - `POST /api/v1/admin/observability/bad-cases/{traceId}/close`：关闭 bad case，状态变为 `CLOSED`。
 - `GET /api/v1/admin/observability/bad-cases/export`：导出训练样本格式，可选择导出后标记为 `EXPORTED`。
+- `GET /api/v1/admin/metrics`：查询最小指标 JSON 快照。
+- `GET /api/v1/admin/metrics/prometheus`：导出 Prometheus 文本格式指标。
 
 示例：
 
@@ -150,9 +152,13 @@ curl -X POST "http://localhost:8080/api/v1/admin/observability/bad-cases/TRACE-0
   -H "Content-Type: application/json" \
   -d '{"correctedIntentCode":"ORDER_QUERY","note":"人工修正为订单查询","actor":"reviewer"}'
 curl "http://localhost:8080/api/v1/admin/observability/bad-cases/export?tenantId=demo&sceneId=order-scene&status=ANNOTATED&markExported=true"
+curl "http://localhost:8080/api/v1/admin/metrics"
+curl "http://localhost:8080/api/v1/admin/metrics/prometheus"
 ```
 
 P2-2 当前采用最小流转：复用 `bad_case.status` 表达 `OPEN`、`ANNOTATED`、`CLOSED`、`EXPORTED`，暂不新增独立标注表；JDBC 标注会用现有 `intent_code` 和 `reason` 字段承载修正意图与备注，后续 P2.x 再扩展为完整标注历史和审核流。
+
+P2-3 当前采用最小指标闭环：不引入 Actuator/Micrometer，不改变 `/api/v1/admin/health` 口径；先通过应用层 `IntentMetricsPort` 与内存实现记录请求量、decision、intent、scene、bad case 候选数、LLM fallback 次数和耗时统计，后续再替换或桥接到 OpenTelemetry/Micrometer。
 
 ### 持久化
 
@@ -191,7 +197,7 @@ mvn test
 mvn clean package
 ```
 
-当前验证结果：`mvn test` 通过，共 24 个测试。
+当前验证结果：`mvn test` 通过，共 26 个测试。
 
 ### 启动默认内存模式
 
@@ -269,6 +275,7 @@ java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar 
 - P1-6 退出评审已完成，结论为有条件通过，可进入 P2 规划与试点扩展。
 - P2-1 动态 scene 读取最小闭环已完成：JDBC 已发布配置读取不再固定 `order-scene`，支持 metadata 指定 scene、租户最新发布 scene 兜底和内置配置最终回退。
 - P2-2 Bad Case 标注流转与样本导出最小闭环已完成：支持标注、关闭、导出训练样本和导出后标记，memory/JDBC 双实现均已接入应用端口。
+- P2-3 最小指标采集闭环已完成：支持识别链路指标采集、Admin JSON 快照和 Prometheus 文本导出。
 
 P1-4 JDBC 联调结果：
 
@@ -296,11 +303,18 @@ P2-2 Bad Case 流转验证结果：
 - memory repository 已验证 `OPEN -> ANNOTATED -> EXPORTED -> CLOSED` 最小状态流转。
 - `mvn test` 通过，共 24 个测试。
 
+P2-3 指标采集验证结果：
+
+- 新增 `IntentMetricsPort`、`MetricsAppService`、`MetricsSnapshot`。
+- 新增 `InMemoryIntentMetricsRepository`，识别链路自动记录请求总数、bad case 候选、LLM fallback、decision、intent、scene 和耗时。
+- 新增 `GET /api/v1/admin/metrics` 与 `GET /api/v1/admin/metrics/prometheus`。
+- `mvn test` 通过，共 26 个测试。
+
 ## 下一步
 
-- P2-3：Prometheus/OpenTelemetry 指标、Grafana 看板和基础告警。
 - P2-4：接入一个真实模型服务，FastAPI 优先，Triton 后置。
 - P2-5：小流量启用 Spring AI Alibaba 兜底，验证超时、预算、熔断和 fallback。
+- P2.x：将当前最小指标端口桥接 Micrometer/OpenTelemetry，补 Grafana 看板和基础告警。
 - P2.x：补 Bad Case 独立标注历史表、批量导入导出、审核状态和训练任务联动。
 
 ## 关键文档
@@ -316,6 +330,7 @@ P2-2 Bad Case 流转验证结果：
 | [P1 退出评审](docs/codex/v1/trace/intent-hub-p1-exit-review.md) | P1 有条件通过结论、遗留风险和 P2 准入建议 |
 | [P2-1 动态 scene 读取审查](docs/codex/v1/trace/intent-hub-p2-dynamic-scene-routing-trace.md) | 动态 scene 读取实现结果、验证证据和剩余风险 |
 | [P2-2 Bad Case 标注流转审查](docs/codex/v1/trace/intent-hub-p2-bad-case-workflow-trace.md) | Bad Case 标注、关闭、导出训练样本的实现结果、验证证据和剩余风险 |
+| [P2-3 指标观测审查](docs/codex/v1/trace/intent-hub-p2-metrics-observability-trace.md) | 最小指标采集、JSON 快照和 Prometheus 文本导出的实现结果与剩余风险 |
 | [HTML 阅读版](docs/codex/v1/intent-hub-lifecycle.html) | 面向阅读的全生命周期规划页 |
 
 ## 原始设计资料

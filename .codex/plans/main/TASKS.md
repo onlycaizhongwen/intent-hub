@@ -31,13 +31,13 @@
 - 恢复提示：网络恢复后执行 `git push origin main` 并确认远端 main 包含 `8b9e187`。
 
 ## P2-2 Bad Case 标注流转与样本导出
-- 状态：本地已提交，远端推送待网络恢复
-- 摘要：在 P1 bad case 查询基础上补最小运营闭环：标注、关闭、导出训练样本格式，并保持 memory/JDBC 双实现；`mvn test` 已通过，共 24 个测试；本地提交已完成，以当前 HEAD 为准，GitHub 443 超时导致远端同步暂未确认。
+- 状态：已提交并推送
+- 摘要：在 P1 bad case 查询基础上补最小运营闭环：标注、关闭、导出训练样本格式，并保持 memory/JDBC 双实现；`mvn test` 已通过，共 24 个测试；已随 `main` 推送到 GitHub。
 - 过程文件：`.codex/plans/main/p2-bad-case-workflow/process.md`
-- 恢复提示：读取 process.md，如需恢复则从提交、推送和远端确认继续。
+- 恢复提示：P2-2 已完成，可从 P2-3 或后续 P2.x 继续。
 
 ## P2-3 指标采集与观测接口
-- 状态：已完成，待提交
-- 摘要：补最小指标采集、JSON 查询和 Prometheus 文本导出；暂不引入 Actuator/Micrometer，保持当前健康检查契约；`mvn test` 已通过，共 26 个测试。
+- 状态：已提交并推送
+- 摘要：补最小指标采集、JSON 查询和 Prometheus 文本导出；暂不引入 Actuator/Micrometer，保持当前健康检查契约；`mvn test` 已通过，共 26 个测试；已推送到 GitHub。
 - 过程文件：`.codex/plans/main/p2-metrics-observability/process.md`
-- 恢复提示：读取 process.md，从提交、推送和远端确认继续。
+- 恢复提示：P2-3 已完成，可从真实模型服务、小流量 LLM 兜底或 Micrometer/OpenTelemetry 桥接继续。

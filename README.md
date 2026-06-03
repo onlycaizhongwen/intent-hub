@@ -162,7 +162,7 @@ P2-3 当前采用最小指标闭环：不引入 Actuator/Micrometer，不改变 
 
 P2-4 当前采用最小模型服务适配：新增 `ModelClientPort` 和 `ModelRecognitionPolicy`，识别顺序为 Rule -> Model -> LLM；默认 `intent-hub.model-service.enabled=false`，无 `base-url` 时 no-op，不影响规则主链路。HTTP adapter 按 FastAPI 风格调用 `POST {baseUrl}/recognize`，并通过 `GET {baseUrl}/health` 接入 Admin 健康检查；模型服务异常会记录 `MODEL_FALLBACK:CLOSED` 并失败关闭，不打断识别链路。当前已新增 [FastAPI 模型服务示例](examples/model-service-fastapi/README.md)。
 
-P2-5 当前采用受控 LLM 兜底：新增 `intent-hub.llm.*` 全局治理开关，并从已发布 `nlu_strategy.llm_policy` 读取 scene 级策略。只有全局开关、endpoint、预算、策略开关、策略预算和超时同时满足时，`TongyiLlmAdapter` 才会尝试外呼；当 provider 为 `spring-ai-alibaba` 且存在 `ChatClient.Builder` 时优先走 Spring AI Alibaba `ChatClient`，否则保留 HTTP 契约 fallback 调用 `POST {baseUrl}/recognize`。调用失败会在识别路径中记录 `LLM_FALLBACK:{fallbackDecision}` 并失败关闭，不影响规则和模型链路。当前已在最小指标中记录 LLM 外呼预算消费尝试，完整按日配额扣减和持久化审计后续补齐。
+P2-5 当前采用受控 LLM 兜底：新增 `intent-hub.llm.*` 全局治理开关，并从已发布 `nlu_strategy.llm_policy` 读取 scene 级策略。只有全局开关、endpoint、预算、策略开关、策略预算和超时同时满足时，`TongyiLlmAdapter` 才会尝试外呼；当 provider 为 `spring-ai-alibaba` 且存在 `ChatClient.Builder` 时优先走 Spring AI Alibaba `ChatClient`，否则保留 HTTP 契约 fallback 调用 `POST {baseUrl}/recognize`。调用失败会在识别路径中记录 `LLM_FALLBACK:{fallbackDecision}` 并失败关闭，不影响规则和模型链路。当前已在真实外呼前执行最小日预算门禁，并通过 `llm_budget_usage` 持久化审计与 `GET /api/v1/admin/llm/budget-usage` 暴露管理端查询；强并发精确扣减和分布式预算保护仍作为 P2.x 增强。
 
 ### 持久化
 
@@ -201,7 +201,7 @@ mvn test
 mvn clean package
 ```
 
-当前验证结果：`mvn test` 通过，共 47 个测试。
+当前验证结果：`mvn -pl intent-hub-infrastructure,intent-hub-interfaces -am test` 通过，相关模块共 50 个测试；上一轮全量 `mvn test` 通过，共 47 个测试。
 
 ### 启动默认内存模式
 
@@ -364,18 +364,18 @@ P2-5 LLM 受控兜底验证结果：
 - 新增 `LlmGovernanceProperties` 与 `TongyiLlmAdapter`，默认 `intent-hub.llm.enabled=false` 且 `daily-budget=0.0`。
 - `JdbcSceneConfigRepository` 已从已发布 `nlu_strategy.llm_policy` 读取 `enabled/provider/model/timeoutMs/maxRetries/dailyBudget/fallbackDecision`。
 - 应用层已验证 LLM provider 异常时失败关闭并记录 `LLM_FALLBACK:REJECTED`。
-- 基础设施层已验证治理关闭、策略预算为 0、成功返回候选、有限重试后失败四类场景。
+- 基础设施层已验证治理关闭、策略预算为 0、日预算耗尽、全局预算收紧、成功返回候选、有限重试后失败等场景。
 - 模型服务和 LLM HTTP adapter 已通过 `SimpleClientHttpRequestFactory` 绑定 connect/read timeout。
 - LLM adapter 仅在真实外呼尝试前记录预算消费，治理关闭或 scene 预算为 0 时不记账。
-- 已新增 LLM 预算审计端口和 `llm_budget_usage` 持久化表，按 tenant、scene、日期、provider、model 记录外呼尝试次数和消费单位；当前用于审计，后续升级为强配额扣减。
+- 已新增 LLM 预算审计端口和 `llm_budget_usage` 持久化表，按 tenant、scene、日期、provider、model 记录外呼尝试次数和消费单位；`TongyiLlmAdapter` 会在外呼前读取当日用量，达到全局预算与 scene 预算较小值时直接返回空候选；管理端可通过 `GET /api/v1/admin/llm/budget-usage?tenantId=...&sceneId=...&usageDate=YYYY-MM-DD` 查询用量。
 - `TongyiLlmAdapter` 已预接入 Spring AI Alibaba `ChatClient` 分支，并保留 HTTP 契约 fallback。
 - 新增 `dashscope-smoke` profile 与 `scripts/dashscope-smoke.ps1`，真实沙箱冒烟所需的配置模板、凭证注入方式和验证步骤已准备好；真实外呼需运行时提供 `DASHSCOPE_API_KEY`。
-- `mvn test` 通过，共 47 个测试。
+- `mvn -pl intent-hub-infrastructure,intent-hub-interfaces -am test` 通过，相关模块共 50 个测试；上一轮全量 `mvn test` 通过，共 47 个测试。
 
 ## 下一步
 
 - P2.x：补更完整的模型服务样本、阈值、版本策略和部署化联调；FastAPI 示例工程、adapter 本地 HTTP server 冒烟、健康检查和本地真实联调已覆盖。
-- P2.x：已完成 LLM adapter 的 Spring AI Alibaba `ChatClient` 预接入和 DashScope 沙箱冒烟脚本准备；下一步在提供沙箱凭证后补真实 trace/metrics/bad case 证据。
+- P2.x：已完成 LLM adapter 的 Spring AI Alibaba `ChatClient` 预接入、DashScope 沙箱冒烟脚本准备、日预算最小门禁和管理端查询；下一步在提供沙箱凭证后补真实 trace/metrics/bad case 证据，并补跨实例强配额扣减。
 - P2.x：将当前最小指标端口桥接 Micrometer/OpenTelemetry，补 Grafana 看板和基础告警。
 - P2.x：补 Bad Case 独立标注历史表、批量导入导出、审核状态和训练任务联动。
 
@@ -394,7 +394,7 @@ P2-5 LLM 受控兜底验证结果：
 | [P2-2 Bad Case 标注流转审查](docs/codex/v1/trace/intent-hub-p2-bad-case-workflow-trace.md) | Bad Case 标注、关闭、导出训练样本的实现结果、验证证据和剩余风险 |
 | [P2-3 指标观测审查](docs/codex/v1/trace/intent-hub-p2-metrics-observability-trace.md) | 最小指标采集、JSON 快照和 Prometheus 文本导出的实现结果与剩余风险 |
 | [P2-4 模型服务适配审查](docs/codex/v1/trace/intent-hub-p2-model-service-adapter-trace.md) | FastAPI 风格模型服务 adapter、策略顺序、健康检查和默认关闭边界 |
-| [P2-5 LLM 受控兜底审查](docs/codex/v1/trace/intent-hub-p2-llm-governance-trace.md) | LLM 全局治理、scene 策略读取、预算门禁、有限重试和 fallback 失败关闭 |
+| [P2-5 LLM 受控兜底审查](docs/codex/v1/trace/intent-hub-p2-llm-governance-trace.md) | LLM 全局治理、scene 策略读取、日预算门禁、管理端查询、有限重试和 fallback 失败关闭 |
 | [HTML 阅读版](docs/codex/v1/intent-hub-lifecycle.html) | 面向阅读的全生命周期规划页 |
 
 ## 原始设计资料

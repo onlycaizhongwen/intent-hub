@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClient;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
 
@@ -72,6 +73,9 @@ public class TongyiLlmAdapter implements LlmClientPort {
         int attempts = Math.min(policy.maxRetries(), properties.maxRetries()) + 1;
         for (int attempt = 0; attempt < attempts; attempt++) {
             try {
+                if (budgetExhausted(tenantId, sceneId, policy)) {
+                    return Optional.empty();
+                }
                 metricsPort.recordLlmBudgetConsumption(1.0);
                 budgetAuditPort.recordAttempt(tenantId, sceneId, policy.provider(), policy.model(), 1.0);
                 LlmRecognitionResponse response = recognizeByProvider(text, sceneId, policy);
@@ -88,6 +92,12 @@ public class TongyiLlmAdapter implements LlmClientPort {
                 && policy.enabled()
                 && policy.dailyBudget() > 0.0
                 && policy.timeoutMs() > 0;
+    }
+
+    private boolean budgetExhausted(String tenantId, String sceneId, LlmPolicy policy) {
+        double effectiveBudget = Math.min(properties.dailyBudget(), policy.dailyBudget());
+        LlmBudgetUsage usage = budgetAuditPort.dailyUsage(tenantId, sceneId, LocalDate.now(ZoneOffset.UTC));
+        return usage.consumedUnits() >= effectiveBudget;
     }
 
     private LlmRecognitionResponse recognizeByProvider(String text, String sceneId, LlmPolicy policy) {

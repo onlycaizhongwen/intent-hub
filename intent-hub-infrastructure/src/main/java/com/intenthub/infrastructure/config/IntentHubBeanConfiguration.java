@@ -11,6 +11,7 @@ import com.intenthub.application.config.ConfigObjectPort;
 import com.intenthub.application.config.ConfigVersionAppService;
 import com.intenthub.application.config.ConfigVersionPort;
 import com.intenthub.application.llm.LlmBudgetAuditPort;
+import com.intenthub.application.llm.LlmBudgetAppService;
 import com.intenthub.application.metrics.IntentMetricsPort;
 import com.intenthub.application.metrics.MetricsAppService;
 import com.intenthub.application.observability.BadCaseWorkflowAppService;
@@ -85,6 +86,11 @@ public class IntentHubBeanConfiguration {
     @Bean
     MetricsAppService metricsAppService(IntentMetricsPort metricsPort) {
         return new MetricsAppService(metricsPort);
+    }
+
+    @Bean
+    LlmBudgetAppService llmBudgetAppService(LlmBudgetAuditPort budgetAuditPort) {
+        return new LlmBudgetAppService(budgetAuditPort);
     }
 
     @Bean

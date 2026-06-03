@@ -49,7 +49,7 @@
 - 恢复提示：P2-4 已完成并推送，可从 P2-5 或后续 P2.x 继续。
 
 ## P2-5 LLM 受控兜底
-- 状态：已完成，待集中提交
-- 摘要：补全 LLM 受控兜底最小闭环：全局治理配置、scene 级 `llm_policy` 读取、预算/超时门禁、有限重试和 fallback 失败关闭；并补齐 HTTP timeout 绑定、模型服务失败关闭、fallback 指标口径、LLM 预算消费最小计数与持久化审计、模型 adapter 本地 HTTP 冒烟、模型服务健康检查、本地真实联调、Spring AI Alibaba `ChatClient` 预接入和 DashScope 沙箱冒烟 profile/script 准备；默认关闭且预算为 0，不影响规则和模型主链路；`mvn test` 已通过，共 47 个测试。
+- 状态：P2.x 日预算门禁已完成，待用户指令推送
+- 摘要：补全 LLM 受控兜底最小闭环：全局治理配置、scene 级 `llm_policy` 读取、预算/超时门禁、有限重试和 fallback 失败关闭；并补齐 HTTP timeout 绑定、模型服务失败关闭、fallback 指标口径、LLM 预算消费最小计数与持久化审计、外呼前日预算最小门禁、管理端预算查询、模型 adapter 本地 HTTP 冒烟、模型服务健康检查、本地真实联调、Spring AI Alibaba `ChatClient` 预接入和 DashScope 沙箱冒烟 profile/script 准备；默认关闭且预算为 0，不影响规则和模型主链路；相关模块测试通过，共 50 个测试。
 - 过程文件：`.codex/plans/main/p2-llm-governance/process.md`
-- 恢复提示：读取 process.md，继续 P2.x 稳定性/真实服务冒烟；提交按用户要求等待集中提交窗口，推送 GitHub 需用户单独指令。
+- 恢复提示：读取 process.md，继续 P2.x 真实 DashScope 冒烟、跨实例强配额扣减或模型服务部署化联调；本地提交完成后，推送 GitHub 仍需用户单独指令。

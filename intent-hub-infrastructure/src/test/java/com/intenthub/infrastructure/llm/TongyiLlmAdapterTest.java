@@ -15,6 +15,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.concurrent.atomic.DoubleAdder;
 import java.util.concurrent.atomic.AtomicLong;
@@ -168,6 +169,46 @@ class TongyiLlmAdapterTest {
         server.verify();
     }
 
+    @Test
+    void exhaustedDailyBudgetReturnsEmptyWithoutRemoteAttempt() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        RecordingMetricsPort metrics = new RecordingMetricsPort();
+        RecordingBudgetAuditPort budgetAudit = new RecordingBudgetAuditPort(1.0);
+        TongyiLlmAdapter adapter = new TongyiLlmAdapter(
+                builder.baseUrl("https://llm.example.test"),
+                null,
+                new LlmGovernanceProperties(true, "https://llm.example.test", 3000, 0, 10.0, 0.70),
+                metrics,
+                budgetAudit
+        );
+
+        assertThat(adapter.recognize("text", "demo", "scene", policy(1.0))).isEmpty();
+        assertThat(metrics.attempts.get()).isZero();
+        assertThat(budgetAudit.attempts.get()).isZero();
+        server.verify();
+    }
+
+    @Test
+    void globalDailyBudgetAlsoLimitsPolicyBudget() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        RecordingMetricsPort metrics = new RecordingMetricsPort();
+        RecordingBudgetAuditPort budgetAudit = new RecordingBudgetAuditPort(5.0);
+        TongyiLlmAdapter adapter = new TongyiLlmAdapter(
+                builder.baseUrl("https://llm.example.test"),
+                null,
+                new LlmGovernanceProperties(true, "https://llm.example.test", 3000, 0, 5.0, 0.70),
+                metrics,
+                budgetAudit
+        );
+
+        assertThat(adapter.recognize("text", "demo", "scene", policy(10.0))).isEmpty();
+        assertThat(metrics.attempts.get()).isZero();
+        assertThat(budgetAudit.attempts.get()).isZero();
+        server.verify();
+    }
+
     private LlmPolicy policy(double dailyBudget) {
         return new LlmPolicy(true, "spring-ai-alibaba", "qwen-plus", 3000, 1, dailyBudget, "REJECTED");
     }
@@ -194,8 +235,17 @@ class TongyiLlmAdapterTest {
 
     private static final class RecordingBudgetAuditPort implements LlmBudgetAuditPort {
         private final AtomicLong attempts = new AtomicLong();
+        private final double consumedUnits;
         private String tenantId;
         private String sceneId;
+
+        private RecordingBudgetAuditPort() {
+            this(0.0);
+        }
+
+        private RecordingBudgetAuditPort(double consumedUnits) {
+            this.consumedUnits = consumedUnits;
+        }
 
         @Override
         public void recordAttempt(String tenantId, String sceneId, String provider, String model, double units) {
@@ -205,8 +255,8 @@ class TongyiLlmAdapterTest {
         }
 
         @Override
-        public LlmBudgetUsage dailyUsage(String tenantId, String sceneId, java.time.LocalDate usageDate) {
-            return new LlmBudgetUsage(tenantId, sceneId, usageDate, attempts.get(), attempts.get());
+        public LlmBudgetUsage dailyUsage(String tenantId, String sceneId, LocalDate usageDate) {
+            return new LlmBudgetUsage(tenantId, sceneId, usageDate, attempts.get(), consumedUnits + attempts.get());
         }
     }
 }

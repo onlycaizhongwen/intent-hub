@@ -35,6 +35,11 @@ class AdminLlmBudgetControllerTest {
         }
 
         @Override
+        public boolean tryReserveDailyBudget(String tenantId, String sceneId, String provider, String model, double units, double dailyBudget) {
+            return false;
+        }
+
+        @Override
         public LlmBudgetUsage dailyUsage(String tenantId, String sceneId, LocalDate usageDate) {
             return new LlmBudgetUsage(tenantId, sceneId, usageDate, 3, 3.0);
         }

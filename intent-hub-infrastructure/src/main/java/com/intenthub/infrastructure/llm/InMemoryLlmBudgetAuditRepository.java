@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.DoubleAdder;
 import java.util.concurrent.atomic.AtomicLong;
@@ -14,6 +15,9 @@ import java.util.concurrent.atomic.AtomicLong;
 @Component
 @ConditionalOnProperty(name = "intent-hub.persistence.mode", havingValue = "memory", matchIfMissing = true)
 public class InMemoryLlmBudgetAuditRepository implements LlmBudgetAuditPort {
+    private static final String BUDGET_PROVIDER = "__budget__";
+    private static final String BUDGET_MODEL = "__daily__";
+
     private final ConcurrentHashMap<Key, UsageCounter> counters = new ConcurrentHashMap<>();
 
     @Override
@@ -22,28 +26,57 @@ public class InMemoryLlmBudgetAuditRepository implements LlmBudgetAuditPort {
         if (boundedUnits == 0.0) {
             return;
         }
-        Key key = new Key(normalize(tenantId), normalize(sceneId), LocalDate.now(ZoneOffset.UTC));
+        Key key = new Key(normalize(tenantId), normalize(sceneId), LocalDate.now(ZoneOffset.UTC), normalize(provider), normalize(model));
         UsageCounter counter = counters.computeIfAbsent(key, ignored -> new UsageCounter());
         counter.attempts.incrementAndGet();
         counter.consumedUnits.add(boundedUnits);
     }
 
     @Override
+    public boolean tryReserveDailyBudget(String tenantId, String sceneId, String provider, String model, double units, double dailyBudget) {
+        double boundedUnits = Math.max(0.0, units);
+        double boundedBudget = Math.max(0.0, dailyBudget);
+        if (boundedUnits == 0.0 || boundedBudget == 0.0 || boundedUnits > boundedBudget) {
+            return false;
+        }
+        Key key = new Key(normalize(tenantId), normalize(sceneId), LocalDate.now(ZoneOffset.UTC), BUDGET_PROVIDER, BUDGET_MODEL);
+        UsageCounter counter = counters.computeIfAbsent(key, ignored -> new UsageCounter());
+        synchronized (counter) {
+            if (counter.consumedUnits.sum() + boundedUnits > boundedBudget) {
+                return false;
+            }
+            counter.attempts.incrementAndGet();
+            counter.consumedUnits.add(boundedUnits);
+            return true;
+        }
+    }
+
+    @Override
     public LlmBudgetUsage dailyUsage(String tenantId, String sceneId, LocalDate usageDate) {
         LocalDate date = usageDate == null ? LocalDate.now(ZoneOffset.UTC) : usageDate;
-        Key key = new Key(normalize(tenantId), normalize(sceneId), date);
-        UsageCounter counter = counters.get(key);
-        if (counter == null) {
-            return new LlmBudgetUsage(key.tenantId(), key.sceneId(), key.usageDate(), 0, 0.0);
+        String normalizedTenant = normalize(tenantId);
+        String normalizedScene = normalize(sceneId);
+        long attempts = 0;
+        double consumedUnits = 0.0;
+        for (Map.Entry<Key, UsageCounter> entry : counters.entrySet()) {
+            Key key = entry.getKey();
+            if (key.tenantId().equals(normalizedTenant)
+                    && key.sceneId().equals(normalizedScene)
+                    && key.usageDate().equals(date)
+                    && !BUDGET_PROVIDER.equals(key.provider())) {
+                UsageCounter counter = entry.getValue();
+                attempts += counter.attempts.get();
+                consumedUnits += counter.consumedUnits.sum();
+            }
         }
-        return new LlmBudgetUsage(key.tenantId(), key.sceneId(), key.usageDate(), counter.attempts.get(), counter.consumedUnits.sum());
+        return new LlmBudgetUsage(normalizedTenant, normalizedScene, date, attempts, consumedUnits);
     }
 
     private String normalize(String value) {
         return value == null || value.isBlank() ? "UNKNOWN" : value;
     }
 
-    private record Key(String tenantId, String sceneId, LocalDate usageDate) {
+    private record Key(String tenantId, String sceneId, LocalDate usageDate, String provider, String model) {
     }
 
     private static final class UsageCounter {

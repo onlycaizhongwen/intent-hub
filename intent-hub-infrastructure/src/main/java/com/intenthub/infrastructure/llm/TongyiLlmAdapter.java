@@ -13,7 +13,6 @@ import org.springframework.web.client.RestClient;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
 
@@ -73,7 +72,7 @@ public class TongyiLlmAdapter implements LlmClientPort {
         int attempts = Math.min(policy.maxRetries(), properties.maxRetries()) + 1;
         for (int attempt = 0; attempt < attempts; attempt++) {
             try {
-                if (budgetExhausted(tenantId, sceneId, policy)) {
+                if (!reserveBudget(tenantId, sceneId, policy)) {
                     return Optional.empty();
                 }
                 metricsPort.recordLlmBudgetConsumption(1.0);
@@ -94,10 +93,9 @@ public class TongyiLlmAdapter implements LlmClientPort {
                 && policy.timeoutMs() > 0;
     }
 
-    private boolean budgetExhausted(String tenantId, String sceneId, LlmPolicy policy) {
+    private boolean reserveBudget(String tenantId, String sceneId, LlmPolicy policy) {
         double effectiveBudget = Math.min(properties.dailyBudget(), policy.dailyBudget());
-        LlmBudgetUsage usage = budgetAuditPort.dailyUsage(tenantId, sceneId, LocalDate.now(ZoneOffset.UTC));
-        return usage.consumedUnits() >= effectiveBudget;
+        return budgetAuditPort.tryReserveDailyBudget(tenantId, sceneId, policy.provider(), policy.model(), 1.0, effectiveBudget);
     }
 
     private LlmRecognitionResponse recognizeByProvider(String text, String sceneId, LlmPolicy policy) {
@@ -152,6 +150,11 @@ public class TongyiLlmAdapter implements LlmClientPort {
     private static final class NoopLlmBudgetAuditPort implements LlmBudgetAuditPort {
         @Override
         public void recordAttempt(String tenantId, String sceneId, String provider, String model, double units) {
+        }
+
+        @Override
+        public boolean tryReserveDailyBudget(String tenantId, String sceneId, String provider, String model, double units, double dailyBudget) {
+            return units > 0.0 && dailyBudget >= units;
         }
 
         @Override

@@ -26,4 +26,21 @@ class InMemoryLlmBudgetAuditRepositoryTest {
         assertThat(usage.attempts()).isEqualTo(2);
         assertThat(usage.consumedUnits()).isEqualTo(3.0);
     }
+
+    @Test
+    void reservesBudgetWithoutDoubleCountingDailyUsage() {
+        InMemoryLlmBudgetAuditRepository repository = new InMemoryLlmBudgetAuditRepository();
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+
+        assertThat(repository.tryReserveDailyBudget("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0, 1.0))
+                .isTrue();
+        assertThat(repository.tryReserveDailyBudget("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0, 1.0))
+                .isFalse();
+        repository.recordAttempt("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0);
+
+        LlmBudgetUsage usage = repository.dailyUsage("tenant-a", "scene-a", today);
+
+        assertThat(usage.attempts()).isEqualTo(1);
+        assertThat(usage.consumedUnits()).isEqualTo(1.0);
+    }
 }

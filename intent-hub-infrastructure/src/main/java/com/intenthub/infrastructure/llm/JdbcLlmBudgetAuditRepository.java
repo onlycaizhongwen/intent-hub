@@ -3,6 +3,7 @@ package com.intenthub.infrastructure.llm;
 import com.intenthub.application.llm.LlmBudgetAuditPort;
 import com.intenthub.application.llm.LlmBudgetUsage;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -13,6 +14,9 @@ import java.time.ZoneOffset;
 @Component
 @ConditionalOnProperty(name = "intent-hub.persistence.mode", havingValue = "jdbc")
 public class JdbcLlmBudgetAuditRepository implements LlmBudgetAuditPort {
+    private static final String BUDGET_PROVIDER = "__budget__";
+    private static final String BUDGET_MODEL = "__daily__";
+
     private final JdbcTemplate jdbcTemplate;
 
     public JdbcLlmBudgetAuditRepository(JdbcTemplate jdbcTemplate) {
@@ -66,6 +70,42 @@ public class JdbcLlmBudgetAuditRepository implements LlmBudgetAuditPort {
     }
 
     @Override
+    public boolean tryReserveDailyBudget(String tenantId, String sceneId, String provider, String model, double units, double dailyBudget) {
+        double boundedUnits = Math.max(0.0, units);
+        double boundedBudget = Math.max(0.0, dailyBudget);
+        if (boundedUnits == 0.0 || boundedBudget == 0.0 || boundedUnits > boundedBudget) {
+            return false;
+        }
+        String normalizedTenant = normalize(tenantId);
+        String normalizedScene = normalize(sceneId);
+        LocalDate usageDate = LocalDate.now(ZoneOffset.UTC);
+        if (reserveExisting(normalizedTenant, normalizedScene, usageDate, boundedUnits, boundedBudget)) {
+            return true;
+        }
+        if (budgetRowExists(normalizedTenant, normalizedScene, usageDate)) {
+            return false;
+        }
+        try {
+            jdbcTemplate.update("""
+                            insert into llm_budget_usage (
+                                tenant_id, scene_id, usage_date, provider, model,
+                                attempt_count, consumed_units, created_at, updated_at
+                            ) values (?, ?, ?, ?, ?, 1, ?, now(), now())
+                            """,
+                    normalizedTenant,
+                    normalizedScene,
+                    Date.valueOf(usageDate),
+                    BUDGET_PROVIDER,
+                    BUDGET_MODEL,
+                    boundedUnits
+            );
+            return true;
+        } catch (DuplicateKeyException ex) {
+            return reserveExisting(normalizedTenant, normalizedScene, usageDate, boundedUnits, boundedBudget);
+        }
+    }
+
+    @Override
     public LlmBudgetUsage dailyUsage(String tenantId, String sceneId, LocalDate usageDate) {
         String normalizedTenant = normalize(tenantId);
         String normalizedScene = normalize(sceneId);
@@ -77,6 +117,7 @@ public class JdbcLlmBudgetAuditRepository implements LlmBudgetAuditPort {
                          where tenant_id = ?
                            and scene_id = ?
                            and usage_date = ?
+                           and provider <> ?
                         """,
                 (rs, rowNum) -> new LlmBudgetUsage(
                         normalizedTenant,
@@ -87,8 +128,53 @@ public class JdbcLlmBudgetAuditRepository implements LlmBudgetAuditPort {
                 ),
                 normalizedTenant,
                 normalizedScene,
-                Date.valueOf(date)
+                Date.valueOf(date),
+                BUDGET_PROVIDER
         );
+    }
+
+    private boolean reserveExisting(String tenantId, String sceneId, LocalDate usageDate, double units, double dailyBudget) {
+        return jdbcTemplate.update("""
+                        update llm_budget_usage
+                           set attempt_count = attempt_count + 1,
+                               consumed_units = consumed_units + ?,
+                               updated_at = now()
+                         where tenant_id = ?
+                           and scene_id = ?
+                           and usage_date = ?
+                           and provider = ?
+                           and model = ?
+                           and consumed_units + ? <= ?
+                        """,
+                units,
+                tenantId,
+                sceneId,
+                Date.valueOf(usageDate),
+                BUDGET_PROVIDER,
+                BUDGET_MODEL,
+                units,
+                dailyBudget
+        ) == 1;
+    }
+
+    private boolean budgetRowExists(String tenantId, String sceneId, LocalDate usageDate) {
+        Integer count = jdbcTemplate.queryForObject("""
+                        select count(*)
+                          from llm_budget_usage
+                         where tenant_id = ?
+                           and scene_id = ?
+                           and usage_date = ?
+                           and provider = ?
+                           and model = ?
+                        """,
+                Integer.class,
+                tenantId,
+                sceneId,
+                Date.valueOf(usageDate),
+                BUDGET_PROVIDER,
+                BUDGET_MODEL
+        );
+        return count != null && count > 0;
     }
 
     private String normalize(String value) {

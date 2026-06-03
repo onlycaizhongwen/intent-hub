@@ -44,6 +44,24 @@ class JdbcLlmBudgetAuditRepositoryTest {
                 .isEqualTo(2L);
     }
 
+    @Test
+    void reservesBudgetWithoutDoubleCountingDailyUsage() {
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+
+        assertThat(repository.tryReserveDailyBudget("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0, 1.0))
+                .isTrue();
+        assertThat(repository.tryReserveDailyBudget("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0, 1.0))
+                .isFalse();
+        repository.recordAttempt("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0);
+
+        LlmBudgetUsage usage = repository.dailyUsage("tenant-a", "scene-a", today);
+
+        assertThat(usage.attempts()).isEqualTo(1);
+        assertThat(usage.consumedUnits()).isEqualTo(1.0);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from llm_budget_usage where tenant_id = ? and scene_id = ?", Long.class, "tenant-a", "scene-a"))
+                .isEqualTo(2L);
+    }
+
     private void resetSchema() {
         jdbcTemplate.execute("drop table if exists llm_budget_usage");
         jdbcTemplate.execute("""

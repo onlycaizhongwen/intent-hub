@@ -255,6 +255,11 @@ class TongyiLlmAdapterTest {
         }
 
         @Override
+        public boolean tryReserveDailyBudget(String tenantId, String sceneId, String provider, String model, double units, double dailyBudget) {
+            return consumedUnits + attempts.get() + units <= dailyBudget;
+        }
+
+        @Override
         public LlmBudgetUsage dailyUsage(String tenantId, String sceneId, LocalDate usageDate) {
             return new LlmBudgetUsage(tenantId, sceneId, usageDate, attempts.get(), consumedUnits + attempts.get());
         }

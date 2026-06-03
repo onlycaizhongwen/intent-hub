@@ -127,7 +127,7 @@ mvn test
 
 - `RecognizeAppServiceTest` 覆盖 LLM provider 异常时失败关闭并记录 `LLM_FALLBACK:REJECTED`。
 - `RecognizeAppServiceTest` 覆盖 scene 策略预算为 0 时不进入 LLM。
-- `TongyiLlmAdapterTest` 覆盖治理关闭、策略预算为 0、Spring AI Alibaba ChatClient 分支、HTTP 契约 fallback、成功返回候选、有限重试后失败、真实外呼尝试前记录预算消费、日预算耗尽不外呼，以及全局预算收紧优先阻断。
+- `TongyiLlmAdapterTest` 覆盖治理关闭、策略预算为 0、Spring AI Alibaba ChatClient 分支、HTTP 契约 fallback、成功返回候选、有限重试后失败、真实外呼尝试前记录预算消费、日预算耗尽不外呼，以及全局预算收紧优先阻断。`InMemoryLlmBudgetAuditRepositoryTest` 与 `JdbcLlmBudgetAuditRepositoryTest` 覆盖日预算预占成功/失败和查询不双算。
 - `JdbcSceneConfigRepositoryTest` 覆盖从已发布 `nlu_strategy.llm_policy` 读取 LLM 策略。
 - 模型服务和 LLM HTTP adapter 已通过 `SimpleClientHttpRequestFactory` 绑定 connect/read timeout。
 - `LLM_FALLBACK` 会进入最小指标口径，支持通过 `GET /api/v1/admin/metrics` 和 Prometheus 文本观察 LLM 失败关闭次数；`intent_hub_llm_budget_attempts_total` 与 `intent_hub_llm_budget_consumed_total` 记录 LLM 外呼预算消费尝试。
@@ -139,10 +139,10 @@ mvn test
 - 当前 `TongyiLlmAdapter` 已预接入 Spring AI Alibaba `ChatClient`，并保留 HTTP 契约 fallback；没有 `ChatClient.Builder` 或 provider 不是 `spring-ai-alibaba` 时不会强依赖真实 DashScope。
 - 尚未使用真实 DashScope 沙箱密钥完成外部冒烟；当前只完成 profile、脚本和验证步骤准备。
 - `timeoutMs` 已进入策略和治理配置，并已绑定到底层 RestClient connect/read timeout。
-- 当前已完成 LLM 外呼预算消费最小计数、持久化审计、外呼前日预算最小门禁和管理端查询；强并发精确扣减、跨实例分布式保护和超额告警仍待补。
+- 当前已完成 LLM 外呼预算消费最小计数、持久化审计、外呼前日预算原子预占门禁和管理端查询；跨实例失败补偿、预算释放、分布式保护和超额告警仍待补。
 
 ## 后续建议
 
 - 接入真实 DashScope 沙箱密钥，做小流量冒烟并记录 trace、指标和 bad case。
 - 补充 DashScope 限流告警和失败分类。
-- 将 LLM 调用次数、失败次数、fallback decision 和预算消耗进一步接入事务级/分布式强扣减和告警。
+- 将 LLM 调用次数、失败次数、fallback decision 和预算消耗进一步接入跨实例补偿、预算释放、分布式保护和告警。

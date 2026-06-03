@@ -58,18 +58,24 @@ public class InMemoryLlmBudgetAuditRepository implements LlmBudgetAuditPort {
         String normalizedScene = normalize(sceneId);
         long attempts = 0;
         double consumedUnits = 0.0;
+        long reservedAttempts = 0;
+        double reservedUnits = 0.0;
         for (Map.Entry<Key, UsageCounter> entry : counters.entrySet()) {
             Key key = entry.getKey();
             if (key.tenantId().equals(normalizedTenant)
                     && key.sceneId().equals(normalizedScene)
-                    && key.usageDate().equals(date)
-                    && !BUDGET_PROVIDER.equals(key.provider())) {
+                    && key.usageDate().equals(date)) {
                 UsageCounter counter = entry.getValue();
-                attempts += counter.attempts.get();
-                consumedUnits += counter.consumedUnits.sum();
+                if (BUDGET_PROVIDER.equals(key.provider())) {
+                    reservedAttempts += counter.attempts.get();
+                    reservedUnits += counter.consumedUnits.sum();
+                } else {
+                    attempts += counter.attempts.get();
+                    consumedUnits += counter.consumedUnits.sum();
+                }
             }
         }
-        return new LlmBudgetUsage(normalizedTenant, normalizedScene, date, attempts, consumedUnits);
+        return new LlmBudgetUsage(normalizedTenant, normalizedScene, date, attempts, consumedUnits, reservedAttempts, reservedUnits);
     }
 
     private String normalize(String value) {

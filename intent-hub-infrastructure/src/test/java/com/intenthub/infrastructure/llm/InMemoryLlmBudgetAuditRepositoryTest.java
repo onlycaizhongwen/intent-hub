@@ -25,6 +25,9 @@ class InMemoryLlmBudgetAuditRepositoryTest {
         assertThat(usage.usageDate()).isEqualTo(today);
         assertThat(usage.attempts()).isEqualTo(2);
         assertThat(usage.consumedUnits()).isEqualTo(3.0);
+        assertThat(usage.reservedAttempts()).isZero();
+        assertThat(usage.reservedUnits()).isZero();
+        assertThat(usage.pendingUnits()).isZero();
     }
 
     @Test
@@ -42,5 +45,25 @@ class InMemoryLlmBudgetAuditRepositoryTest {
 
         assertThat(usage.attempts()).isEqualTo(1);
         assertThat(usage.consumedUnits()).isEqualTo(1.0);
+        assertThat(usage.reservedAttempts()).isEqualTo(1);
+        assertThat(usage.reservedUnits()).isEqualTo(1.0);
+        assertThat(usage.pendingUnits()).isZero();
+    }
+
+    @Test
+    void exposesPendingReservedUsageWhenAttemptAuditIsMissing() {
+        InMemoryLlmBudgetAuditRepository repository = new InMemoryLlmBudgetAuditRepository();
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+
+        assertThat(repository.tryReserveDailyBudget("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0, 2.0))
+                .isTrue();
+
+        LlmBudgetUsage usage = repository.dailyUsage("tenant-a", "scene-a", today);
+
+        assertThat(usage.attempts()).isZero();
+        assertThat(usage.consumedUnits()).isZero();
+        assertThat(usage.reservedAttempts()).isEqualTo(1);
+        assertThat(usage.reservedUnits()).isEqualTo(1.0);
+        assertThat(usage.pendingUnits()).isEqualTo(1.0);
     }
 }

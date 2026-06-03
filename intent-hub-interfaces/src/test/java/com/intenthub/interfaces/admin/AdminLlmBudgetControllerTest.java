@@ -27,6 +27,9 @@ class AdminLlmBudgetControllerTest {
         assertThat(usage.usageDate()).isEqualTo(LocalDate.parse("2026-06-03"));
         assertThat(usage.attempts()).isEqualTo(3);
         assertThat(usage.consumedUnits()).isEqualTo(3.0);
+        assertThat(usage.reservedAttempts()).isEqualTo(4);
+        assertThat(usage.reservedUnits()).isEqualTo(5.0);
+        assertThat(usage.pendingUnits()).isEqualTo(2.0);
     }
 
     private static final class FixedBudgetAuditPort implements LlmBudgetAuditPort {
@@ -41,7 +44,7 @@ class AdminLlmBudgetControllerTest {
 
         @Override
         public LlmBudgetUsage dailyUsage(String tenantId, String sceneId, LocalDate usageDate) {
-            return new LlmBudgetUsage(tenantId, sceneId, usageDate, 3, 3.0);
+            return new LlmBudgetUsage(tenantId, sceneId, usageDate, 3, 3.0, 4, 5.0);
         }
     }
 }

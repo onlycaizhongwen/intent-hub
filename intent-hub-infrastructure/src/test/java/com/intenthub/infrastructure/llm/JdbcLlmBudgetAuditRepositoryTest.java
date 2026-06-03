@@ -40,6 +40,9 @@ class JdbcLlmBudgetAuditRepositoryTest {
 
         assertThat(usage.attempts()).isEqualTo(3);
         assertThat(usage.consumedUnits()).isEqualTo(3.5);
+        assertThat(usage.reservedAttempts()).isZero();
+        assertThat(usage.reservedUnits()).isZero();
+        assertThat(usage.pendingUnits()).isZero();
         assertThat(jdbcTemplate.queryForObject("select count(*) from llm_budget_usage where tenant_id = ? and scene_id = ?", Long.class, "tenant-a", "scene-a"))
                 .isEqualTo(2L);
     }
@@ -58,8 +61,27 @@ class JdbcLlmBudgetAuditRepositoryTest {
 
         assertThat(usage.attempts()).isEqualTo(1);
         assertThat(usage.consumedUnits()).isEqualTo(1.0);
+        assertThat(usage.reservedAttempts()).isEqualTo(1);
+        assertThat(usage.reservedUnits()).isEqualTo(1.0);
+        assertThat(usage.pendingUnits()).isZero();
         assertThat(jdbcTemplate.queryForObject("select count(*) from llm_budget_usage where tenant_id = ? and scene_id = ?", Long.class, "tenant-a", "scene-a"))
                 .isEqualTo(2L);
+    }
+
+    @Test
+    void exposesPendingReservedUsageWhenAttemptAuditIsMissing() {
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+
+        assertThat(repository.tryReserveDailyBudget("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0, 2.0))
+                .isTrue();
+
+        LlmBudgetUsage usage = repository.dailyUsage("tenant-a", "scene-a", today);
+
+        assertThat(usage.attempts()).isZero();
+        assertThat(usage.consumedUnits()).isZero();
+        assertThat(usage.reservedAttempts()).isEqualTo(1);
+        assertThat(usage.reservedUnits()).isEqualTo(1.0);
+        assertThat(usage.pendingUnits()).isEqualTo(1.0);
     }
 
     private void resetSchema() {

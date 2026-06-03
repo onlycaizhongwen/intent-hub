@@ -111,25 +111,31 @@ public class JdbcLlmBudgetAuditRepository implements LlmBudgetAuditPort {
         String normalizedScene = normalize(sceneId);
         LocalDate date = usageDate == null ? LocalDate.now(ZoneOffset.UTC) : usageDate;
         return jdbcTemplate.queryForObject("""
-                        select coalesce(sum(attempt_count), 0) as attempts,
-                               coalesce(sum(consumed_units), 0) as consumed_units
+                        select coalesce(sum(case when provider <> ? then attempt_count else 0 end), 0) as attempts,
+                               coalesce(sum(case when provider <> ? then consumed_units else 0 end), 0) as consumed_units,
+                               coalesce(sum(case when provider = ? then attempt_count else 0 end), 0) as reserved_attempts,
+                               coalesce(sum(case when provider = ? then consumed_units else 0 end), 0) as reserved_units
                           from llm_budget_usage
                          where tenant_id = ?
                            and scene_id = ?
                            and usage_date = ?
-                           and provider <> ?
                         """,
                 (rs, rowNum) -> new LlmBudgetUsage(
                         normalizedTenant,
                         normalizedScene,
                         date,
                         rs.getLong("attempts"),
-                        rs.getDouble("consumed_units")
+                        rs.getDouble("consumed_units"),
+                        rs.getLong("reserved_attempts"),
+                        rs.getDouble("reserved_units")
                 ),
+                BUDGET_PROVIDER,
+                BUDGET_PROVIDER,
+                BUDGET_PROVIDER,
+                BUDGET_PROVIDER,
                 normalizedTenant,
                 normalizedScene,
-                Date.valueOf(date),
-                BUDGET_PROVIDER
+                Date.valueOf(date)
         );
     }
 

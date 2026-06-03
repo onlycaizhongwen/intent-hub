@@ -52,6 +52,27 @@ public class InMemoryLlmBudgetAuditRepository implements LlmBudgetAuditPort {
     }
 
     @Override
+    public void releaseDailyBudgetReservation(String tenantId, String sceneId, String provider, String model, double units) {
+        double boundedUnits = Math.max(0.0, units);
+        if (boundedUnits == 0.0) {
+            return;
+        }
+        Key key = new Key(normalize(tenantId), normalize(sceneId), LocalDate.now(ZoneOffset.UTC), BUDGET_PROVIDER, BUDGET_MODEL);
+        UsageCounter counter = counters.get(key);
+        if (counter == null) {
+            return;
+        }
+        synchronized (counter) {
+            double currentUnits = counter.consumedUnits.sum();
+            if (currentUnits <= 0.0) {
+                return;
+            }
+            counter.consumedUnits.add(-Math.min(currentUnits, boundedUnits));
+            counter.attempts.updateAndGet(value -> value > 0 ? value - 1 : 0);
+        }
+    }
+
+    @Override
     public LlmBudgetUsage dailyUsage(String tenantId, String sceneId, LocalDate usageDate) {
         LocalDate date = usageDate == null ? LocalDate.now(ZoneOffset.UTC) : usageDate;
         String normalizedTenant = normalize(tenantId);

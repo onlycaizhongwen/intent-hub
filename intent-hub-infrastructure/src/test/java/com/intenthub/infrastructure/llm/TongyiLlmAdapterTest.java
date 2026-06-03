@@ -190,6 +190,34 @@ class TongyiLlmAdapterTest {
     }
 
     @Test
+    void releasesReservedBudgetWhenRemoteAttemptFails() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(once(), requestTo("https://llm.example.test/recognize"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withServerError());
+        RecordingMetricsPort metrics = new RecordingMetricsPort();
+        RecordingBudgetAuditPort budgetAudit = new RecordingBudgetAuditPort();
+        TongyiLlmAdapter adapter = new TongyiLlmAdapter(
+                builder.baseUrl("https://llm.example.test").build(),
+                null,
+                new LlmGovernanceProperties(true, "https://llm.example.test", 3000, 0, 1.0, 0.70),
+                metrics,
+                budgetAudit
+        );
+
+        LlmPolicy httpPolicy = new LlmPolicy(true, "http-contract", "qwen-plus", 3000, 0, 1.0, "REJECTED");
+        assertThatThrownBy(() -> adapter.recognize("text", "demo", "scene", httpPolicy))
+                .isInstanceOf(RuntimeException.class);
+        assertThat(metrics.attempts.get()).isEqualTo(1);
+        assertThat(budgetAudit.attempts.get()).isEqualTo(1);
+        assertThat(budgetAudit.reservations.get()).isEqualTo(1);
+        assertThat(budgetAudit.releases.get()).isEqualTo(1);
+        assertThat(budgetAudit.reservedUnits.sum()).isZero();
+        server.verify();
+    }
+
+    @Test
     void globalDailyBudgetAlsoLimitsPolicyBudget() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
@@ -235,6 +263,9 @@ class TongyiLlmAdapterTest {
 
     private static final class RecordingBudgetAuditPort implements LlmBudgetAuditPort {
         private final AtomicLong attempts = new AtomicLong();
+        private final AtomicLong reservations = new AtomicLong();
+        private final AtomicLong releases = new AtomicLong();
+        private final DoubleAdder reservedUnits = new DoubleAdder();
         private final double consumedUnits;
         private String tenantId;
         private String sceneId;
@@ -256,7 +287,18 @@ class TongyiLlmAdapterTest {
 
         @Override
         public boolean tryReserveDailyBudget(String tenantId, String sceneId, String provider, String model, double units, double dailyBudget) {
-            return consumedUnits + attempts.get() + units <= dailyBudget;
+            if (consumedUnits + reservedUnits.sum() >= dailyBudget) {
+                return false;
+            }
+            reservations.incrementAndGet();
+            reservedUnits.add(units);
+            return true;
+        }
+
+        @Override
+        public void releaseDailyBudgetReservation(String tenantId, String sceneId, String provider, String model, double units) {
+            releases.incrementAndGet();
+            reservedUnits.add(-Math.min(reservedUnits.sum(), Math.max(0.0, units)));
         }
 
         @Override

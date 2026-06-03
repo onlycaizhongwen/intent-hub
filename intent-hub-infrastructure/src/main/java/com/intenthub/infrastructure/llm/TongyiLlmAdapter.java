@@ -71,15 +71,20 @@ public class TongyiLlmAdapter implements LlmClientPort {
         RuntimeException lastFailure = null;
         int attempts = Math.min(policy.maxRetries(), properties.maxRetries()) + 1;
         for (int attempt = 0; attempt < attempts; attempt++) {
+            boolean reserved = false;
             try {
                 if (!reserveBudget(tenantId, sceneId, policy)) {
                     return Optional.empty();
                 }
+                reserved = true;
                 metricsPort.recordLlmBudgetConsumption(1.0);
                 budgetAuditPort.recordAttempt(tenantId, sceneId, policy.provider(), policy.model(), 1.0);
                 LlmRecognitionResponse response = recognizeByProvider(text, sceneId, policy);
                 return candidate(response);
             } catch (RuntimeException ex) {
+                if (reserved) {
+                    budgetAuditPort.releaseDailyBudgetReservation(tenantId, sceneId, policy.provider(), policy.model(), 1.0);
+                }
                 lastFailure = ex;
             }
         }
@@ -155,6 +160,10 @@ public class TongyiLlmAdapter implements LlmClientPort {
         @Override
         public boolean tryReserveDailyBudget(String tenantId, String sceneId, String provider, String model, double units, double dailyBudget) {
             return units > 0.0 && dailyBudget >= units;
+        }
+
+        @Override
+        public void releaseDailyBudgetReservation(String tenantId, String sceneId, String provider, String model, double units) {
         }
 
         @Override

@@ -4,8 +4,8 @@
 
 - 任务需求：继续 P2，完成小流量 LLM 受控兜底的最小闭环。
 - 关键决策：LLM 仍是最后一道防线；默认关闭且预算为 0；只有全局治理配置和 scene 级 `llm_policy` 同时允许时才触发；失败按 fallback decision 关闭。
-- 当前阶段：P2.x 日预算原子预占已完成；本轮在既有 LLM 受控兜底基础上补齐外呼前日预算原子预占和管理端 confirmed/reserved/pending 预算查询，相关模块测试通过，待用户明确指令后推送 GitHub。
-- 已完成产物：LLM 领域策略门禁、基础设施治理配置、Spring AI Alibaba 优先/HTTP fallback adapter、LLM 预算审计端口与 memory/JDBC 实现、DashScope smoke profile/script、JDBC 策略读取、测试、README/status/HTML/trace 同步。
+- 当前阶段：P2.x 日预算原子预占与同步失败释放已完成；本轮在既有 LLM 受控兜底基础上补齐外呼前日预算原子预占、管理端 confirmed/reserved/pending 预算查询和远端失败释放本次预占，相关模块测试通过，待用户明确指令后推送 GitHub。
+- 已完成产物：LLM 领域策略门禁、基础设施治理配置、Spring AI Alibaba 优先/HTTP fallback adapter、LLM 预算审计端口与 memory/JDBC 实现、同步失败释放、DashScope smoke profile/script、JDBC 策略读取、测试、README/status/HTML/trace 同步。
 - 剩余工作：GitHub 推送只在用户明确发指令时执行。
 - 重要发现：当前 Spring AI Alibaba 依赖已作为 optional 存在；P2-5 已在基础设施层预接入 `ChatClient`，同时保留 HTTP 契约 fallback，真实 DashScope 沙箱冒烟仍需凭证。
 
@@ -20,7 +20,7 @@
   - 当前产物：`JdbcSceneConfigRepository` 从 `nlu_strategy.llm_policy` 读取策略。
   - 下一步：已完成。
 - [v] 补测试。
-  - 当前产物：`mvn test` 已通过，共 54 个测试；`mvn package -DskipTests` 已通过。
+  - 当前产物：`mvn test` 已通过，共 57 个测试；`mvn package -DskipTests` 已通过。
   - 下一步：已完成。
 - [v] 同步 README/status/HTML/trace。
 - [v] 提交。
@@ -37,10 +37,10 @@
   - 下一步：已完成。
 - [v] 补 LLM 预算消费最小计数。
   - 当前产物：`IntentMetricsPort.recordLlmBudgetConsumption`、`MetricsSnapshot.totalLlmBudgetAttempts/totalLlmBudgetConsumed` 和 Prometheus `intent_hub_llm_budget_*` 指标；`TongyiLlmAdapter` 仅在真实外呼尝试前记账。
-  - 下一步：已完成；持久化审计已补，日预算原子预占已补，后续再做跨实例失败补偿、预算释放和告警。
+  - 下一步：已完成；持久化审计、日预算原子预占和同步失败释放已补，后续再做跨实例后台补偿和告警。
 - [v] 补 LLM 预算持久化审计。
   - 当前产物：`LlmBudgetAuditPort`、`LlmBudgetUsage`、`InMemoryLlmBudgetAuditRepository`、`JdbcLlmBudgetAuditRepository` 和 Flyway `V2__p2_llm_budget_usage.sql`；按 `tenant_id + scene_id + usage_date + provider + model` 记录外呼尝试次数和消费单位。
-  - 下一步：已完成；日预算原子预占和管理端 confirmed/reserved/pending 查询已补，后续做跨实例失败补偿、预算释放和告警。
+  - 下一步：已完成；日预算原子预占、同步失败释放和管理端 confirmed/reserved/pending 查询已补，后续做跨实例后台补偿和告警。
 - [v] 补模型 adapter 本地 HTTP 冒烟。
   - 当前产物：`ModelClientAdapterTest` 使用 JDK `HttpServer` 验证 `HttpModelClientAdapter` 真实 POST、请求体和 JSON 响应解析。
   - 下一步：已完成；FastAPI 示例工程和模型服务健康检查已补。
@@ -64,7 +64,7 @@
 
 - LLM 门禁应在领域策略层先拦截预算为 0 或 timeout 为 0 的场景，避免指标误算 LLM fallback。
 - 基础设施 adapter 仍需二次检查全局治理开关、baseUrl 和全局预算，防止误配置导致外部调用。
-- 当前 P2-5 还不是完整生产 LLM：已预接入 Spring AI Alibaba `ChatClient`，但没有真实 DashScope 沙箱冒烟和跨实例失败补偿、预算释放和告警；底层 HTTP timeout 绑定、最小预算消费计数、持久化审计、日预算原子预占和管理端 confirmed/reserved/pending 查询已完成。
+- 当前 P2-5 还不是完整生产 LLM：已预接入 Spring AI Alibaba `ChatClient`，但没有真实 DashScope 沙箱冒烟、跨实例后台补偿和告警；底层 HTTP timeout 绑定、最小预算消费计数、持久化审计、日预算原子预占、同步失败释放和管理端 confirmed/reserved/pending 查询已完成。
 - 2026-06-02：已补齐底层 HTTP timeout 绑定；`mvn test` 通过，共 37 个测试；`git diff --check` 通过。本轮按用户要求暂不提交、不推送。
 - 2026-06-02：已补齐模型服务异常失败关闭；`mvn test` 通过，共 38 个测试；`git diff --check` 通过。本轮按用户要求暂不提交、不推送。
 - 2026-06-02：已补齐模型与 LLM fallback 最小指标口径；`mvn test` 通过，共 39 个测试；`git diff --check` 通过。本轮按用户要求暂不提交、不推送。
@@ -82,6 +82,7 @@
 - 2026-06-03：将 LLM 日预算门禁从“查询后记账”升级为外呼前原子预占：`LlmBudgetAuditPort.tryReserveDailyBudget` 负责按有效日预算预占；memory 实现用同步计数保护，JDBC 实现用预算保留行、唯一键和条件 update 控制超额；日用量查询排除预算保留行，避免预占与明细审计双算。`mvn -pl intent-hub-infrastructure,intent-hub-interfaces -am test` 通过，相关模块共 52 个测试；后续全量 `mvn test` 通过，共 54 个测试。
 
 - 2026-06-03：扩展 LLM 预算查询视图，`LlmBudgetUsage` 保留 confirmed 明细用量 `attempts/consumedUnits`，新增 `reservedAttempts/reservedUnits` 和 `pendingUnits()`；memory/JDBC 查询同时返回预占行与明细行，能暴露预占成功但明细审计缺失的 pending 差额。`mvn -pl intent-hub-infrastructure,intent-hub-interfaces -am test` 通过，相关模块共 54 个测试。
+- 2026-06-03：补齐 LLM 日预算同步失败释放：`LlmBudgetAuditPort.releaseDailyBudgetReservation` 在 provider 远端异常时释放本次预占；memory/JDBC 实现均保证释放后 reserved/pending 归零且可再次预占；`TongyiLlmAdapterTest` 覆盖 HTTP 远端失败后释放本次预占。`mvn -pl intent-hub-infrastructure,intent-hub-interfaces -am test` 通过，相关模块共 57 个测试。
 
 ## 错误记录
 

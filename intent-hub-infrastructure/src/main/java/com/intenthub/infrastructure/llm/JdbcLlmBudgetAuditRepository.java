@@ -106,6 +106,32 @@ public class JdbcLlmBudgetAuditRepository implements LlmBudgetAuditPort {
     }
 
     @Override
+    public void releaseDailyBudgetReservation(String tenantId, String sceneId, String provider, String model, double units) {
+        double boundedUnits = Math.max(0.0, units);
+        if (boundedUnits == 0.0) {
+            return;
+        }
+        jdbcTemplate.update("""
+                        update llm_budget_usage
+                           set attempt_count = case when attempt_count > 0 then attempt_count - 1 else 0 end,
+                               consumed_units = greatest(consumed_units - ?, 0),
+                               updated_at = now()
+                         where tenant_id = ?
+                           and scene_id = ?
+                           and usage_date = ?
+                           and provider = ?
+                           and model = ?
+                        """,
+                boundedUnits,
+                normalize(tenantId),
+                normalize(sceneId),
+                Date.valueOf(LocalDate.now(ZoneOffset.UTC)),
+                BUDGET_PROVIDER,
+                BUDGET_MODEL
+        );
+    }
+
+    @Override
     public LlmBudgetUsage dailyUsage(String tenantId, String sceneId, LocalDate usageDate) {
         String normalizedTenant = normalize(tenantId);
         String normalizedScene = normalize(sceneId);

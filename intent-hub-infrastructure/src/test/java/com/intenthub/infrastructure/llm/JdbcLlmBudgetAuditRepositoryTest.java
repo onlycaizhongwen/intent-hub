@@ -84,6 +84,23 @@ class JdbcLlmBudgetAuditRepositoryTest {
         assertThat(usage.pendingUnits()).isEqualTo(1.0);
     }
 
+    @Test
+    void releasesReservedUsageAfterFailedProviderAttempt() {
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+
+        assertThat(repository.tryReserveDailyBudget("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0, 1.0))
+                .isTrue();
+        repository.releaseDailyBudgetReservation("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0);
+
+        LlmBudgetUsage usage = repository.dailyUsage("tenant-a", "scene-a", today);
+
+        assertThat(usage.reservedAttempts()).isZero();
+        assertThat(usage.reservedUnits()).isZero();
+        assertThat(usage.pendingUnits()).isZero();
+        assertThat(repository.tryReserveDailyBudget("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0, 1.0))
+                .isTrue();
+    }
+
     private void resetSchema() {
         jdbcTemplate.execute("drop table if exists llm_budget_usage");
         jdbcTemplate.execute("""

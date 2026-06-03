@@ -12,6 +12,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.web.client.RestClient;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
@@ -164,6 +165,11 @@ public class TongyiLlmAdapter implements LlmClientPort {
 
         @Override
         public void releaseDailyBudgetReservation(String tenantId, String sceneId, String provider, String model, double units) {
+        }
+
+        @Override
+        public int reconcileStaleDailyBudgetReservations(Duration staleAfter) {
+            return 0;
         }
 
         @Override

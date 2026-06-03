@@ -8,8 +8,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.List;
 
 @Component
 @ConditionalOnProperty(name = "intent-hub.persistence.mode", havingValue = "jdbc")
@@ -132,6 +136,62 @@ public class JdbcLlmBudgetAuditRepository implements LlmBudgetAuditPort {
     }
 
     @Override
+    public int reconcileStaleDailyBudgetReservations(Duration staleAfter) {
+        Duration effectiveStaleAfter = staleAfter == null || staleAfter.isNegative() ? Duration.ZERO : staleAfter;
+        Timestamp cutoff = Timestamp.from(Instant.now().minus(effectiveStaleAfter));
+        List<BudgetRow> staleBudgetRows = jdbcTemplate.query("""
+                        select tenant_id, scene_id, usage_date, attempt_count, consumed_units
+                          from llm_budget_usage
+                         where provider = ?
+                           and model = ?
+                           and updated_at <= ?
+                        """,
+                (rs, rowNum) -> new BudgetRow(
+                        rs.getString("tenant_id"),
+                        rs.getString("scene_id"),
+                        rs.getDate("usage_date").toLocalDate(),
+                        rs.getLong("attempt_count"),
+                        rs.getDouble("consumed_units")
+                ),
+                BUDGET_PROVIDER,
+                BUDGET_MODEL,
+                cutoff
+        );
+
+        int reconciled = 0;
+        for (BudgetRow row : staleBudgetRows) {
+            LlmBudgetUsage usage = dailyUsage(row.tenantId(), row.sceneId(), row.usageDate());
+            if (usage.pendingUnits() <= 0.0) {
+                continue;
+            }
+            long targetAttempts = Math.min(row.attempts(), usage.attempts());
+            int updated = jdbcTemplate.update("""
+                            update llm_budget_usage
+                               set attempt_count = ?,
+                                   consumed_units = ?,
+                                   updated_at = now()
+                             where tenant_id = ?
+                               and scene_id = ?
+                               and usage_date = ?
+                               and provider = ?
+                               and model = ?
+                               and updated_at <= ?
+                            """,
+                    targetAttempts,
+                    usage.consumedUnits(),
+                    row.tenantId(),
+                    row.sceneId(),
+                    Date.valueOf(row.usageDate()),
+                    BUDGET_PROVIDER,
+                    BUDGET_MODEL,
+                    cutoff
+            );
+            reconciled += updated;
+        }
+        return reconciled;
+    }
+
+    @Override
     public LlmBudgetUsage dailyUsage(String tenantId, String sceneId, LocalDate usageDate) {
         String normalizedTenant = normalize(tenantId);
         String normalizedScene = normalize(sceneId);
@@ -211,5 +271,8 @@ public class JdbcLlmBudgetAuditRepository implements LlmBudgetAuditPort {
 
     private String normalize(String value) {
         return value == null || value.isBlank() ? "UNKNOWN" : value;
+    }
+
+    private record BudgetRow(String tenantId, String sceneId, LocalDate usageDate, long attempts, double consumedUnits) {
     }
 }

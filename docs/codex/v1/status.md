@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放与管理端 confirmed/reserved/pending 查询已完成
+- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿与管理端 confirmed/reserved/pending 查询已完成
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -71,3 +71,4 @@
 - 2026-06-02：修复 DashScope 冒烟脚本的 PowerShell 字符串语法问题，改用 ASCII 冒烟输入规避 Windows 终端编码破坏；已通过 PowerShell Parser 语法检查、`mvn test`、`mvn package -DskipTests`、`python -m py_compile examples/model-service-fastapi/app.py` 和 `git diff --check`（仅 CRLF 提示）。本轮按用户要求暂不提交、不推送。
 - 2026-06-02：补齐 LLM 预算持久化审计最小闭环，新增 `LlmBudgetAuditPort`、`LlmBudgetUsage`、memory/JDBC 实现和 Flyway `V2__p2_llm_budget_usage.sql`；`TongyiLlmAdapter` 在真实外呼尝试前同时写入指标和预算审计。`mvn -pl intent-hub-infrastructure -am test` 通过，相关模块共 31 个测试。
 - 2026-06-03：补齐 LLM 日预算同步失败释放闭环，新增 `LlmBudgetAuditPort.releaseDailyBudgetReservation`，memory/JDBC 在 provider 同步异常后释放本次预占；`TongyiLlmAdapter` 在远端失败时释放 reserved 预算但保留 confirmed 外呼尝试审计，管理端 pending 差额可用于发现未释放或异步异常。`mvn -pl intent-hub-infrastructure,intent-hub-interfaces -am test` 通过，相关模块共 57 个测试。
+- 2026-06-03：补齐 LLM 日预算 stale pending 后台补偿最小能力，新增 `LlmBudgetAuditPort.reconcileStaleDailyBudgetReservations`、memory/JDBC 实现和默认关闭的 `intent-hub.llm.budget-reconciliation.*` 调度任务；补偿只校正 `__budget__/__daily__` reserved 预占行，不回滚 confirmed 外呼审计。`mvn test` 通过，全量共 61 个测试。

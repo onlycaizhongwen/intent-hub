@@ -3,6 +3,7 @@ package com.intenthub.infrastructure.llm;
 import com.intenthub.application.llm.LlmBudgetUsage;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 
@@ -83,5 +84,22 @@ class InMemoryLlmBudgetAuditRepositoryTest {
         assertThat(usage.pendingUnits()).isZero();
         assertThat(repository.tryReserveDailyBudget("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0, 1.0))
                 .isTrue();
+    }
+
+    @Test
+    void reconcilesPendingReservedUsageToConfirmedUsage() {
+        InMemoryLlmBudgetAuditRepository repository = new InMemoryLlmBudgetAuditRepository();
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+
+        assertThat(repository.tryReserveDailyBudget("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0, 2.0))
+                .isTrue();
+
+        assertThat(repository.reconcileStaleDailyBudgetReservations(Duration.ZERO)).isEqualTo(1);
+
+        LlmBudgetUsage usage = repository.dailyUsage("tenant-a", "scene-a", today);
+
+        assertThat(usage.reservedAttempts()).isZero();
+        assertThat(usage.reservedUnits()).isZero();
+        assertThat(usage.pendingUnits()).isZero();
     }
 }

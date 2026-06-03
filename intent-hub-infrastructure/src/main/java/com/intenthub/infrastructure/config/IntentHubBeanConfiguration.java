@@ -21,6 +21,7 @@ import com.intenthub.application.observability.ObservabilityQueryPort;
 import com.intenthub.domain.recognition.policy.LlmClientPort;
 import com.intenthub.domain.recognition.policy.ModelClientPort;
 import com.intenthub.infrastructure.llm.LlmGovernanceProperties;
+import com.intenthub.infrastructure.llm.LlmBudgetReconciliationProperties;
 import com.intenthub.infrastructure.llm.TongyiLlmAdapter;
 import com.intenthub.infrastructure.model.HttpModelClientAdapter;
 import com.intenthub.infrastructure.model.ModelServiceProperties;
@@ -33,7 +34,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
 @Configuration
-@EnableConfigurationProperties({ModelServiceProperties.class, LlmGovernanceProperties.class})
+@EnableConfigurationProperties({ModelServiceProperties.class, LlmGovernanceProperties.class, LlmBudgetReconciliationProperties.class})
 public class IntentHubBeanConfiguration {
     @Bean
     RecognizeAppService recognizeAppService(

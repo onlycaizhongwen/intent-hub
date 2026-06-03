@@ -15,6 +15,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.concurrent.atomic.DoubleAdder;
@@ -299,6 +300,11 @@ class TongyiLlmAdapterTest {
         public void releaseDailyBudgetReservation(String tenantId, String sceneId, String provider, String model, double units) {
             releases.incrementAndGet();
             reservedUnits.add(-Math.min(reservedUnits.sum(), Math.max(0.0, units)));
+        }
+
+        @Override
+        public int reconcileStaleDailyBudgetReservations(Duration staleAfter) {
+            return 0;
         }
 
         @Override

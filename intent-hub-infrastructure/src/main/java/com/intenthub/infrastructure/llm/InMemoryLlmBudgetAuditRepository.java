@@ -5,6 +5,7 @@ import com.intenthub.application.llm.LlmBudgetUsage;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Map;
@@ -70,6 +71,34 @@ public class InMemoryLlmBudgetAuditRepository implements LlmBudgetAuditPort {
             counter.consumedUnits.add(-Math.min(currentUnits, boundedUnits));
             counter.attempts.updateAndGet(value -> value > 0 ? value - 1 : 0);
         }
+    }
+
+    @Override
+    public int reconcileStaleDailyBudgetReservations(Duration staleAfter) {
+        int reconciled = 0;
+        for (Map.Entry<Key, UsageCounter> entry : counters.entrySet()) {
+            Key key = entry.getKey();
+            if (!BUDGET_PROVIDER.equals(key.provider())) {
+                continue;
+            }
+            UsageCounter reservedCounter = entry.getValue();
+            synchronized (reservedCounter) {
+                LlmBudgetUsage usage = dailyUsage(key.tenantId(), key.sceneId(), key.usageDate());
+                double pendingUnits = usage.pendingUnits();
+                if (pendingUnits <= 0.0) {
+                    continue;
+                }
+                reservedCounter.consumedUnits.add(-pendingUnits);
+                long reservedAttempts = reservedCounter.attempts.get();
+                long targetAttempts = Math.min(reservedAttempts, usage.attempts());
+                if (reservedCounter.attempts.getAndSet(targetAttempts) != targetAttempts) {
+                    reconciled++;
+                    continue;
+                }
+                reconciled++;
+            }
+        }
+        return reconciled;
     }
 
     @Override

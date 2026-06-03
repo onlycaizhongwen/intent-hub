@@ -5,6 +5,7 @@ import com.intenthub.application.llm.LlmBudgetAuditPort;
 import com.intenthub.application.llm.LlmBudgetUsage;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,6 +45,11 @@ class AdminLlmBudgetControllerTest {
 
         @Override
         public void releaseDailyBudgetReservation(String tenantId, String sceneId, String provider, String model, double units) {
+        }
+
+        @Override
+        public int reconcileStaleDailyBudgetReservations(Duration staleAfter) {
+            return 0;
         }
 
         @Override

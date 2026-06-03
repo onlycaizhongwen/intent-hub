@@ -6,6 +6,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 
@@ -99,6 +102,40 @@ class JdbcLlmBudgetAuditRepositoryTest {
         assertThat(usage.pendingUnits()).isZero();
         assertThat(repository.tryReserveDailyBudget("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0, 1.0))
                 .isTrue();
+    }
+
+    @Test
+    void reconcilesOnlyStalePendingReservedUsageToConfirmedUsage() {
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+
+        assertThat(repository.tryReserveDailyBudget("tenant-a", "scene-a", "spring-ai-alibaba", "qwen-plus", 1.0, 2.0))
+                .isTrue();
+        assertThat(repository.tryReserveDailyBudget("tenant-b", "scene-b", "spring-ai-alibaba", "qwen-plus", 1.0, 2.0))
+                .isTrue();
+        jdbcTemplate.update("""
+                        update llm_budget_usage
+                           set updated_at = ?
+                         where tenant_id = ?
+                           and scene_id = ?
+                        """,
+                Timestamp.from(Instant.now().minus(Duration.ofMinutes(10))),
+                "tenant-a",
+                "scene-a"
+        );
+
+        assertThat(repository.reconcileStaleDailyBudgetReservations(Duration.ofMinutes(5))).isEqualTo(1);
+
+        LlmBudgetUsage usage = repository.dailyUsage("tenant-a", "scene-a", today);
+
+        assertThat(usage.reservedAttempts()).isZero();
+        assertThat(usage.reservedUnits()).isZero();
+        assertThat(usage.pendingUnits()).isZero();
+
+        LlmBudgetUsage recentUsage = repository.dailyUsage("tenant-b", "scene-b", today);
+
+        assertThat(recentUsage.reservedAttempts()).isEqualTo(1);
+        assertThat(recentUsage.reservedUnits()).isEqualTo(1.0);
+        assertThat(recentUsage.pendingUnits()).isEqualTo(1.0);
     }
 
     private void resetSchema() {

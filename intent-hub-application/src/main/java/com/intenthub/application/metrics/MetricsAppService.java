@@ -20,6 +20,7 @@ public class MetricsAppService {
         appendGauge(builder, "intent_hub_llm_fallbacks_total", "Total LLM fallback attempts.", snapshot.totalLlmFallbacks());
         appendGauge(builder, "intent_hub_llm_budget_attempts_total", "Total LLM budget-consuming attempts.", snapshot.totalLlmBudgetAttempts());
         appendGauge(builder, "intent_hub_llm_budget_consumed_total", "Total LLM budget units consumed.", snapshot.totalLlmBudgetConsumed());
+        appendGauge(builder, "intent_hub_llm_budget_reconciliations_total", "Total stale LLM budget reservations reconciled.", snapshot.totalLlmBudgetReconciliations());
         appendGauge(builder, "intent_hub_latency_millis_sum", "Total recognition latency in milliseconds.", snapshot.totalLatencyMillis());
         appendGauge(builder, "intent_hub_latency_millis_avg", "Average recognition latency in milliseconds.", snapshot.averageLatencyMillis());
         appendGauge(builder, "intent_hub_latency_millis_max", "Max recognition latency in milliseconds.", snapshot.maxLatencyMillis());

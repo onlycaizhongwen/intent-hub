@@ -153,7 +153,7 @@ class RecognizeControllerTest {
 
         @Override
         public MetricsSnapshot snapshot() {
-            return new MetricsSnapshot(0, 0, 0, 0, 0, 0.0, 0, 0.0, 0, Map.of(), Map.of(), Map.of(), Instant.EPOCH, Instant.EPOCH);
+            return new MetricsSnapshot(0, 0, 0, 0, 0, 0.0, 0, 0, 0.0, 0, Map.of(), Map.of(), Map.of(), Instant.EPOCH, Instant.EPOCH);
         }
     }
 }

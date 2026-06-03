@@ -33,6 +33,9 @@ class InMemoryIntentMetricsRepositoryTest {
         )), 18);
         repository.recordLlmBudgetConsumption(1.0);
         repository.recordLlmBudgetConsumption(1.0);
+        repository.recordLlmBudgetReconciliation(3);
+        repository.recordLlmBudgetReconciliation(0);
+        repository.recordLlmBudgetReconciliation(-1);
 
         MetricsSnapshot snapshot = repository.snapshot();
 
@@ -41,6 +44,7 @@ class InMemoryIntentMetricsRepositoryTest {
         assertThat(snapshot.totalLlmFallbacks()).isEqualTo(1);
         assertThat(snapshot.totalLlmBudgetAttempts()).isEqualTo(2);
         assertThat(snapshot.totalLlmBudgetConsumed()).isEqualTo(2.0);
+        assertThat(snapshot.totalLlmBudgetReconciliations()).isEqualTo(3);
         assertThat(snapshot.totalBadCases()).isEqualTo(2);
     }
 

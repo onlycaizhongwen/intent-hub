@@ -92,3 +92,11 @@
 
 - 首次 `mvn test` 因新增断言漏掉既有 `POST_ROUTE:NONE` 路径失败，已按现有后置路由行为修正断言后全量通过。
 - 首次 PowerShell parser 验证命令使用未初始化 `[ref]` 变量导致验证自身失败；修正验证命令后发现脚本内中文字符串被截断，已重建脚本并通过语法检查。
+
+## 2026-06-03 补充记录：LLM 日预算后台补偿指标
+
+- 本轮目标：在已完成的 stale pending 后台补偿基础上，补齐可观测指标出口。
+- 已完成：新增 `IntentMetricsPort.recordLlmBudgetReconciliation`、`MetricsSnapshot.totalLlmBudgetReconciliations` 和 Prometheus 指标 `intent_hub_llm_budget_reconciliations_total`。
+- 语义边界：指标只记录后台补偿校正的 stale reserved 预占数量，不改变预算预占、释放、补偿和 confirmed 外呼审计语义。
+- 文档同步：已更新 README、status、HTML 生命周期页、P1 设计和 P2-5 trace 审查。
+- 下一步：在后续告警工作中基于该指标补阈值规则、Micrometer/OpenTelemetry 桥接和真实多实例 PostgreSQL 压测。

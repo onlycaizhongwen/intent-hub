@@ -22,6 +22,7 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
     private final AtomicLong totalLlmFallbacks = new AtomicLong();
     private final AtomicLong totalLlmBudgetAttempts = new AtomicLong();
     private final DoubleAdder totalLlmBudgetConsumed = new DoubleAdder();
+    private final AtomicLong totalLlmBudgetReconciliations = new AtomicLong();
     private final AtomicLong totalLatencyMillis = new AtomicLong();
     private final AtomicLong maxLatencyMillis = new AtomicLong();
     private final ConcurrentHashMap<String, AtomicLong> decisions = new ConcurrentHashMap<>();
@@ -61,6 +62,7 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
                 totalLlmFallbacks.get(),
                 totalLlmBudgetAttempts.get(),
                 totalLlmBudgetConsumed.sum(),
+                totalLlmBudgetReconciliations.get(),
                 latency,
                 requests == 0 ? 0.0 : (double) latency / requests,
                 maxLatencyMillis.get(),
@@ -80,6 +82,15 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
         }
         totalLlmBudgetAttempts.incrementAndGet();
         totalLlmBudgetConsumed.add(boundedUnits);
+        updatedAt = Instant.now();
+    }
+
+    @Override
+    public void recordLlmBudgetReconciliation(int reconciledReservations) {
+        if (reconciledReservations <= 0) {
+            return;
+        }
+        totalLlmBudgetReconciliations.addAndGet(reconciledReservations);
         updatedAt = Instant.now();
     }
 

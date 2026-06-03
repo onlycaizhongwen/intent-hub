@@ -10,6 +10,7 @@ public record MetricsSnapshot(
         long totalLlmFallbacks,
         long totalLlmBudgetAttempts,
         double totalLlmBudgetConsumed,
+        long totalLlmBudgetReconciliations,
         long totalLatencyMillis,
         double averageLatencyMillis,
         long maxLatencyMillis,

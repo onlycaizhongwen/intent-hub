@@ -158,11 +158,11 @@ curl "http://localhost:8080/api/v1/admin/metrics/prometheus"
 
 P2-2 当前采用最小流转：复用 `bad_case.status` 表达 `OPEN`、`ANNOTATED`、`CLOSED`、`EXPORTED`，暂不新增独立标注表；JDBC 标注会用现有 `intent_code` 和 `reason` 字段承载修正意图与备注，后续 P2.x 再扩展为完整标注历史和审核流。
 
-P2-3 当前采用最小指标闭环：不引入 Actuator/Micrometer，不改变 `/api/v1/admin/health` 口径；先通过应用层 `IntentMetricsPort` 与内存实现记录请求量、decision、intent、scene、bad case 候选数、模型 fallback、LLM fallback、LLM 预算消费尝试和耗时统计，后续再替换或桥接到 OpenTelemetry/Micrometer。
+P2-3 当前采用最小指标闭环：不引入 Actuator/Micrometer，不改变 `/api/v1/admin/health` 口径；先通过应用层 `IntentMetricsPort` 与内存实现记录请求量、decision、intent、scene、bad case 候选数、模型 fallback、LLM fallback、LLM 预算消费尝试、LLM 预算后台补偿数量和耗时统计，后续再替换或桥接到 OpenTelemetry/Micrometer。
 
 P2-4 当前采用最小模型服务适配：新增 `ModelClientPort` 和 `ModelRecognitionPolicy`，识别顺序为 Rule -> Model -> LLM；默认 `intent-hub.model-service.enabled=false`，无 `base-url` 时 no-op，不影响规则主链路。HTTP adapter 按 FastAPI 风格调用 `POST {baseUrl}/recognize`，并通过 `GET {baseUrl}/health` 接入 Admin 健康检查；模型服务异常会记录 `MODEL_FALLBACK:CLOSED` 并失败关闭，不打断识别链路。当前已新增 [FastAPI 模型服务示例](examples/model-service-fastapi/README.md)。
 
-P2-5 当前采用受控 LLM 兜底：新增 `intent-hub.llm.*` 全局治理开关，并从已发布 `nlu_strategy.llm_policy` 读取 scene 级策略。只有全局开关、endpoint、预算、策略开关、策略预算和超时同时满足时，`TongyiLlmAdapter` 才会尝试外呼；当 provider 为 `spring-ai-alibaba` 且存在 `ChatClient.Builder` 时优先走 Spring AI Alibaba `ChatClient`，否则保留 HTTP 契约 fallback 调用 `POST {baseUrl}/recognize`。调用失败会在识别路径中记录 `LLM_FALLBACK:{fallbackDecision}` 并失败关闭，不影响规则和模型链路。当前已在真实外呼前执行日预算原子预占门禁，并通过 `llm_budget_usage` 持久化审计与 `GET /api/v1/admin/llm/budget-usage` 暴露管理端查询；查询同时返回 confirmed 明细用量、reserved 预占用量和 pending 预占差额；同步外呼失败会释放本次预占。后台补偿最小能力已通过 `intent-hub.llm.budget-reconciliation.*` 接入，默认关闭，开启后会把 stale pending 预占校正到 confirmed 用量；告警和真实多实例压测仍作为 P2.x 增强。
+P2-5 当前采用受控 LLM 兜底：新增 `intent-hub.llm.*` 全局治理开关，并从已发布 `nlu_strategy.llm_policy` 读取 scene 级策略。只有全局开关、endpoint、预算、策略开关、策略预算和超时同时满足时，`TongyiLlmAdapter` 才会尝试外呼；当 provider 为 `spring-ai-alibaba` 且存在 `ChatClient.Builder` 时优先走 Spring AI Alibaba `ChatClient`，否则保留 HTTP 契约 fallback 调用 `POST {baseUrl}/recognize`。调用失败会在识别路径中记录 `LLM_FALLBACK:{fallbackDecision}` 并失败关闭，不影响规则和模型链路。当前已在真实外呼前执行日预算原子预占门禁，并通过 `llm_budget_usage` 持久化审计与 `GET /api/v1/admin/llm/budget-usage` 暴露管理端查询；查询同时返回 confirmed 明细用量、reserved 预占用量和 pending 预占差额；同步外呼失败会释放本次预占。后台补偿最小能力已通过 `intent-hub.llm.budget-reconciliation.*` 接入，默认关闭，开启后会把 stale pending 预占校正到 confirmed 用量；`intent_hub_llm_budget_reconciliations_total` 用于观察补偿校正数量，为后续告警接入打基础；告警和真实多实例压测仍作为 P2.x 增强。
 
 ### 持久化
 
@@ -294,7 +294,7 @@ java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar 
 .\scripts\dashscope-smoke.ps1 -BaseUrl "http://localhost:8080"
 ```
 
-脚本会自动创建并发布 `dashscope-smoke-scene`，写入 `provider=spring-ai-alibaba` 的 `llmPolicy`，发送一条规则/模型不命中的识别请求，并输出 `traceId`、`decision`、`intentCode`、`recognitionPath` 和 LLM 预算消费指标。
+脚本会自动创建并发布 `dashscope-smoke-scene`，写入 `provider=spring-ai-alibaba` 的 `llmPolicy`，发送一条规则/模型不命中的识别请求，并输出 `traceId`、`decision`、`intentCode`、`recognitionPath`、LLM 预算消费指标和补偿指标。
 
 ## 当前进度
 
@@ -344,7 +344,7 @@ P2-2 Bad Case 流转验证结果：
 P2-3 指标采集验证结果：
 
 - 新增 `IntentMetricsPort`、`MetricsAppService`、`MetricsSnapshot`。
-- 新增 `InMemoryIntentMetricsRepository`，识别链路自动记录请求总数、bad case 候选、模型 fallback、LLM fallback、LLM 预算消费尝试、decision、intent、scene 和耗时。
+- 新增 `InMemoryIntentMetricsRepository`，识别链路自动记录请求总数、bad case 候选、模型 fallback、LLM fallback、LLM 预算消费尝试、LLM 预算后台补偿数量、decision、intent、scene 和耗时。
 - 新增 `GET /api/v1/admin/metrics` 与 `GET /api/v1/admin/metrics/prometheus`。
 - `mvn test` 通过，共 26 个测试。
 
@@ -368,6 +368,7 @@ P2-5 LLM 受控兜底验证结果：
 - 模型服务和 LLM HTTP adapter 已通过 `SimpleClientHttpRequestFactory` 绑定 connect/read timeout。
 - LLM adapter 仅在真实外呼尝试前记录预算消费，治理关闭或 scene 预算为 0 时不记账。
 - 已新增 LLM 预算审计端口和 `llm_budget_usage` 持久化表，按 tenant、scene、日期、provider、model 记录外呼尝试次数和消费单位；`TongyiLlmAdapter` 会在外呼前读取当日用量，达到全局预算与 scene 预算较小值时直接返回空候选；管理端可通过 `GET /api/v1/admin/llm/budget-usage?tenantId=...&sceneId=...&usageDate=YYYY-MM-DD` 查询用量。
+- 后台补偿校正的 stale reserved 预占数量会进入 `intent_hub_llm_budget_reconciliations_total`，后续可直接接入告警规则。
 - `TongyiLlmAdapter` 已预接入 Spring AI Alibaba `ChatClient` 分支，并保留 HTTP 契约 fallback。
 - 新增 `dashscope-smoke` profile 与 `scripts/dashscope-smoke.ps1`，真实沙箱冒烟所需的配置模板、凭证注入方式和验证步骤已准备好；真实外呼需运行时提供 `DASHSCOPE_API_KEY`。
 - `mvn test` 通过，全量共 61 个测试；`mvn package -DskipTests` 通过。
@@ -375,7 +376,7 @@ P2-5 LLM 受控兜底验证结果：
 ## 下一步
 
 - P2.x：补更完整的模型服务样本、阈值、版本策略和部署化联调；FastAPI 示例工程、adapter 本地 HTTP server 冒烟、健康检查和本地真实联调已覆盖。
-- P2.x：已完成 LLM adapter 的 Spring AI Alibaba `ChatClient` 预接入、DashScope 沙箱冒烟脚本准备、日预算原子预占门禁、管理端 confirmed/reserved/pending 查询、同步失败释放和默认关闭的 stale pending 后台补偿；下一步在提供沙箱凭证后补真实 trace/metrics/bad case 证据，并补告警与真实多实例压测。
+- P2.x：已完成 LLM adapter 的 Spring AI Alibaba `ChatClient` 预接入、DashScope 沙箱冒烟脚本准备、日预算原子预占门禁、管理端 confirmed/reserved/pending 查询、同步失败释放、默认关闭的 stale pending 后台补偿和补偿指标；下一步在提供沙箱凭证后补真实 trace/metrics/bad case 证据，并补告警与真实多实例压测。
 - P2.x：将当前最小指标端口桥接 Micrometer/OpenTelemetry，补 Grafana 看板和基础告警。
 - P2.x：补 Bad Case 独立标注历史表、批量导入导出、审核状态和训练任务联动。
 

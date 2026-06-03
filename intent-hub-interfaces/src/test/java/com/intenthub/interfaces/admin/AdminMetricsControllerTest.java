@@ -25,6 +25,7 @@ class AdminMetricsControllerTest {
         assertThat(snapshot.totalLlmFallbacks()).isEqualTo(1);
         assertThat(snapshot.totalLlmBudgetAttempts()).isEqualTo(2);
         assertThat(snapshot.totalLlmBudgetConsumed()).isEqualTo(2.0);
+        assertThat(snapshot.totalLlmBudgetReconciliations()).isEqualTo(4);
         assertThat(snapshot.decisions()).containsEntry("SUCCESS", 2L);
     }
 
@@ -39,6 +40,7 @@ class AdminMetricsControllerTest {
         assertThat(text).contains("intent_hub_llm_fallbacks_total 1");
         assertThat(text).contains("intent_hub_llm_budget_attempts_total 2");
         assertThat(text).contains("intent_hub_llm_budget_consumed_total 2.0");
+        assertThat(text).contains("intent_hub_llm_budget_reconciliations_total 4");
         assertThat(text).contains("intent_hub_decisions_total{decision=\"SUCCESS\"} 2");
         assertThat(text).contains("intent_hub_intents_total{intent=\"ORDER_QUERY\"} 2");
     }
@@ -57,6 +59,7 @@ class AdminMetricsControllerTest {
                     1,
                     2,
                     2.0,
+                    4,
                     27,
                     9.0,
                     15,

@@ -9,5 +9,8 @@ public interface IntentMetricsPort {
     default void recordLlmBudgetConsumption(double units) {
     }
 
+    default void recordLlmBudgetReconciliation(int reconciledReservations) {
+    }
+
     MetricsSnapshot snapshot();
 }

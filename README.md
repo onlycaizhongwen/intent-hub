@@ -2,7 +2,42 @@
 
 Intent Hub 是一个面向企业业务系统的意图识别与路由中枢。它把用户输入识别为标准 `IntentResult`，并通过双阶段路由把识别策略和下游动作解耦。
 
-README 只作为仓库入口。整体架构、技术方案、服务规划、关键约束和当前进度请阅读 `docs/codex/v1/` 下的正式文档。
+README 保留仓库入口、整体架构摘要和技术方案摘要。服务规划、关键约束、当前进度和详细评审记录请阅读 `docs/codex/v1/` 下的正式文档。
+
+## 整体架构
+
+Intent Hub 采用模块化单体 + 独立模型服务的阶段性架构。在线识别链路按“接入治理 -> 输入适配 -> 前置路由 -> 意图识别 -> 后置路由 -> 输出适配 -> 观测回流”组织。
+
+核心链路：
+
+- 接入治理：鉴权、限流、TraceID 和基础安全拦截。
+- 输入适配：将 REST、Webhook、Chat 等来源统一为 `Envelope`。
+- 前置路由：先选“怎么认”，按租户、来源、渠道和 scene 选择规则、模型、阈值和 LLM 策略。
+- 意图识别：按 Rule -> Model -> LLM 的顺序产生候选；LLM 只作为最后兜底，不承担主识别流量。
+- 后置路由：再选“谁来干”，根据意图、槽位、置信度和风险条件选择下游动作。
+- 输出适配：作为防腐层只发指令，不直连业务库、不执行 SQL、不持有业务数据。
+- 观测回流：记录 trace、bad case、幂等、指标、预算和审计信息，用于评估与优化。
+
+架构图参考：[架构图](docs/assets/architecture/intent-hub-architecture.png)、[数据流向图 v2](docs/assets/architecture/intent-hub-data-flow-v2.png)、[核心交互时序图](docs/assets/architecture/intent-hub-sequence.png)。
+
+## 技术方案
+
+当前工程采用 Java 17 + Spring Boot 4.x + Maven 多模块 + DDD 分层。领域层保留识别、配置和策略抽象；应用层编排用例与端口；基础设施层实现 JDBC、Flyway、LLM、模型服务和内存适配；接口层提供 REST/Admin API。
+
+主要技术选型：
+
+| 方向 | 方案 |
+| --- | --- |
+| 后端框架 | Java 17 + Spring Boot 4.x |
+| 工程结构 | Maven 多模块 + DDD 分层 |
+| 数据库 | PostgreSQL 16+ |
+| Migration | Flyway |
+| 模型服务 | Python/FastAPI 或 Triton，当前提供 FastAPI 示例 |
+| 规则识别 | 轻量规则 + 正则/关键词 |
+| LLM 接入 | Spring AI 抽象，P1/P2 默认接入 Spring AI Alibaba 分支并保留 HTTP fallback |
+| 可观测 | 当前提供 Admin metrics/Prometheus 文本，后续桥接 OpenTelemetry/Micrometer |
+
+详细方案见 [总体设计](docs/codex/v1/designs/intent-hub-design.md) 和 [P1 最小闭环设计](docs/codex/v1/designs/intent-hub-p1-minimal-loop-design.md)。
 
 ## 快速开始
 

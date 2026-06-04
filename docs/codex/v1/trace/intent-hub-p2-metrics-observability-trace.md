@@ -40,6 +40,10 @@ P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径
 | `/api/v1/admin/metrics/prometheus` | GET | 返回 Prometheus text/plain 指标 |
 | `/api/v1/admin/metrics/alerts` | GET | 返回基础告警快照 |
 
+配套运维样例：
+
+- `ops/prometheus/intent-hub-alert-rules.yml`：提供 Prometheus/Alertmanager 告警规则样例，覆盖 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时和最大耗时。
+
 当前指标：
 
 - 请求总数。
@@ -98,7 +102,7 @@ mvn test
 - P2-3 暂不引入 Actuator/Micrometer，不暴露 `/actuator/prometheus`。
 - 指标为进程内内存指标，服务重启后清零。
 - 多实例部署时需要后续通过 Prometheus scrape 或 Micrometer/OpenTelemetry 做聚合。
-- 已提供进程内基础告警快照；暂未提供 Grafana dashboard JSON、Prometheus Alertmanager 规则和 SLO。
+- 已提供进程内基础告警快照和 Prometheus Alertmanager 规则样例；暂未提供 Grafana dashboard JSON、生产化 scrape 配置和 SLO。
 - 当前模型/LLM fallback 统计依赖 `recognitionPath` 字符串，后续可改为结构化 recognition span/event。
 
 ## 后续建议
@@ -107,5 +111,5 @@ P2 后续建议：
 
 - 将 `IntentMetricsPort` 桥接到 Micrometer 或 OpenTelemetry Metrics。
 - 增加 Grafana dashboard：请求量、拒识率、澄清率、异步接收率、bad case 生成率、模型 fallback 率、LLM fallback 率、平均/P95 耗时。
-- 将基础告警快照桥接到 Prometheus Alertmanager 或 Grafana Alerting：拒识率突增、P95 耗时超阈、bad case 堆积、LLM fallback 超预算。
+- 将基础告警快照和 Prometheus 规则样例桥接到真实 Alertmanager 或 Grafana Alerting，并补 P95/P99、窗口化速率和 bad case 堆积口径。
 - 多实例部署时由 Prometheus 统一聚合，避免依赖单实例内存快照。

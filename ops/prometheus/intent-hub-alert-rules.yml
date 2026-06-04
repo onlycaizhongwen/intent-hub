@@ -1,0 +1,62 @@
+groups:
+  - name: intent-hub-p2x-alerts
+    rules:
+      - alert: IntentHubBadCaseRateHigh
+        expr: intent_hub_bad_cases_total / clamp_min(intent_hub_requests_total, 1) > 0.30
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: intent-hub
+        annotations:
+          summary: "Intent Hub bad case rate is high"
+          description: "Bad case rate is above 30% for 5 minutes. Check rejected requests, low-confidence intents, and recent config changes."
+
+      - alert: IntentHubModelFallbackDetected
+        expr: intent_hub_model_fallbacks_total > 0
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: intent-hub
+        annotations:
+          summary: "Intent Hub model fallback detected"
+          description: "Model fallback has occurred. Check model-service health, timeout, and base-url configuration."
+
+      - alert: IntentHubLlmFallbackDetected
+        expr: intent_hub_llm_fallbacks_total > 0
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: intent-hub
+        annotations:
+          summary: "Intent Hub LLM fallback detected"
+          description: "LLM fallback has occurred. Confirm that LLM is still acting as the last-resort path and review fallback decisions."
+
+      - alert: IntentHubLlmBudgetReconciliationDetected
+        expr: intent_hub_llm_budget_reconciliations_total > 0
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: intent-hub
+        annotations:
+          summary: "Intent Hub LLM budget reconciliation detected"
+          description: "Stale LLM budget reservations were reconciled. Check provider timeouts, pending budget usage, and adapter failures."
+
+      - alert: IntentHubAverageLatencyHigh
+        expr: intent_hub_latency_millis_avg > 1000
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: intent-hub
+        annotations:
+          summary: "Intent Hub average latency is high"
+          description: "Average recognition latency is above 1000 ms for 5 minutes. Check routing strategy, model service, LLM fallback, and database latency."
+
+      - alert: IntentHubMaxLatencyCritical
+        expr: intent_hub_latency_millis_max > 3000
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: intent-hub
+        annotations:
+          summary: "Intent Hub max latency is critical"
+          description: "Max recognition latency is above 3000 ms. Check slow downstream dependencies and timeout settings immediately."

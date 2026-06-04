@@ -16,6 +16,12 @@
 .\scripts\check-observability-local.ps1 -BaseUrl "http://localhost:8080"
 ```
 
+也可以在不启动容器的情况下校验 compose 与配置引用：
+
+```powershell
+.\scripts\validate-observability-compose.ps1
+```
+
 ```powershell
 cd ops/local-observability
 docker compose up -d

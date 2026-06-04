@@ -47,6 +47,7 @@ P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径
 - `ops/pilot-rollout-plan.md`：提供 dev/staging 试点接入计划，按一周节奏完成 scrape、rule、route、dashboard 和 Runbook 演练。
 - `ops/pilot-execution-record-template.md`：提供试点执行记录模板，用于统一留存 target、rule、receiver、dashboard、告警演练和复盘证据。
 - `ops/alert-drill-scenarios.md`：提供 6 条 P2.x 告警演练场景，明确触发、验证、恢复和禁止动作。
+- `scripts/check-observability-local.ps1`：提供本地观测栈预检脚本，检查 ops 配置文件、health/metrics endpoint 和 Docker 命令。
 - `ops/prometheus/intent-hub-scrape-config.yml`：提供 Prometheus scrape 配置片段样例，抓取 `GET /api/v1/admin/metrics/prometheus`。
 - `ops/prometheus/intent-hub-alert-rules.yml`：提供 Prometheus/Alertmanager 告警规则样例，覆盖 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时和最大耗时。
 - `ops/alertmanager/alertmanager-route-sample.yml`：提供 Alertmanager route/receiver/inhibit 样例，按 `critical` 和 `warning` 分流。
@@ -113,7 +114,7 @@ mvn test
 - P2-3 暂不引入 Actuator/Micrometer，不暴露 `/actuator/prometheus`。
 - 指标为进程内内存指标，服务重启后清零。
 - 多实例部署时需要后续通过 Prometheus scrape 或 Micrometer/OpenTelemetry 做聚合。
-- 已提供进程内基础告警快照、运维样例总入口、生产化落地检查清单、试点接入计划、试点执行记录模板、告警演练场景、Prometheus scrape 配置片段样例、Prometheus 告警规则样例、Alertmanager route 样例、Grafana dashboard 样例、SLO 样例、本地观测栈样例和告警 Runbook；暂未真正落地生产化服务发现、TLS/鉴权、真实 receiver secret、Grafana 持久化存储、正式 SLA 和错误预算审批流程。
+- 已提供进程内基础告警快照、运维样例总入口、生产化落地检查清单、试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、Prometheus scrape 配置片段样例、Prometheus 告警规则样例、Alertmanager route 样例、Grafana dashboard 样例、SLO 样例、本地观测栈样例和告警 Runbook；暂未真正落地生产化服务发现、TLS/鉴权、真实 receiver secret、Grafana 持久化存储、正式 SLA 和错误预算审批流程。
 - 当前模型/LLM fallback 统计依赖 `recognitionPath` 字符串，后续可改为结构化 recognition span/event。
 
 ## 后续建议

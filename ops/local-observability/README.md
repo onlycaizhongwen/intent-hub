@@ -10,6 +10,12 @@
 
 ## 启动
 
+启动前可先执行预检：
+
+```powershell
+.\scripts\check-observability-local.ps1 -BaseUrl "http://localhost:8080"
+```
+
 ```powershell
 cd ops/local-observability
 docker compose up -d

@@ -24,6 +24,8 @@
    从样例进入真实环境前，逐项确认服务发现、鉴权、TLS、receiver、SLO、高可用和演练。
 9. [观测告警试点接入计划](pilot-rollout-plan.md)
    选择 dev/staging 试点环境，按一周节奏完成抓取、规则、路由、看板和 Runbook 演练。
+10. [试点执行记录模板](pilot-execution-record-template.md)
+    真实试点执行时复制填写，统一留存 target、rule、receiver、dashboard、告警演练和复盘证据。
 
 ## 当前能力边界
 
@@ -31,6 +33,7 @@
 - 已提供 Prometheus scrape、告警规则、Alertmanager route、Grafana dashboard、SLO、本地观测栈和 Runbook 样例。
 - 已提供生产化落地检查清单，用于确认样例进入真实环境前的必改项。
 - 已提供试点接入计划，用于在低风险环境获取真实观测与告警演练证据。
+- 已提供试点执行记录模板，用于沉淀真实试点证据和复盘结论。
 - 暂未引入 Actuator/Micrometer/OpenTelemetry runtime 桥接。
 - 暂未提供生产服务发现、TLS/鉴权、真实 receiver secret、Grafana 持久化、正式 SLA 审批、多实例压测和高可用部署。
 

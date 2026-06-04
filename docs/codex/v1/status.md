@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook 与管理端 confirmed/reserved/pending 查询已完成
+- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook 与管理端 confirmed/reserved/pending 查询已完成
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -39,6 +39,7 @@
 - 运维样例总入口：`ops/README.md`
 - 生产化落地检查清单：`ops/production-readiness-checklist.md`
 - 观测告警试点接入计划：`ops/pilot-rollout-plan.md`
+- 试点执行记录模板：`ops/pilot-execution-record-template.md`
 - Prometheus 运维样例：`ops/prometheus/README.md`
 - Alertmanager 路由样例：`ops/alertmanager/README.md`
 - Grafana 看板样例：`ops/grafana/intent-hub-dashboard.json`
@@ -93,3 +94,4 @@
 - 2026-06-04：补充 `ops/README.md` 运维样例总入口，将 Prometheus scrape、告警规则、Alertmanager 路由、Grafana 看板、SLO、本地观测栈和告警 Runbook 串成统一接入顺序，并明确生产化前必改项。
 - 2026-06-04：补充 `ops/production-readiness-checklist.md` 生产化落地检查清单，将指标入口、Prometheus、Alertmanager、Grafana、SLO、安全合规、演练验收拆成可确认事项。
 - 2026-06-04：补充 `ops/pilot-rollout-plan.md` 观测告警试点接入计划，按 dev/staging 试点环境拆解一周接入节奏、验收步骤、回滚策略和复盘模板。
+- 2026-06-04：补充 `ops/pilot-execution-record-template.md` 试点执行记录模板，用于真实试点时统一记录 metrics、scrape、rule、route、dashboard、告警演练、复盘和附件证据。

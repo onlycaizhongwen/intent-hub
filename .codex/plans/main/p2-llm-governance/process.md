@@ -4,8 +4,8 @@
 
 - 任务需求：继续 P2，完成小流量 LLM 受控兜底的最小闭环。
 - 关键决策：LLM 仍是最后一道防线；默认关闭且预算为 0；只有全局治理配置和 scene 级 `llm_policy` 同时允许时才触发；失败按 fallback decision 关闭。
-- 当前阶段：P2.x 日预算原子预占、同步失败释放、后台补偿、基础告警快照、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例与本地观测栈样例已完成；本轮在既有 LLM 受控兜底基础上补齐外呼前日预算原子预占、管理端 confirmed/reserved/pending 预算查询、远端失败释放本次预占、默认关闭的 stale pending 后台补偿、`GET /api/v1/admin/metrics/alerts` 基础告警快照、`ops/prometheus/intent-hub-scrape-config.yml` scrape 样例、`ops/prometheus/intent-hub-alert-rules.yml` 告警规则样例、`ops/alertmanager/alertmanager-route-sample.yml` 路由样例、`ops/grafana/intent-hub-dashboard.json` 看板样例、`ops/slo/README.md` SLO 样例和 `ops/local-observability` 本地观测栈样例，相关模块测试通过，待用户明确指令后推送 GitHub。
-- 已完成产物：LLM 领域策略门禁、基础设施治理配置、Spring AI Alibaba 优先/HTTP fallback adapter、LLM 预算审计端口与 memory/JDBC 实现、同步失败释放、后台补偿调度、基础告警快照、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、DashScope smoke profile/script、JDBC 策略读取、测试、README/status/HTML/trace 同步。
+- 当前阶段：P2.x 日预算原子预占、同步失败释放、后台补偿、基础告警快照、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例与告警 Runbook 已完成；本轮在既有 LLM 受控兜底基础上补齐外呼前日预算原子预占、管理端 confirmed/reserved/pending 预算查询、远端失败释放本次预占、默认关闭的 stale pending 后台补偿、`GET /api/v1/admin/metrics/alerts` 基础告警快照、`ops/prometheus/intent-hub-scrape-config.yml` scrape 样例、`ops/prometheus/intent-hub-alert-rules.yml` 告警规则样例、`ops/alertmanager/alertmanager-route-sample.yml` 路由样例、`ops/grafana/intent-hub-dashboard.json` 看板样例、`ops/slo/README.md` SLO 样例、`ops/local-observability` 本地观测栈样例和 `ops/runbooks/intent-hub-alert-runbook.md` 告警 Runbook，相关模块测试通过，待用户明确指令后推送 GitHub。
+- 已完成产物：LLM 领域策略门禁、基础设施治理配置、Spring AI Alibaba 优先/HTTP fallback adapter、LLM 预算审计端口与 memory/JDBC 实现、同步失败释放、后台补偿调度、基础告警快照、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、DashScope smoke profile/script、JDBC 策略读取、测试、README/status/HTML/trace 同步。
 - 剩余工作：GitHub 推送只在用户明确发指令时执行。
 - 重要发现：当前 Spring AI Alibaba 依赖已作为 optional 存在；P2-5 已在基础设施层预接入 `ChatClient`，同时保留 HTTP 契约 fallback，真实 DashScope 沙箱冒烟仍需凭证。
 
@@ -83,12 +83,15 @@
 - [v] 补本地观测栈样例。
   - 当前产物：`ops/local-observability`，通过 Docker Compose 串联 Prometheus、Alertmanager 和 Grafana。
   - 下一步：已完成；后续可在本机启动 Intent Hub 后进行真实 compose 冒烟。
+- [v] 补告警 Runbook。
+  - 当前产物：`ops/runbooks/intent-hub-alert-runbook.md`，覆盖当前 6 条 P2.x Prometheus 告警的影响判断、止血、定位和复盘步骤。
+  - 下一步：已完成；后续可结合真实值班演练调整升级策略。
 
 ## 研究发现
 
 - LLM 门禁应在领域策略层先拦截预算为 0 或 timeout 为 0 的场景，避免指标误算 LLM fallback。
 - 基础设施 adapter 仍需二次检查全局治理开关、baseUrl 和全局预算，防止误配置导致外部调用。
-- 当前 P2-5 还不是完整生产 LLM：已预接入 Spring AI Alibaba `ChatClient`，但没有真实 DashScope 沙箱冒烟、生产化 Prometheus/Grafana 告警和真实多实例压测；底层 HTTP timeout 绑定、最小预算消费计数、持久化审计、日预算原子预占、同步失败释放、后台补偿、基础告警快照、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例和管理端 confirmed/reserved/pending 查询已完成。
+- 当前 P2-5 还不是完整生产 LLM：已预接入 Spring AI Alibaba `ChatClient`，但没有真实 DashScope 沙箱冒烟、生产化 Prometheus/Grafana 告警和真实多实例压测；底层 HTTP timeout 绑定、最小预算消费计数、持久化审计、日预算原子预占、同步失败释放、后台补偿、基础告警快照、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook 和管理端 confirmed/reserved/pending 查询已完成。
 - 2026-06-02：已补齐底层 HTTP timeout 绑定；`mvn test` 通过，共 37 个测试；`git diff --check` 通过。本轮按用户要求暂不提交、不推送。
 - 2026-06-02：已补齐模型服务异常失败关闭；`mvn test` 通过，共 38 个测试；`git diff --check` 通过。本轮按用户要求暂不提交、不推送。
 - 2026-06-02：已补齐模型与 LLM fallback 最小指标口径；`mvn test` 通过，共 39 个测试；`git diff --check` 通过。本轮按用户要求暂不提交、不推送。
@@ -171,3 +174,10 @@
 - 已完成：新增 `ops/local-observability`，包含 Docker Compose、Prometheus 配置、Alertmanager 配置和 Grafana provisioning。
 - 验证口径：本地 Intent Hub 启动后，Prometheus 抓取 `host.docker.internal:8080/api/v1/admin/metrics/prometheus`，Grafana 自动加载 dashboard 样例。
 - 边界：样例不是生产部署；生产仍需补持久化、认证授权、TLS、真实 receiver、服务发现、资源限制、备份和高可用。
+
+## 2026-06-04 补充记录：告警 Runbook
+
+- 本轮目标：在告警规则、路由和本地观测栈之后，补一份告警处理手册。
+- 已完成：新增 `ops/runbooks/intent-hub-alert-runbook.md` 和 `ops/runbooks/README.md`。
+- 覆盖告警：bad case 率高、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时高和最大耗时 critical。
+- 边界：Runbook 只覆盖 Intent Hub 识别、路由、观测和治理链路；业务数据修复需转交业务系统 owner。

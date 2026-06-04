@@ -4,8 +4,8 @@
 
 - 任务需求：继续 P2，完成小流量 LLM 受控兜底的最小闭环。
 - 关键决策：LLM 仍是最后一道防线；默认关闭且预算为 0；只有全局治理配置和 scene 级 `llm_policy` 同时允许时才触发；失败按 fallback decision 关闭。
-- 当前阶段：P2.x 日预算原子预占、同步失败释放、后台补偿、基础告警快照、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例与告警 Runbook 已完成；本轮在既有 LLM 受控兜底基础上补齐外呼前日预算原子预占、管理端 confirmed/reserved/pending 预算查询、远端失败释放本次预占、默认关闭的 stale pending 后台补偿、`GET /api/v1/admin/metrics/alerts` 基础告警快照、`ops/prometheus/intent-hub-scrape-config.yml` scrape 样例、`ops/prometheus/intent-hub-alert-rules.yml` 告警规则样例、`ops/alertmanager/alertmanager-route-sample.yml` 路由样例、`ops/grafana/intent-hub-dashboard.json` 看板样例、`ops/slo/README.md` SLO 样例、`ops/local-observability` 本地观测栈样例和 `ops/runbooks/intent-hub-alert-runbook.md` 告警 Runbook，相关模块测试通过，待用户明确指令后推送 GitHub。
-- 已完成产物：LLM 领域策略门禁、基础设施治理配置、Spring AI Alibaba 优先/HTTP fallback adapter、LLM 预算审计端口与 memory/JDBC 实现、同步失败释放、后台补偿调度、基础告警快照、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、DashScope smoke profile/script、JDBC 策略读取、测试、README/status/HTML/trace 同步。
+- 当前阶段：P2.x 日预算原子预占、同步失败释放、后台补偿、基础告警快照、运维样例总入口、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例与告警 Runbook 已完成；本轮在既有 LLM 受控兜底基础上补齐外呼前日预算原子预占、管理端 confirmed/reserved/pending 预算查询、远端失败释放本次预占、默认关闭的 stale pending 后台补偿、`GET /api/v1/admin/metrics/alerts` 基础告警快照、`ops/README.md` 运维样例总入口、`ops/prometheus/intent-hub-scrape-config.yml` scrape 样例、`ops/prometheus/intent-hub-alert-rules.yml` 告警规则样例、`ops/alertmanager/alertmanager-route-sample.yml` 路由样例、`ops/grafana/intent-hub-dashboard.json` 看板样例、`ops/slo/README.md` SLO 样例、`ops/local-observability` 本地观测栈样例和 `ops/runbooks/intent-hub-alert-runbook.md` 告警 Runbook，相关模块测试通过，待用户明确指令后推送 GitHub。
+- 已完成产物：LLM 领域策略门禁、基础设施治理配置、Spring AI Alibaba 优先/HTTP fallback adapter、LLM 预算审计端口与 memory/JDBC 实现、同步失败释放、后台补偿调度、基础告警快照、运维样例总入口、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、DashScope smoke profile/script、JDBC 策略读取、测试、README/status/HTML/trace 同步。
 - 剩余工作：GitHub 推送只在用户明确发指令时执行。
 - 重要发现：当前 Spring AI Alibaba 依赖已作为 optional 存在；P2-5 已在基础设施层预接入 `ChatClient`，同时保留 HTTP 契约 fallback，真实 DashScope 沙箱冒烟仍需凭证。
 
@@ -86,6 +86,9 @@
 - [v] 补告警 Runbook。
   - 当前产物：`ops/runbooks/intent-hub-alert-runbook.md`，覆盖当前 6 条 P2.x Prometheus 告警的影响判断、止血、定位和复盘步骤。
   - 下一步：已完成；后续可结合真实值班演练调整升级策略。
+- [v] 补运维样例总入口。
+  - 当前产物：`ops/README.md`，按 Prometheus scrape、告警规则、Alertmanager 路由、Grafana 看板、SLO、本地观测栈和 Runbook 串联接入顺序，并同步 README/status/HTML/trace。
+  - 下一步：已完成；后续生产化从该入口补真实服务发现、鉴权、receiver、持久化、SLO 审批和演练流程。
 
 ## 研究发现
 
@@ -181,3 +184,10 @@
 - 已完成：新增 `ops/runbooks/intent-hub-alert-runbook.md` 和 `ops/runbooks/README.md`。
 - 覆盖告警：bad case 率高、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时高和最大耗时 critical。
 - 边界：Runbook 只覆盖 Intent Hub 识别、路由、观测和治理链路；业务数据修复需转交业务系统 owner。
+
+## 2026-06-04 补充记录：运维样例总入口
+
+- 本轮目标：在 Prometheus、Alertmanager、Grafana、SLO、本地观测栈和 Runbook 分散样例完成后，补一个统一阅读与接入入口。
+- 已完成：新增 `ops/README.md`，并同步 `README.md`、`docs/codex/v1/status.md`、HTML 生命周期页、P2-3 指标观测 trace 和 P2-5 LLM 治理 trace。
+- 接入口径：按 Prometheus scrape -> Prometheus 告警规则 -> Alertmanager 路由 -> Grafana 看板 -> SLO -> 本地观测栈 -> Runbook 排列。
+- 边界：该入口仍是样例导航，不是生产部署方案；真实生产需补服务发现、TLS/鉴权、真实 receiver、持久化、高可用、正式 SLA 审批和演练流程。

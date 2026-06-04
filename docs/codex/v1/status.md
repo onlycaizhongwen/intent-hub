@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook 与管理端 confirmed/reserved/pending 查询已完成
+- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook 与管理端 confirmed/reserved/pending 查询已完成
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -36,6 +36,7 @@
 - P2-3 指标观测审查：`docs/codex/v1/trace/intent-hub-p2-metrics-observability-trace.md`
 - P2-4 模型服务适配审查：`docs/codex/v1/trace/intent-hub-p2-model-service-adapter-trace.md`
 - P2-5 LLM 受控兜底审查：`docs/codex/v1/trace/intent-hub-p2-llm-governance-trace.md`
+- 运维样例总入口：`ops/README.md`
 - Prometheus 运维样例：`ops/prometheus/README.md`
 - Alertmanager 路由样例：`ops/alertmanager/README.md`
 - Grafana 看板样例：`ops/grafana/intent-hub-dashboard.json`
@@ -87,3 +88,4 @@
 - 2026-06-04：补充 `ops/alertmanager/alertmanager-route-sample.yml` 和 `ops/alertmanager/README.md`，提供 Alertmanager route、receiver 和 inhibit 样例；生产环境仍需替换真实接收地址，并补齐 TLS/鉴权、secret 管理、升级策略、静默策略和审计要求。
 - 2026-06-04：补充 `ops/local-observability/` 本地观测栈样例，通过 Docker Compose 串联 Prometheus、Alertmanager 和 Grafana，用于本地验证 `/api/v1/admin/metrics/prometheus`、告警规则和 dashboard；该样例不是生产部署配置。
 - 2026-06-04：补充 `ops/runbooks/intent-hub-alert-runbook.md`，覆盖 bad case 率高、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时高和最大耗时 critical 的影响判断、止血动作、定位步骤和复盘清单。
+- 2026-06-04：补充 `ops/README.md` 运维样例总入口，将 Prometheus scrape、告警规则、Alertmanager 路由、Grafana 看板、SLO、本地观测栈和告警 Runbook 串成统一接入顺序，并明确生产化前必改项。

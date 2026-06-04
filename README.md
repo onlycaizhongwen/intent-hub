@@ -108,6 +108,7 @@ curl -X POST http://localhost:8080/api/v1/intent/recognize \
 - [P2-4 模型服务适配审查](docs/codex/v1/trace/intent-hub-p2-model-service-adapter-trace.md)
 - [P2-5 LLM 受控兜底审查](docs/codex/v1/trace/intent-hub-p2-llm-governance-trace.md)
 - [Prometheus 告警规则样例](ops/prometheus/intent-hub-alert-rules.yml)
+- [Grafana 看板样例](ops/grafana/README.md)
 
 ## 架构图片
 

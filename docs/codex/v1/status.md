@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、Prometheus 告警规则样例与管理端 confirmed/reserved/pending 查询已完成
+- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、Prometheus 告警规则样例、Grafana 看板样例与管理端 confirmed/reserved/pending 查询已完成
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -37,6 +37,7 @@
 - P2-4 模型服务适配审查：`docs/codex/v1/trace/intent-hub-p2-model-service-adapter-trace.md`
 - P2-5 LLM 受控兜底审查：`docs/codex/v1/trace/intent-hub-p2-llm-governance-trace.md`
 - Prometheus 告警规则样例：`ops/prometheus/intent-hub-alert-rules.yml`
+- Grafana 看板样例：`ops/grafana/intent-hub-dashboard.json`
 - HTML 阅读版：`docs/codex/v1/intent-hub-lifecycle.html`
 
 ## 变更记录
@@ -76,3 +77,4 @@
 - 2026-06-03：补齐 LLM 日预算后台补偿指标，新增 `intent_hub_llm_budget_reconciliations_total`，用于观察 stale reserved 预占被后台补偿校正的数量，为后续告警接入打基础；补偿指标只记录校正行数，不改变预算补偿语义。
 - 2026-06-04：补齐基础告警快照，新增 `MetricsAlertAppService` 与 `GET /api/v1/admin/metrics/alerts`，基于 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时和最大耗时返回 `OK/WARN/CRITICAL`；`mvn -pl intent-hub-interfaces -am test` 通过，共 62 个测试。
 - 2026-06-04：补充 `ops/prometheus/intent-hub-alert-rules.yml` Prometheus/Alertmanager 告警规则样例，覆盖 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时和最大耗时；该样例不改变运行时代码，不引入 Actuator/Micrometer/Alertmanager 依赖，生产化 scrape、route、Grafana dashboard 和 SLO 仍待后续补齐。
+- 2026-06-04：补充 `ops/grafana/intent-hub-dashboard.json` Grafana 看板样例，覆盖请求量、bad case 率、耗时、decision 分布、fallback、LLM 预算活动、intent 和 scene 分布；该样例依赖 Prometheus 已抓取 `/api/v1/admin/metrics/prometheus`，不提供生产化 datasource、folder/provisioning、权限和 SLO 配置。

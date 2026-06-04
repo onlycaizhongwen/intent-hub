@@ -109,6 +109,8 @@ Dashboard 链接：
 
 ## Day 6：告警演练
 
+参考：[告警演练场景](alert-drill-scenarios.md)
+
 | 告警 | 触发方式 | 通知结果 | Runbook 结果 | 恢复结果 |
 | --- | --- | --- | --- | --- |
 | `IntentHubBadCaseRateHigh` |  |  |  |  |

@@ -6,7 +6,7 @@
 
 - Prometheus 能抓取试点 Intent Hub 实例的 `GET /api/v1/admin/metrics/prometheus`。
 - Grafana 能展示试点环境真实指标。
-- 6 条 P2.x 告警能至少完成一次沙箱触发、路由、通知和恢复验证。
+- 6 条 P2.x 告警能至少按 [告警演练场景](alert-drill-scenarios.md) 完成一次沙箱触发、路由、通知和恢复验证。
 - Runbook 能被值班同学按步骤执行，并记录改进项。
 - 试点过程中不让 Intent Hub 直连业务数据库，不把 LLM 变成主流量路径。
 
@@ -111,7 +111,7 @@ curl -i http://<intent-hub-host>:8080/api/v1/admin/metrics/prometheus
 
 ### 6. Runbook 演练
 
-按 [告警 Runbook](runbooks/intent-hub-alert-runbook.md) 逐条演练。
+按 [告警演练场景](alert-drill-scenarios.md) 触发并验证，再按 [告警 Runbook](runbooks/intent-hub-alert-runbook.md) 逐条处理。
 
 通过标准：
 

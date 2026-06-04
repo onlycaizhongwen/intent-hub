@@ -47,6 +47,7 @@ P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径
 - `ops/alertmanager/alertmanager-route-sample.yml`：提供 Alertmanager route/receiver/inhibit 样例，按 `critical` 和 `warning` 分流。
 - `ops/grafana/intent-hub-dashboard.json`：提供 Grafana dashboard 样例，覆盖请求量、bad case 率、耗时、decision 分布、fallback、LLM 预算活动、intent 和 scene 分布。
 - `ops/slo/README.md`：提供 SLO 与错误预算样例，区分可用性、延迟、质量、受控 LLM、预算补偿和 Bad Case 回流口径。
+- `ops/local-observability/README.md`：提供本地 Prometheus、Alertmanager、Grafana Docker Compose 样例，用于验证观测链路。
 
 当前指标：
 
@@ -106,7 +107,7 @@ mvn test
 - P2-3 暂不引入 Actuator/Micrometer，不暴露 `/actuator/prometheus`。
 - 指标为进程内内存指标，服务重启后清零。
 - 多实例部署时需要后续通过 Prometheus scrape 或 Micrometer/OpenTelemetry 做聚合。
-- 已提供进程内基础告警快照、Prometheus scrape 配置片段样例、Prometheus 告警规则样例、Alertmanager route 样例、Grafana dashboard 样例和 SLO 样例；暂未提供生产化服务发现、TLS/鉴权、真实 receiver secret、Grafana folder/provisioning、正式 SLA 和错误预算审批流程。
+- 已提供进程内基础告警快照、Prometheus scrape 配置片段样例、Prometheus 告警规则样例、Alertmanager route 样例、Grafana dashboard 样例、SLO 样例和本地观测栈样例；暂未提供生产化服务发现、TLS/鉴权、真实 receiver secret、Grafana 持久化存储、正式 SLA 和错误预算审批流程。
 - 当前模型/LLM fallback 统计依赖 `recognitionPath` 字符串，后续可改为结构化 recognition span/event。
 
 ## 后续建议

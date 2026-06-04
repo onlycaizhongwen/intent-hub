@@ -111,6 +111,7 @@ curl -X POST http://localhost:8080/api/v1/intent/recognize \
 - [Alertmanager 路由样例](ops/alertmanager/README.md)
 - [Grafana 看板样例](ops/grafana/README.md)
 - [SLO 样例](ops/slo/README.md)
+- [本地观测栈样例](ops/local-observability/README.md)
 
 ## 架构图片
 

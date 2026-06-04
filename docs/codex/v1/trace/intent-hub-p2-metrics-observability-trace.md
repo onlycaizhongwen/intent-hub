@@ -42,6 +42,7 @@ P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径
 
 配套运维样例：
 
+- `ops/prometheus/intent-hub-scrape-config.yml`：提供 Prometheus scrape 配置片段样例，抓取 `GET /api/v1/admin/metrics/prometheus`。
 - `ops/prometheus/intent-hub-alert-rules.yml`：提供 Prometheus/Alertmanager 告警规则样例，覆盖 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时和最大耗时。
 - `ops/grafana/intent-hub-dashboard.json`：提供 Grafana dashboard 样例，覆盖请求量、bad case 率、耗时、decision 分布、fallback、LLM 预算活动、intent 和 scene 分布。
 
@@ -103,7 +104,7 @@ mvn test
 - P2-3 暂不引入 Actuator/Micrometer，不暴露 `/actuator/prometheus`。
 - 指标为进程内内存指标，服务重启后清零。
 - 多实例部署时需要后续通过 Prometheus scrape 或 Micrometer/OpenTelemetry 做聚合。
-- 已提供进程内基础告警快照、Prometheus Alertmanager 规则样例和 Grafana dashboard 样例；暂未提供生产化 scrape 配置、Alertmanager route、Grafana folder/provisioning 和 SLO。
+- 已提供进程内基础告警快照、Prometheus scrape 配置片段样例、Prometheus Alertmanager 规则样例和 Grafana dashboard 样例；暂未提供生产化服务发现、TLS/鉴权、Alertmanager route、Grafana folder/provisioning 和 SLO。
 - 当前模型/LLM fallback 统计依赖 `recognitionPath` 字符串，后续可改为结构化 recognition span/event。
 
 ## 后续建议

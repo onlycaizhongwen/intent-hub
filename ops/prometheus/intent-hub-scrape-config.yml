@@ -1,0 +1,11 @@
+scrape_configs:
+  - job_name: intent-hub
+    metrics_path: /api/v1/admin/metrics/prometheus
+    scrape_interval: 30s
+    scrape_timeout: 5s
+    static_configs:
+      - targets:
+          - intent-hub:8080
+        labels:
+          service: intent-hub
+          environment: sample

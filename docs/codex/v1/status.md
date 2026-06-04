@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook 与管理端 confirmed/reserved/pending 查询已完成
+- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook 与管理端 confirmed/reserved/pending 查询已完成
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -36,6 +36,8 @@
 - P2-3 指标观测审查：`docs/codex/v1/trace/intent-hub-p2-metrics-observability-trace.md`
 - P2-4 模型服务适配审查：`docs/codex/v1/trace/intent-hub-p2-model-service-adapter-trace.md`
 - P2-5 LLM 受控兜底审查：`docs/codex/v1/trace/intent-hub-p2-llm-governance-trace.md`
+- 模型服务 FastAPI 示例：`examples/model-service-fastapi/README.md`
+- 模型服务容器化校验脚本：`scripts/validate-model-service-container.ps1`
 - 运维样例总入口：`ops/README.md`
 - 生产化落地检查清单：`ops/production-readiness-checklist.md`
 - 观测告警试点接入计划：`ops/pilot-rollout-plan.md`
@@ -101,3 +103,4 @@
 - 2026-06-04：补充 `ops/alert-drill-scenarios.md` 告警演练场景，覆盖 6 条 P2.x 告警的推荐触发方式、验证点、恢复方式和禁止动作。
 - 2026-06-04：补充 `scripts/check-observability-local.ps1` 本地观测栈预检脚本，用于检查本地 ops 配置文件、Intent Hub health/metrics endpoint 和 Docker 命令。
 - 2026-06-04：补充 `scripts/validate-observability-compose.ps1` 本地观测栈配置校验脚本，用于不启动容器校验 Docker Compose、Prometheus rule 引用、target 和 Grafana provisioning 引用。
+- 2026-06-04：补充 `examples/model-service-fastapi` 容器化配置样例和 `scripts/validate-model-service-container.ps1` 校验脚本，用于后续模型服务部署化联调前验证 Dockerfile、Compose、端口映射和健康检查。

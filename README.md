@@ -107,6 +107,7 @@ curl -X POST http://localhost:8080/api/v1/intent/recognize \
 - [P2-3 指标观测审查](docs/codex/v1/trace/intent-hub-p2-metrics-observability-trace.md)
 - [P2-4 模型服务适配审查](docs/codex/v1/trace/intent-hub-p2-model-service-adapter-trace.md)
 - [P2-5 LLM 受控兜底审查](docs/codex/v1/trace/intent-hub-p2-llm-governance-trace.md)
+- [FastAPI 模型服务示例](examples/model-service-fastapi/README.md)
 - [运维样例总入口](ops/README.md)
 
 ## 架构图片

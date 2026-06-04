@@ -1,0 +1,18 @@
+services:
+  intent-hub-model-service:
+    build:
+      context: .
+    image: intent-hub/model-service-fastapi:local
+    ports:
+      - "18081:18081"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18081/health', timeout=2).read()"
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+

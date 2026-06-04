@@ -6,12 +6,36 @@
 
 ## 启动
 
+### 本地 Python 启动
+
 ```bash
 cd examples/model-service-fastapi
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn app:app --host 0.0.0.0 --port 18081
+```
+
+### Docker Compose 启动
+
+启动前可先校验容器化配置，不启动容器：
+
+```powershell
+.\scripts\validate-model-service-container.ps1
+```
+
+启动模型服务容器：
+
+```bash
+cd examples/model-service-fastapi
+docker compose up --build -d
+```
+
+停止模型服务容器：
+
+```bash
+cd examples/model-service-fastapi
+docker compose down
 ```
 
 ## 健康检查
@@ -47,3 +71,9 @@ java -jar intent-hub-interfaces/target/intent-hub-interfaces-0.1.0-SNAPSHOT.jar 
 ```
 
 识别顺序仍然是 Rule -> Model -> LLM。规则命中时不会调用模型服务；只有规则未命中时，模型服务才作为 LLM 之前的候选来源。
+
+## 边界
+
+- 当前 Docker Compose 只用于本地部署化联调，不是生产部署方案。
+- 当前镜像使用 CPU Python/FastAPI 示例，不包含真实模型权重、GPU 调度、模型版本管理或 Triton。
+- 模型服务仍只能返回识别候选，不返回 SQL、不返回业务动作、不访问业务数据库。

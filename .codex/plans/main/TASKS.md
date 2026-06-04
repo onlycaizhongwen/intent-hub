@@ -19,16 +19,16 @@
 - 恢复提示：P1-5 已提交并推送，提交 `e92ffa6`。
 
 ## P1-6 P1 退出评审与 P2 准入
-- 状态：本地已提交，远端推送待网络恢复
-- 摘要：已形成 P1 退出评审报告，结论为有条件通过；P1 可进入 P2 规划与试点扩展，遗留项进入 P2/P1.x。本地提交 `1a04b19` 已完成，GitHub 443 超时导致远端同步暂未确认。
+- 状态：已提交并推送
+- 摘要：已形成 P1 退出评审报告，结论为有条件通过；P1 可进入 P2 规划与试点扩展，遗留项进入 P2/P1.x。已随 `main` 推送到 GitHub。
 - 过程文件：`.codex/plans/main/p1-exit-review/process.md`
-- 恢复提示：网络恢复后执行 `git push origin main` 并确认远端 main 包含 `1a04b19`。
+- 恢复提示：P1-6 已完成，可从 P2 规划与试点扩展继续。
 
 ## P2-1 动态 scene 路由与多场景配置读取
-- 状态：本地已提交，远端推送待确认
-- 摘要：替换 P1 已发布配置读取中的固定 `order-scene`，实现 Envelope metadata 显式 scene 优先、已发布版本兜底、内置配置最终回退的最小动态 scene 读取闭环。本地提交 `8b9e187` 已完成。
+- 状态：已提交并推送
+- 摘要：替换 P1 已发布配置读取中的固定 `order-scene`，实现 Envelope metadata 显式 scene 优先、已发布版本兜底、内置配置最终回退的最小动态 scene 读取闭环。已随 `main` 推送到 GitHub。
 - 过程文件：`.codex/plans/main/p2-dynamic-scene-routing/process.md`
-- 恢复提示：网络恢复后执行 `git push origin main` 并确认远端 main 包含 `8b9e187`。
+- 恢复提示：P2-1 已完成，可从后续 P2.x 继续。
 
 ## P2-2 Bad Case 标注流转与样本导出
 - 状态：已提交并推送
@@ -49,7 +49,7 @@
 - 恢复提示：P2-4 已完成并推送，可从 P2-5 或后续 P2.x 继续。
 
 ## P2-5 LLM 受控兜底
-- 状态：P2.x 日预算原子预占、同步失败释放、后台补偿与补偿指标已完成，待用户指令推送
-- 摘要：补全 LLM 受控兜底最小闭环：全局治理配置、scene 级 `llm_policy` 读取、预算/超时门禁、有限重试和 fallback 失败关闭；并补齐 HTTP timeout 绑定、模型服务失败关闭、fallback 指标口径、LLM 预算消费最小计数与持久化审计、外呼前日预算原子预占、同步失败释放、默认关闭的 stale pending 后台补偿、补偿指标、管理端 confirmed/reserved/pending 预算查询、模型 adapter 本地 HTTP 冒烟、模型服务健康检查、本地真实联调、Spring AI Alibaba `ChatClient` 预接入和 DashScope 沙箱冒烟 profile/script 准备；默认关闭且预算为 0，不影响规则和模型主链路；全量测试通过，共 61 个测试。
+- 状态：已提交并推送
+- 摘要：补全 LLM 受控兜底最小闭环：全局治理配置、scene 级 `llm_policy` 读取、预算/超时门禁、有限重试和 fallback 失败关闭；并补齐 HTTP timeout 绑定、模型服务失败关闭、fallback 指标口径、LLM 预算消费最小计数与持久化审计、外呼前日预算原子预占、同步失败释放、默认关闭的 stale pending 后台补偿、补偿指标、管理端 confirmed/reserved/pending 预算查询、模型 adapter 本地 HTTP 冒烟、模型服务健康检查、本地真实联调、Spring AI Alibaba `ChatClient` 预接入、DashScope 沙箱冒烟 profile/script、运维告警样例和本地观测栈校验脚本；默认关闭且预算为 0，不影响规则和模型主链路；已随 `main` 推送到 GitHub。
 - 过程文件：`.codex/plans/main/p2-llm-governance/process.md`
-- 恢复提示：读取 process.md，继续 P2.x 真实 DashScope 冒烟、告警/真实多实例压测或模型服务部署化联调；本地提交完成后，推送 GitHub 仍需用户单独指令。
+- 恢复提示：读取 process.md，继续 P2.x 真实 DashScope 冒烟、告警/真实多实例压测或模型服务部署化联调；后续新提交完成后，推送 GitHub 仍需用户单独指令。

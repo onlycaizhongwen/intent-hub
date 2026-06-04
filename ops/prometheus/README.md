@@ -5,7 +5,7 @@
 ## 文件
 
 - `intent-hub-scrape-config.yml`：Prometheus scrape 配置片段样例。
-- `intent-hub-alert-rules.yml`：Prometheus/Alertmanager 告警规则样例。
+- `intent-hub-alert-rules.yml`：Prometheus 告警规则样例，可配合 `../alertmanager/alertmanager-route-sample.yml` 路由。
 
 ## 前提
 
@@ -20,7 +20,7 @@
 - `environment`：替换为真实环境标签。
 - `scrape_interval` 与 `scrape_timeout`：按生产采集频率调整。
 
-将 `intent-hub-alert-rules.yml` 按 Prometheus rule file 方式加载，并在 Alertmanager 中补齐真实 route、receiver 和静默策略。
+将 `intent-hub-alert-rules.yml` 按 Prometheus rule file 方式加载，并参考 `../alertmanager/README.md` 补齐真实 route、receiver 和静默策略。
 
 ## 边界
 

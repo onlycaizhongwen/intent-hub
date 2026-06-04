@@ -131,7 +131,7 @@ mvn test
 - `TongyiLlmAdapterTest` 覆盖治理关闭、策略预算为 0、Spring AI Alibaba ChatClient 分支、HTTP 契约 fallback、成功返回候选、有限重试后失败、真实外呼尝试前记录预算消费、远端失败后释放本次预占、日预算耗尽不外呼，以及全局预算收紧优先阻断。`InMemoryLlmBudgetAuditRepositoryTest` 与 `JdbcLlmBudgetAuditRepositoryTest` 覆盖日预算预占成功/失败、查询不双算、预占后明细缺失时暴露 pending 差额、失败释放后可再次预占，以及 stale pending 预占后台补偿。
 - `JdbcSceneConfigRepositoryTest` 覆盖从已发布 `nlu_strategy.llm_policy` 读取 LLM 策略。
 - 模型服务和 LLM HTTP adapter 已通过 `SimpleClientHttpRequestFactory` 绑定 connect/read timeout。
-- `LLM_FALLBACK` 会进入最小指标口径，支持通过 `GET /api/v1/admin/metrics` 和 Prometheus 文本观察 LLM 失败关闭次数；`intent_hub_llm_budget_attempts_total` 与 `intent_hub_llm_budget_consumed_total` 记录 LLM 外呼预算消费尝试；`intent_hub_llm_budget_reconciliations_total` 记录后台补偿校正的 stale reserved 预占数量；`GET /api/v1/admin/metrics/alerts` 可基于 LLM fallback 和预算补偿指标返回基础告警快照；`ops/prometheus/intent-hub-scrape-config.yml` 提供 Prometheus scrape 配置片段样例，`ops/prometheus/intent-hub-alert-rules.yml` 提供 Prometheus/Alertmanager 规则样例，`ops/grafana/intent-hub-dashboard.json` 提供 Grafana 看板样例，`ops/slo/README.md` 提供 SLO 与错误预算样例。
+- `LLM_FALLBACK` 会进入最小指标口径，支持通过 `GET /api/v1/admin/metrics` 和 Prometheus 文本观察 LLM 失败关闭次数；`intent_hub_llm_budget_attempts_total` 与 `intent_hub_llm_budget_consumed_total` 记录 LLM 外呼预算消费尝试；`intent_hub_llm_budget_reconciliations_total` 记录后台补偿校正的 stale reserved 预占数量；`GET /api/v1/admin/metrics/alerts` 可基于 LLM fallback 和预算补偿指标返回基础告警快照；`ops/prometheus/intent-hub-scrape-config.yml` 提供 Prometheus scrape 配置片段样例，`ops/prometheus/intent-hub-alert-rules.yml` 提供 Prometheus 规则样例，`ops/alertmanager/alertmanager-route-sample.yml` 提供 Alertmanager 路由样例，`ops/grafana/intent-hub-dashboard.json` 提供 Grafana 看板样例，`ops/slo/README.md` 提供 SLO 与错误预算样例。
 - `llm_budget_usage` 按 `tenant_id + scene_id + usage_date + provider + model` 记录 LLM 外呼尝试次数和消费单位；`TongyiLlmAdapter` 会在外呼前查询当日用量，达到全局预算与 scene 预算较小值时直接返回空候选。
 - DashScope 沙箱 profile 与冒烟脚本已准备完成，凭证只从 `DASHSCOPE_API_KEY` 环境变量读取，不写入仓库。
 
@@ -140,7 +140,7 @@ mvn test
 - 当前 `TongyiLlmAdapter` 已预接入 Spring AI Alibaba `ChatClient`，并保留 HTTP 契约 fallback；没有 `ChatClient.Builder` 或 provider 不是 `spring-ai-alibaba` 时不会强依赖真实 DashScope。
 - 尚未使用真实 DashScope 沙箱密钥完成外部冒烟；当前只完成 profile、脚本和验证步骤准备。
 - `timeoutMs` 已进入策略和治理配置，并已绑定到底层 RestClient connect/read timeout。
-- 当前已完成 LLM 外呼预算消费最小计数、持久化审计、外呼前日预算原子预占门禁、同步失败释放、默认关闭的 stale pending 后台补偿、补偿指标、基础告警快照、Prometheus scrape/告警规则样例、Grafana 看板样例、SLO 样例和管理端 confirmed/reserved/pending 查询；真实多实例 PostgreSQL 压测、分布式保护和生产化 Prometheus/Grafana 告警仍待补。
+- 当前已完成 LLM 外呼预算消费最小计数、持久化审计、外呼前日预算原子预占门禁、同步失败释放、默认关闭的 stale pending 后台补偿、补偿指标、基础告警快照、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例和管理端 confirmed/reserved/pending 查询；真实多实例 PostgreSQL 压测、分布式保护和生产化 Prometheus/Grafana 告警仍待补。
 
 ## 后续建议
 

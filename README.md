@@ -89,6 +89,7 @@ curl -X POST http://localhost:8080/api/v1/intent/recognize \
 - 观测查询：`/api/v1/admin/observability`
 - 指标快照：`GET /api/v1/admin/metrics`
 - Prometheus 文本：`GET /api/v1/admin/metrics/prometheus`
+- 告警快照：`GET /api/v1/admin/metrics/alerts`
 - LLM 预算查询：`GET /api/v1/admin/llm/budget-usage`
 
 ## 文档导航

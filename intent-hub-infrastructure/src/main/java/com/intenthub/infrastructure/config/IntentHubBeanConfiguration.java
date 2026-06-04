@@ -13,6 +13,7 @@ import com.intenthub.application.config.ConfigVersionPort;
 import com.intenthub.application.llm.LlmBudgetAuditPort;
 import com.intenthub.application.llm.LlmBudgetAppService;
 import com.intenthub.application.metrics.IntentMetricsPort;
+import com.intenthub.application.metrics.MetricsAlertAppService;
 import com.intenthub.application.metrics.MetricsAppService;
 import com.intenthub.application.observability.BadCaseWorkflowAppService;
 import com.intenthub.application.observability.BadCaseWorkflowPort;
@@ -87,6 +88,11 @@ public class IntentHubBeanConfiguration {
     @Bean
     MetricsAppService metricsAppService(IntentMetricsPort metricsPort) {
         return new MetricsAppService(metricsPort);
+    }
+
+    @Bean
+    MetricsAlertAppService metricsAlertAppService(IntentMetricsPort metricsPort) {
+        return new MetricsAlertAppService(metricsPort);
     }
 
     @Bean

@@ -4,8 +4,8 @@
 
 - 任务需求：继续 P2，完成小流量 LLM 受控兜底的最小闭环。
 - 关键决策：LLM 仍是最后一道防线；默认关闭且预算为 0；只有全局治理配置和 scene 级 `llm_policy` 同时允许时才触发；失败按 fallback decision 关闭。
-- 当前阶段：P2.x 日预算原子预占、同步失败释放与后台补偿已完成；本轮在既有 LLM 受控兜底基础上补齐外呼前日预算原子预占、管理端 confirmed/reserved/pending 预算查询、远端失败释放本次预占和默认关闭的 stale pending 后台补偿，相关模块测试通过，待用户明确指令后推送 GitHub。
-- 已完成产物：LLM 领域策略门禁、基础设施治理配置、Spring AI Alibaba 优先/HTTP fallback adapter、LLM 预算审计端口与 memory/JDBC 实现、同步失败释放、后台补偿调度、DashScope smoke profile/script、JDBC 策略读取、测试、README/status/HTML/trace 同步。
+- 当前阶段：P2.x 日预算原子预占、同步失败释放、后台补偿与基础告警快照已完成；本轮在既有 LLM 受控兜底基础上补齐外呼前日预算原子预占、管理端 confirmed/reserved/pending 预算查询、远端失败释放本次预占、默认关闭的 stale pending 后台补偿和 `GET /api/v1/admin/metrics/alerts` 基础告警快照，相关模块测试通过，待用户明确指令后推送 GitHub。
+- 已完成产物：LLM 领域策略门禁、基础设施治理配置、Spring AI Alibaba 优先/HTTP fallback adapter、LLM 预算审计端口与 memory/JDBC 实现、同步失败释放、后台补偿调度、基础告警快照、DashScope smoke profile/script、JDBC 策略读取、测试、README/status/HTML/trace 同步。
 - 剩余工作：GitHub 推送只在用户明确发指令时执行。
 - 重要发现：当前 Spring AI Alibaba 依赖已作为 optional 存在；P2-5 已在基础设施层预接入 `ChatClient`，同时保留 HTTP 契约 fallback，真实 DashScope 沙箱冒烟仍需凭证。
 
@@ -61,13 +61,16 @@
   - 下一步：已完成；真实外呼等待沙箱凭证和用户明确执行指令。
 - [v] 补 LLM 预算后台补偿。
   - 当前产物：`LlmBudgetAuditPort.reconcileStaleDailyBudgetReservations`、memory/JDBC stale pending 补偿实现、默认关闭的 `LlmBudgetReconciliationTask` 调度和配置。
-  - 下一步：已完成；后续补告警、Micrometer/OpenTelemetry 桥接和真实多实例 PostgreSQL 压测。
+  - 下一步：已完成；基础告警快照已补，后续补 Micrometer/OpenTelemetry 桥接和真实多实例 PostgreSQL 压测。
+- [v] 补基础告警快照。
+  - 当前产物：`MetricsAlertAppService`、`MetricsAlertSnapshot` 和 `GET /api/v1/admin/metrics/alerts`，基于 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时和最大耗时返回 `OK/WARN/CRITICAL`。
+  - 下一步：已完成；后续桥接 Prometheus Alertmanager/Grafana Alerting。
 
 ## 研究发现
 
 - LLM 门禁应在领域策略层先拦截预算为 0 或 timeout 为 0 的场景，避免指标误算 LLM fallback。
 - 基础设施 adapter 仍需二次检查全局治理开关、baseUrl 和全局预算，防止误配置导致外部调用。
-- 当前 P2-5 还不是完整生产 LLM：已预接入 Spring AI Alibaba `ChatClient`，但没有真实 DashScope 沙箱冒烟、告警和真实多实例压测；底层 HTTP timeout 绑定、最小预算消费计数、持久化审计、日预算原子预占、同步失败释放、后台补偿和管理端 confirmed/reserved/pending 查询已完成。
+- 当前 P2-5 还不是完整生产 LLM：已预接入 Spring AI Alibaba `ChatClient`，但没有真实 DashScope 沙箱冒烟、Prometheus/Grafana 级告警和真实多实例压测；底层 HTTP timeout 绑定、最小预算消费计数、持久化审计、日预算原子预占、同步失败释放、后台补偿、基础告警快照和管理端 confirmed/reserved/pending 查询已完成。
 - 2026-06-02：已补齐底层 HTTP timeout 绑定；`mvn test` 通过，共 37 个测试；`git diff --check` 通过。本轮按用户要求暂不提交、不推送。
 - 2026-06-02：已补齐模型服务异常失败关闭；`mvn test` 通过，共 38 个测试；`git diff --check` 通过。本轮按用户要求暂不提交、不推送。
 - 2026-06-02：已补齐模型与 LLM fallback 最小指标口径；`mvn test` 通过，共 39 个测试；`git diff --check` 通过。本轮按用户要求暂不提交、不推送。
@@ -100,3 +103,11 @@
 - 语义边界：指标只记录后台补偿校正的 stale reserved 预占数量，不改变预算预占、释放、补偿和 confirmed 外呼审计语义。
 - 文档同步：已更新 README、status、HTML 生命周期页、P1 设计和 P2-5 trace 审查。
 - 下一步：在后续告警工作中基于该指标补阈值规则、Micrometer/OpenTelemetry 桥接和真实多实例 PostgreSQL 压测。
+
+## 2026-06-04 补充记录：基础告警快照
+
+- 本轮目标：在不引入 Actuator/Micrometer/Alertmanager 的前提下，先给管理端提供可查询的基础告警快照。
+- 已完成：新增 `MetricsAlertAppService`、`MetricsAlert`、`MetricsAlertSnapshot`、`AlertSeverity` 和 `GET /api/v1/admin/metrics/alerts`。
+- 告警口径：bad case 率超过 30% 返回 `BAD_CASE_RATE_HIGH`；模型 fallback、LLM fallback、LLM 预算后台补偿出现正数时返回 WARN；平均耗时超过 1000ms 返回 WARN；最大耗时超过 3000ms 返回 CRITICAL。
+- 验证：`mvn -pl intent-hub-interfaces -am test` 通过，Reactor 5 个模块成功，测试共 62 个，失败 0。
+- 后续：将该快照桥接到 Prometheus Alertmanager/Grafana Alerting，并补 P95/P99、窗口化速率和多实例聚合。

@@ -4,7 +4,7 @@
 
 通过。
 
-P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径、不引入新运维依赖的情况下，为识别链路提供 JSON 快照和 Prometheus 文本格式指标出口。后续 P2-4/P2-5 已把模型 fallback、LLM fallback 失败关闭与 LLM 预算消费尝试纳入指标口径。
+P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径、不引入新运维依赖的情况下，为识别链路提供 JSON 快照、Prometheus 文本格式指标出口和基础告警快照。后续 P2-4/P2-5 已把模型 fallback、LLM fallback 失败关闭、LLM 预算消费尝试和预算补偿纳入指标与告警口径。
 
 ## 范围
 
@@ -24,6 +24,9 @@ P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径
 - `IntentMetricsPort`
 - `MetricsSnapshot`
 - `MetricsAppService`
+- `MetricsAlert`
+- `MetricsAlertSnapshot`
+- `MetricsAlertAppService`
 
 新增基础设施：
 
@@ -35,6 +38,7 @@ P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径
 | --- | --- | --- |
 | `/api/v1/admin/metrics` | GET | 返回 JSON 指标快照 |
 | `/api/v1/admin/metrics/prometheus` | GET | 返回 Prometheus text/plain 指标 |
+| `/api/v1/admin/metrics/alerts` | GET | 返回基础告警快照 |
 
 当前指标：
 
@@ -43,6 +47,8 @@ P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径
 - 模型 fallback 次数。
 - LLM fallback 次数。
 - LLM 预算消费尝试次数与消费单位。
+- LLM 预算后台补偿校正数量。
+- 基础告警：bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时和最大耗时。
 - 总耗时、平均耗时、最大耗时。
 - 按 decision 计数。
 - 按 intent 计数。
@@ -56,7 +62,7 @@ P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径
 
 ### LLM 受控
 
-P2-3 没有新增 LLM 调用。当前 `totalModelFallbacks` 根据 `recognitionPath` 中的 `MODEL_FALLBACK` 统计，`totalLlmFallbacks` 根据 `LLM_FALLBACK` 统计；后续 P2-5 增加 `totalLlmBudgetAttempts` 与 `totalLlmBudgetConsumed`，仅在 LLM adapter 真实外呼尝试前记账。
+P2-3 没有新增 LLM 调用。当前 `totalModelFallbacks` 根据 `recognitionPath` 中的 `MODEL_FALLBACK` 统计，`totalLlmFallbacks` 根据 `LLM_FALLBACK` 统计；后续 P2-5 增加 `totalLlmBudgetAttempts`、`totalLlmBudgetConsumed` 与 `totalLlmBudgetReconciliations`，仅在 LLM adapter 真实外呼尝试或后台补偿时记账。`/metrics/alerts` 只消费已有指标快照，不触发 LLM。
 
 ### 防腐层
 
@@ -84,7 +90,7 @@ mvn test
 
 - `RecognizeAppServiceTest` 验证识别链路会调用 metrics port。
 - `InMemoryIntentMetricsRepositoryTest` 验证模型 fallback、LLM fallback 和 LLM 预算消费分别计数。
-- `AdminMetricsControllerTest` 验证 JSON 快照和 Prometheus 文本出口。
+- `AdminMetricsControllerTest` 验证 JSON 快照、Prometheus 文本出口和基础告警快照。
 - 既有 P1、P2-1、P2-2 测试仍全部通过。
 
 ## 当前限制
@@ -92,7 +98,7 @@ mvn test
 - P2-3 暂不引入 Actuator/Micrometer，不暴露 `/actuator/prometheus`。
 - 指标为进程内内存指标，服务重启后清零。
 - 多实例部署时需要后续通过 Prometheus scrape 或 Micrometer/OpenTelemetry 做聚合。
-- 暂未提供 Grafana dashboard JSON、告警规则和 SLO。
+- 已提供进程内基础告警快照；暂未提供 Grafana dashboard JSON、Prometheus Alertmanager 规则和 SLO。
 - 当前模型/LLM fallback 统计依赖 `recognitionPath` 字符串，后续可改为结构化 recognition span/event。
 
 ## 后续建议
@@ -101,5 +107,5 @@ P2 后续建议：
 
 - 将 `IntentMetricsPort` 桥接到 Micrometer 或 OpenTelemetry Metrics。
 - 增加 Grafana dashboard：请求量、拒识率、澄清率、异步接收率、bad case 生成率、模型 fallback 率、LLM fallback 率、平均/P95 耗时。
-- 增加基础告警：拒识率突增、P95 耗时超阈、bad case 堆积、LLM fallback 超预算。
+- 将基础告警快照桥接到 Prometheus Alertmanager 或 Grafana Alerting：拒识率突增、P95 耗时超阈、bad case 堆积、LLM fallback 超预算。
 - 多实例部署时由 Prometheus 统一聚合，避免依赖单实例内存快照。

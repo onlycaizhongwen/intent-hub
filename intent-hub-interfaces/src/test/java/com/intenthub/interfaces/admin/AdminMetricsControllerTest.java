@@ -1,6 +1,8 @@
 package com.intenthub.interfaces.admin;
 
 import com.intenthub.application.metrics.IntentMetricsPort;
+import com.intenthub.application.metrics.MetricsAlertAppService;
+import com.intenthub.application.metrics.MetricsAlertSnapshot;
 import com.intenthub.application.metrics.MetricsAppService;
 import com.intenthub.application.metrics.MetricsSnapshot;
 import com.intenthub.domain.recognition.Envelope;
@@ -15,7 +17,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AdminMetricsControllerTest {
     @Test
     void exposesMetricsSnapshotThroughControllerContract() {
-        AdminMetricsController controller = new AdminMetricsController(new MetricsAppService(new FixedMetricsPort()));
+        FixedMetricsPort metricsPort = new FixedMetricsPort();
+        AdminMetricsController controller = new AdminMetricsController(
+                new MetricsAppService(metricsPort),
+                new MetricsAlertAppService(metricsPort));
 
         MetricsSnapshot snapshot = controller.snapshot();
 
@@ -31,7 +36,10 @@ class AdminMetricsControllerTest {
 
     @Test
     void exposesPrometheusTextThroughControllerContract() {
-        AdminMetricsController controller = new AdminMetricsController(new MetricsAppService(new FixedMetricsPort()));
+        FixedMetricsPort metricsPort = new FixedMetricsPort();
+        AdminMetricsController controller = new AdminMetricsController(
+                new MetricsAppService(metricsPort),
+                new MetricsAlertAppService(metricsPort));
 
         String text = controller.prometheus();
 
@@ -43,6 +51,20 @@ class AdminMetricsControllerTest {
         assertThat(text).contains("intent_hub_llm_budget_reconciliations_total 4");
         assertThat(text).contains("intent_hub_decisions_total{decision=\"SUCCESS\"} 2");
         assertThat(text).contains("intent_hub_intents_total{intent=\"ORDER_QUERY\"} 2");
+    }
+
+    @Test
+    void exposesAlertSnapshotThroughControllerContract() {
+        FixedMetricsPort metricsPort = new FixedMetricsPort();
+        AdminMetricsController controller = new AdminMetricsController(
+                new MetricsAppService(metricsPort),
+                new MetricsAlertAppService(metricsPort));
+
+        MetricsAlertSnapshot snapshot = controller.alerts();
+
+        assertThat(snapshot.status()).isEqualTo("WARN");
+        assertThat(snapshot.alerts()).extracting("code")
+                .contains("BAD_CASE_RATE_HIGH", "MODEL_FALLBACK", "LLM_FALLBACK", "LLM_BUDGET_RECONCILIATION");
     }
 
     private static final class FixedMetricsPort implements IntentMetricsPort {

@@ -24,6 +24,12 @@ uvicorn app:app --host 0.0.0.0 --port 18081
 .\scripts\validate-model-service-container.ps1
 ```
 
+如果要执行完整端到端冒烟，脚本会自动打包 Intent Hub、启动模型服务容器、启动 Intent Hub jar、验证健康检查和识别链路，结束后默认清理本地进程与容器：
+
+```powershell
+.\scripts\smoke-model-service-e2e.ps1
+```
+
 启动模型服务容器：
 
 ```bash

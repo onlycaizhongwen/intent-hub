@@ -260,3 +260,10 @@
 - 验证证据：`scripts/validate-model-service-container.ps1` 通过；`docker compose up --build -d` 后模型容器 healthy；直连 `GET http://localhost:18081/health` 返回 `UP`，直连 `/recognize` 对 `cancel A100` 返回 `ORDER_CANCEL`、`confidence=0.86`、`slots.order_id=A100`。
 - 端到端证据：使用 JDK17 启动 Intent Hub jar 并配置 `intent-hub.model-service.enabled=true`、`base-url=http://localhost:18081` 后，`GET /api/v1/admin/health` 返回 `model_service.healthy=true`；`POST /api/v1/intent/recognize` 返回 `ORDER_CANCEL/ASYNC_ACCEPTED`，识别路径包含 `RuleRecognitionPolicy`、`ModelRecognitionPolicy`、`POST_ROUTE:ORDER_CANCEL_COMMAND`。
 - 边界：本轮验证的是本地 Docker 模型服务与默认 memory 模式 Intent Hub jar；未执行真实 DashScope 沙箱外呼，也未覆盖生产多实例、TLS/鉴权、K8s 服务发现和 Prometheus/Grafana 真实接入。
+
+## 2026-06-08 补充记录：模型服务端到端冒烟脚本固化
+
+- 本轮目标：将手工模型服务容器联调固化成可重复脚本，减少后续模型 adapter 或部署配置变更后的人工验证成本。
+- 已完成：新增 `scripts/smoke-model-service-e2e.ps1`，自动完成 JDK17/Maven/Docker 检查、Intent Hub jar 打包、模型服务容器启动、模型直连识别、Intent Hub jar 启动、`model_service.healthy=true` 健康检查、`ModelRecognitionPolicy` 路径识别断言和清理。
+- 验证证据：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-model-service-e2e.ps1` 已完整通过，结束后自动停止 Intent Hub 进程并执行 `docker compose down`。
+- 边界：脚本用于本地 smoke，不替代真实 DashScope 外呼、生产 K8s 部署、TLS/鉴权或多实例压测。

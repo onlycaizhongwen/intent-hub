@@ -70,6 +70,33 @@ class ConfigVersionAppServiceTest {
     }
 
     @Test
+    void validatesCrossObjectReferencesBeforePublish() {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "broken bundle", "ops", Instant.now(), Instant.now());
+        ConfigBundle bundle = new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询")),
+                List.of(Map.of("intentCode", "ORDER_CANCEL", "slotCode", "orderId")),
+                null,
+                null,
+                List.of(Map.of("routeStage", "POST", "routeTarget", "MISSING_ACTION")),
+                List.of(Map.of("actionCode", "ORDER_CANCEL_API", "actionType", "API", "target", "https://api.example.test"))
+        );
+        service.importBundle("demo", "order-scene", "v-cross-ref", bundle, "admin");
+
+        ConfigValidationResult result = service.validate("demo", "order-scene", "v-cross-ref");
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.errors()).contains(
+                "slot ORDER_CANCEL.orderId references missing intent ORDER_CANCEL",
+                "POST route MISSING_ACTION references missing downstream action",
+                "downstream action ORDER_CANCEL_API references missing intent ORDER_CANCEL"
+        );
+        assertThatThrownBy(() -> service.publish("demo", "order-scene", "v-cross-ref", "admin"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("references missing");
+    }
+
+    @Test
     void upsertsConfigObjectsOnlyForDraftVersions() {
         service.createDraft("demo", "order-scene", "v1", "base", "admin");
         ConfigObjectAppService objectService = new ConfigObjectAppService(port, port, auditLogPort);

@@ -1,9 +1,11 @@
 package com.intenthub.application.config;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 public class ConfigVersionAppService {
     private final ConfigVersionPort configVersionPort;
@@ -37,6 +39,8 @@ public class ConfigVersionAppService {
             errors.add("config version does not exist");
         } else if (!"DRAFT".equals(info.status()) && !"PUBLISHED".equals(info.status())) {
             errors.add("config version status must be DRAFT or PUBLISHED");
+        } else {
+            validateReferences(configVersionPort.exportBundle(tenantId, sceneId, version), errors);
         }
         return errors.isEmpty() ? ConfigValidationResult.ok() : ConfigValidationResult.failed(errors);
     }
@@ -93,5 +97,70 @@ public class ConfigVersionAppService {
         if (version == null || version.isBlank()) {
             throw new IllegalArgumentException("version is required");
         }
+    }
+
+    private void validateReferences(ConfigBundle bundle, List<String> errors) {
+        Set<String> intentCodes = collectValues(bundle.intents(), "intentCode", "intent_code");
+        Set<String> actionCodes = collectValues(bundle.downstreamActions(), "actionCode", "action_code", "downstreamActionId", "downstream_action_id");
+
+        for (Map<String, Object> slot : bundle.slots()) {
+            String intentCode = string(slot, "intentCode", "intent_code");
+            String slotCode = string(slot, "slotCode", "slot_code");
+            if (!intentCode.isBlank() && !intentCodes.contains(intentCode)) {
+                errors.add("slot " + intentCode + "." + slotCode + " references missing intent " + intentCode);
+            }
+        }
+
+        for (Map<String, Object> route : bundle.routes()) {
+            String routeStage = string(route, "routeStage", "route_stage");
+            String routeTarget = string(route, "routeTarget", "route_target", "downstreamActionId", "downstream_action_id");
+            if ("POST".equalsIgnoreCase(routeStage) && !routeTarget.isBlank() && !actionCodes.contains(routeTarget)) {
+                errors.add("POST route " + routeTarget + " references missing downstream action");
+            }
+        }
+
+        for (String actionCode : actionCodes) {
+            String intentCode = inferIntentCode(actionCode);
+            if (!intentCode.isBlank() && !intentCodes.contains(intentCode)) {
+                errors.add("downstream action " + actionCode + " references missing intent " + intentCode);
+            }
+        }
+    }
+
+    private Set<String> collectValues(List<Map<String, Object>> values, String... keys) {
+        Set<String> result = new LinkedHashSet<>();
+        for (Map<String, Object> value : values) {
+            String item = string(value, keys);
+            if (!item.isBlank()) {
+                result.add(item);
+            }
+        }
+        return result;
+    }
+
+    private String string(Map<String, Object> value, String... keys) {
+        for (String key : keys) {
+            Object candidate = value.get(key);
+            if (candidate != null && !candidate.toString().isBlank()) {
+                return candidate.toString();
+            }
+        }
+        return "";
+    }
+
+    private String inferIntentCode(String actionCode) {
+        if (actionCode.endsWith("_API")) {
+            return actionCode.substring(0, actionCode.length() - 4);
+        }
+        if (actionCode.endsWith("_SYNC")) {
+            return actionCode.substring(0, actionCode.length() - 5);
+        }
+        if (actionCode.endsWith("_COMMAND")) {
+            return actionCode.substring(0, actionCode.length() - 8);
+        }
+        if (actionCode.endsWith("_WEBHOOK")) {
+            return actionCode.substring(0, actionCode.length() - 8);
+        }
+        return actionCode;
     }
 }

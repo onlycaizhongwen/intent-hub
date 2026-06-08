@@ -210,6 +210,9 @@ try {
     if ($hubHealth.status -ne "UP" -or -not $hubHealth.model_service.healthy) {
         Fail "Intent Hub health did not report model_service.healthy=true"
     }
+    if ($hubHealth.model_service.modelVersion -ne "fastapi-example-2026-06-08") {
+        Fail "Intent Hub health did not expose model service version"
+    }
     Ok "Intent Hub health reports model_service.healthy=true"
 
     $recognizeBody = @{

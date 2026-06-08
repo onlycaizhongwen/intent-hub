@@ -66,7 +66,7 @@ FastAPI 示例扩展字段：
 
 - `modelVersion`：当前样例返回 `fastapi-example-2026-06-08`，用于验证模型版本透出。
 - `threshold`：当前样例返回 `0.70`，用于验证阈值配置透出。
-- Java adapter 当前仍只消费 `intentCode`、`confidence`、`slots`、`explanation`，扩展字段仅作为模型服务示例能力和 smoke 断言。
+- Java adapter 识别链路当前仍只消费 `intentCode`、`confidence`、`slots`、`explanation`；`modelVersion` 与 `threshold` 只通过健康详情进入 Admin health 和 smoke 断言，不参与下游动作。
 
 ## 架构一致性
 
@@ -108,12 +108,12 @@ mvn test
 
 - `RecognizeAppServiceTest` 覆盖模型候选参与识别，并验证路径为 Rule -> Model -> PostRoute。
 - `RecognizeAppServiceTest` 覆盖模型服务异常时失败关闭，并验证路径包含 `MODEL_FALLBACK:CLOSED`。
-- `ModelClientAdapterTest` 覆盖 no-op adapter、inactive HTTP adapter、MockRestServiceServer 成功返回、模型服务健康检查，以及 JDK 本地 HTTP server POST/JSON 解析冒烟。
-- `AdminHealthControllerTest` 覆盖 `GET /api/v1/admin/health` 返回模型服务健康状态。
+- `ModelClientAdapterTest` 覆盖 no-op adapter、inactive HTTP adapter、MockRestServiceServer 成功返回、模型服务健康详情，以及 JDK 本地 HTTP server POST/JSON 解析冒烟。
+- `AdminHealthControllerTest` 覆盖 `GET /api/v1/admin/health` 返回模型服务健康状态、模型版本和阈值。
 - `IntentHubBeanConfigurationTest` 覆盖 `RestClient.Builder` Bean，防止真实 jar 启动时 HTTP adapter 依赖缺失。
 - 既有 P1、P2-1、P2-2、P2-3 测试仍全部通过。
 - `scripts/validate-model-service-container.ps1` 校验 Dockerfile、Docker Compose、端口映射、健康检查和 `docker compose config`，不启动容器。
-- `scripts/smoke-model-service-e2e.ps1` 自动打包 Intent Hub jar、启动模型服务容器、验证直连模型识别、启动 Intent Hub、验证 `model_service.healthy=true` 和 `ModelRecognitionPolicy` 识别路径，并在结束后清理进程与容器。
+- `scripts/smoke-model-service-e2e.ps1` 自动打包 Intent Hub jar、启动模型服务容器、验证直连模型识别、启动 Intent Hub、验证 `model_service.healthy=true`、`model_service.modelVersion` 和 `ModelRecognitionPolicy` 识别路径，并在结束后清理进程与容器。
 - FastAPI 示例覆盖 `ORDER_CANCEL`、`ORDER_QUERY`、`REFUND_APPLY`、`LOGISTICS_QUERY`、`INVOICE_APPLY` 多意图样本，且 smoke 脚本会断言 `modelVersion`，防止误用旧镜像或旧服务。
 
 ## 当前限制
@@ -121,14 +121,14 @@ mvn test
 - 已新增 `examples/model-service-fastapi`，提供 `/health` 和 `/recognize` 最小样例工程。
 - 已补齐 `examples/model-service-fastapi` 的 Dockerfile、Docker Compose 和容器化配置校验脚本。
 - 已执行 JDK 本地 HTTP server 冒烟；FastAPI 示例工程已本地冒烟通过；模型服务健康检查已接入 Admin health；已启动 jar + FastAPI 示例完成本地真实联调。
-- 本地真实联调证据：`GET /api/v1/admin/health` 返回 `model_service.healthy=true`；`POST /api/v1/intent/recognize` 使用 `cancel A100` 返回 `ORDER_CANCEL/ASYNC_ACCEPTED`，路径包含 `ModelRecognitionPolicy`。
+- 本地真实联调证据：`GET /api/v1/admin/health` 返回 `model_service.healthy=true`，当前健康详情可透出模型服务 `modelVersion` 与 `threshold`；`POST /api/v1/intent/recognize` 使用 `cancel A100` 返回 `ORDER_CANCEL/ASYNC_ACCEPTED`，路径包含 `ModelRecognitionPolicy`。
 - 容器端到端联调证据：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-model-service-e2e.ps1` 已完整通过，覆盖 Docker 模型服务容器与 Intent Hub jar 的本地端到端链路。
 - `timeoutMs` 已通过 `SimpleClientHttpRequestFactory` 绑定到底层 HTTP connect/read timeout。
 - 模型服务开关是全局配置，尚未纳入 `tenant + scene + version` 的配置治理。
 
 ## 后续建议
 
-- 将 `examples/model-service-fastapi` 继续扩展为更贴近真实模型服务的样本/阈值/版本示例。
+- 将模型健康详情继续纳入发布前 smoke 和观测面板，用于识别旧镜像、旧模型或错误阈值配置。
 - 将模型开关、阈值、endpoint 和 timeout 纳入 `nlu_strategy` 或 scene 级策略配置。
 - 将 `scripts/smoke-model-service-e2e.ps1` 纳入后续 CI 或发布前检查，作为模型 adapter 与容器配置变更后的回归入口。
 - 后续 GPU/高并发部署再切 Triton，不影响当前 adapter 端口。

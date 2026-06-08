@@ -273,3 +273,9 @@
 - 本轮目标：让 FastAPI 模型服务样例更接近真实推理服务，补齐模型版本、阈值和多意图样本输出，同时保持 Java adapter 核心契约兼容。
 - 已完成：`examples/model-service-fastapi/app.py` 响应新增 `modelVersion=fastapi-example-2026-06-08` 与 `threshold=0.70`，并扩展 `ORDER_CANCEL`、`ORDER_QUERY`、`REFUND_APPLY`、`LOGISTICS_QUERY`、`INVOICE_APPLY` 样本；`scripts/smoke-model-service-e2e.ps1` 增加模型版本断言。
 - 边界：扩展字段当前仅用于示例和 smoke 验证，Intent Hub Java adapter 仍只消费 `intentCode/confidence/slots/explanation`，不会把模型服务扩展字段传播为业务动作或业务数据。
+
+## 2026-06-08 补充记录：模型服务健康详情透出
+
+- 本轮目标：把模型服务 `/health` 中的 `modelVersion` 与 `threshold` 纳入 Intent Hub Admin health，便于本地 smoke 和后续观测识别旧镜像、旧模型或错误阈值。
+- 已完成：新增 `ModelServiceHealth` 领域健康详情对象，`ModelClientPort.healthDetails()` 默认兼容既有 `healthy()`；`HttpModelClientAdapter` 解析健康详情，`AdminHealthController` 在 `model_service` 下按需透出 `modelVersion` 与 `threshold`。
+- 边界：健康详情只用于观测与发布前验证，不改变 `/api/v1/intent/recognize` 输出契约，也不参与后置路由或下游业务动作。

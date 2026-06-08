@@ -107,3 +107,4 @@
 - 2026-06-08：完成模型服务容器与 Intent Hub jar 本地端到端联调，并修复 Spring AI Alibaba optional 依赖未进入运行包时的启动失败；`GET /api/v1/admin/health` 已验证 `model_service.healthy=true`，识别路径已验证进入 `ModelRecognitionPolicy`。
 - 2026-06-08：补充 `scripts/smoke-model-service-e2e.ps1`，将模型服务容器 + Intent Hub jar 端到端联调固化为一键 smoke，已验证自动打包、启动、识别断言和清理流程。
 - 2026-06-08：扩展 FastAPI 模型服务示例，补充 `modelVersion`、`threshold` 与退款、物流、发票等多意图样本；Java adapter 核心消费字段保持不变，端到端 smoke 已增加模型版本断言。
+- 2026-06-08：增强模型服务健康详情，`GET /api/v1/admin/health` 可透出 `model_service.modelVersion` 与 `threshold`；该信息仅用于观测和 smoke 断言，不进入识别候选或下游业务动作。

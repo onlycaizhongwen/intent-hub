@@ -10,4 +10,8 @@ public interface ModelClientPort {
     default boolean healthy() {
         return false;
     }
+
+    default ModelServiceHealth healthDetails() {
+        return new ModelServiceHealth(healthy(), null, null);
+    }
 }

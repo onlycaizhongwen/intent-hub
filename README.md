@@ -118,7 +118,7 @@ curl -X POST http://localhost:8080/api/v1/intent/recognize \
 .\scripts\smoke-model-service-e2e.ps1
 ```
 
-脚本会自动打包、启动模型服务容器、启动 Intent Hub、验证 `model_service.healthy=true` 和 `ModelRecognitionPolicy` 识别路径，并在结束后清理本地进程与容器。
+脚本会自动打包、启动模型服务容器、启动 Intent Hub、验证 `model_service.healthy=true`、模型服务 `modelVersion` 健康详情和 `ModelRecognitionPolicy` 识别路径，并在结束后清理本地进程与容器。
 
 ## 架构图片
 

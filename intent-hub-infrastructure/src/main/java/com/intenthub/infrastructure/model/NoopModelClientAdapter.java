@@ -2,6 +2,7 @@ package com.intenthub.infrastructure.model;
 
 import com.intenthub.domain.recognition.RecognitionCandidate;
 import com.intenthub.domain.recognition.policy.ModelClientPort;
+import com.intenthub.domain.recognition.policy.ModelServiceHealth;
 
 import java.util.Optional;
 
@@ -14,5 +15,10 @@ public class NoopModelClientAdapter implements ModelClientPort {
     @Override
     public boolean healthy() {
         return false;
+    }
+
+    @Override
+    public ModelServiceHealth healthDetails() {
+        return ModelServiceHealth.down();
     }
 }

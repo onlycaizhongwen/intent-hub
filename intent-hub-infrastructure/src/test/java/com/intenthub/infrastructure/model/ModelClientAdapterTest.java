@@ -23,6 +23,7 @@ class ModelClientAdapterTest {
     void noopAdapterReturnsEmptyCandidate() {
         assertThat(new NoopModelClientAdapter().recognize("text", "scene")).isEmpty();
         assertThat(new NoopModelClientAdapter().healthy()).isFalse();
+        assertThat(new NoopModelClientAdapter().healthDetails().healthy()).isFalse();
     }
 
     @Test
@@ -40,11 +41,15 @@ class ModelClientAdapterTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         server.expect(once(), requestTo("https://model.example.test/health"))
                 .andExpect(method(HttpMethod.GET))
-                .andRespond(withSuccess("{\"status\":\"UP\"}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess("{\"status\":\"UP\",\"modelVersion\":\"example-v1\",\"threshold\":0.7}", MediaType.APPLICATION_JSON));
         ModelServiceProperties properties = new ModelServiceProperties(true, "https://model.example.test", 2000);
         HttpModelClientAdapter adapter = new HttpModelClientAdapter(builder.baseUrl(properties.baseUrl()).build(), properties);
 
-        assertThat(adapter.healthy()).isTrue();
+        assertThat(adapter.healthDetails()).satisfies(health -> {
+            assertThat(health.healthy()).isTrue();
+            assertThat(health.modelVersion()).isEqualTo("example-v1");
+            assertThat(health.threshold()).isEqualTo(0.7);
+        });
         server.verify();
     }
 

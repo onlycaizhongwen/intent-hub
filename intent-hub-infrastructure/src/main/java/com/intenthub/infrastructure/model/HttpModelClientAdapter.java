@@ -2,6 +2,7 @@ package com.intenthub.infrastructure.model;
 
 import com.intenthub.domain.recognition.RecognitionCandidate;
 import com.intenthub.domain.recognition.policy.ModelClientPort;
+import com.intenthub.domain.recognition.policy.ModelServiceHealth;
 import com.intenthub.infrastructure.http.ExternalRestClients;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClientException;
@@ -47,17 +48,25 @@ public class HttpModelClientAdapter implements ModelClientPort {
 
     @Override
     public boolean healthy() {
+        return healthDetails().healthy();
+    }
+
+    @Override
+    public ModelServiceHealth healthDetails() {
         if (!properties.active()) {
-            return false;
+            return ModelServiceHealth.down();
         }
         try {
             ModelHealthResponse response = restClient.get()
                     .uri("/health")
                     .retrieve()
                     .body(ModelHealthResponse.class);
-            return response != null && "UP".equalsIgnoreCase(response.status());
+            if (response == null || !"UP".equalsIgnoreCase(response.status())) {
+                return ModelServiceHealth.down();
+            }
+            return new ModelServiceHealth(true, response.modelVersion(), response.threshold());
         } catch (RestClientException ex) {
-            return false;
+            return ModelServiceHealth.down();
         }
     }
 }

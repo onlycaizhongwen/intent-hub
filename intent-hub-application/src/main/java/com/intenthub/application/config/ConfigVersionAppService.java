@@ -119,8 +119,12 @@ public class ConfigVersionAppService {
             }
         }
 
-        for (String actionCode : actionCodes) {
-            String intentCode = inferIntentCode(actionCode);
+        for (Map<String, Object> action : bundle.downstreamActions()) {
+            String actionCode = string(action, "actionCode", "action_code", "downstreamActionId", "downstream_action_id");
+            String intentCode = explicitActionIntentCode(action);
+            if (intentCode.isBlank()) {
+                intentCode = inferIntentCode(actionCode);
+            }
             if (!intentCode.isBlank() && !intentCodes.contains(intentCode)) {
                 errors.add("downstream action " + actionCode + " references missing intent " + intentCode);
             }
@@ -146,6 +150,29 @@ public class ConfigVersionAppService {
             }
         }
         return "";
+    }
+
+    @SuppressWarnings("unchecked")
+    private String explicitActionIntentCode(Map<String, Object> action) {
+        String intentCode = string(action, "intentCode", "intent_code");
+        if (!intentCode.isBlank()) {
+            return intentCode;
+        }
+        Object schema = firstPresent(action, "actionSchema", "action_schema");
+        if (schema instanceof Map<?, ?> map) {
+            return string((Map<String, Object>) map, "intentCode", "intent_code");
+        }
+        return "";
+    }
+
+    private Object firstPresent(Map<String, Object> value, String... keys) {
+        for (String key : keys) {
+            Object candidate = value.get(key);
+            if (candidate != null) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private String inferIntentCode(String actionCode) {

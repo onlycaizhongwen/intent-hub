@@ -140,6 +140,33 @@ class JdbcSceneConfigRepositoryTest {
                 .isEqualTo("ORDER_CANCEL_API");
     }
 
+    @Test
+    void mapsDownstreamActionToExplicitIntentCodeFromActionSchema() {
+        publishScene("demo", "order-scene", "v-order", "ORDER_CANCEL", "cancel");
+        jdbcTemplate.update("""
+                        delete from downstream_action
+                        where tenant_id = ? and scene_id = ? and version = ? and action_code = 'ORDER_CANCEL_API'
+                        """,
+                "demo",
+                "order-scene",
+                "v-order"
+        );
+        jdbcTemplate.update("""
+                        insert into downstream_action (tenant_id, scene_id, version, action_code, action_type, target, idempotency_required, timeout_ms, action_schema)
+                        values (?, ?, ?, 'VIP_CANCEL_COMMAND', 'MQ', 'order.command.cancel.vip', true, 3000, ?)
+                        """,
+                "demo",
+                "order-scene",
+                "v-order",
+                ConfigJsonSupport.objectMap(Map.of("intentCode", "ORDER_CANCEL"))
+        );
+
+        SceneConfig config = repository.loadPublishedConfig(envelope(Map.of("scene_id", "order-scene")));
+
+        assertThat(config.actionFor("ORDER_CANCEL").actionCode()).isEqualTo("VIP_CANCEL_COMMAND");
+        assertThat(config.actionFor("VIP_CANCEL_COMMAND").actionCode()).isEqualTo("VIP_CANCEL_COMMAND");
+    }
+
     private Envelope envelope(Map<String, String> metadata) {
         return new Envelope(
                 "demo",
@@ -267,7 +294,8 @@ class JdbcSceneConfigRepositoryTest {
                     action_type varchar(64) not null,
                     target varchar(512) not null,
                     idempotency_required boolean not null default false,
-                    timeout_ms integer not null default 3000
+                    timeout_ms integer not null default 3000,
+                    action_schema varchar(2048) not null default '{}'
                 )
                 """);
     }

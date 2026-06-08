@@ -128,9 +128,24 @@ public class ConfigObjectAppService {
                     "target", required(payload, "target"),
                     "idempotencyRequired", bool(payload, "idempotencyRequired", false),
                     "timeoutMs", integerRange(payload, "timeoutMs", 3000, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS),
-                    "actionSchema", objectMap(payload, "actionSchema")
+                    "actionSchema", downstreamActionSchema(payload)
             );
         };
+    }
+
+    private Map<String, Object> downstreamActionSchema(Map<String, Object> payload) {
+        Map<String, Object> schema = objectMap(payload, "actionSchema");
+        Object intentCode = payload.get("intentCode");
+        if (intentCode == null || intentCode.toString().isBlank()) {
+            return schema;
+        }
+        Map<String, Object> normalized = new LinkedHashMap<>(schema);
+        Object schemaIntentCode = normalized.get("intentCode");
+        if (schemaIntentCode != null && !schemaIntentCode.toString().isBlank() && !schemaIntentCode.toString().equals(intentCode.toString())) {
+            throw new IllegalArgumentException("intentCode must match actionSchema.intentCode");
+        }
+        normalized.put("intentCode", intentCode.toString());
+        return normalized;
     }
 
     private String objectId(ConfigObjectType type, Map<String, Object> payload) {

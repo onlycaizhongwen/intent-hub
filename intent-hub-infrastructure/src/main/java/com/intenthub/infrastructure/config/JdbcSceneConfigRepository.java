@@ -81,7 +81,7 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
         ));
 
         List<Map<String, Object>> actionRows = jdbcTemplate.queryForList("""
-                        select action_code, action_type, target, idempotency_required, timeout_ms
+                        select action_code, action_type, target, idempotency_required, timeout_ms, action_schema
                         from downstream_action
                         where tenant_id = ? and scene_id = ? and version = ?
                         order by id
@@ -100,6 +100,11 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
                     Boolean.parseBoolean(row.get("idempotency_required").toString()),
                     Integer.parseInt(row.get("timeout_ms").toString())
             );
+            Map<String, Object> actionSchema = json(row.get("action_schema").toString());
+            String explicitIntentCode = string(actionSchema, "intentCode", string(actionSchema, "intent_code", ""));
+            if (!explicitIntentCode.isBlank()) {
+                actions.putIfAbsent(explicitIntentCode, action);
+            }
             actions.putIfAbsent(inferIntentCode(actionCode), action);
             actions.putIfAbsent(actionCode, action);
         }

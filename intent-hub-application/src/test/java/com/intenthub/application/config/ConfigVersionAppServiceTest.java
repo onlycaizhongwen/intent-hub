@@ -97,6 +97,49 @@ class ConfigVersionAppServiceTest {
     }
 
     @Test
+    void validatesDownstreamActionExplicitIntentReference() {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "explicit action intent", "ops", Instant.now(), Instant.now());
+        ConfigBundle valid = new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_CANCEL", "intentName", "订单取消")),
+                null,
+                null,
+                null,
+                null,
+                List.of(Map.of(
+                        "actionCode", "VIP_CANCEL_COMMAND",
+                        "actionType", "MQ",
+                        "target", "order.command.cancel.vip",
+                        "actionSchema", Map.of("intentCode", "ORDER_CANCEL")
+                ))
+        );
+        service.importBundle("demo", "order-scene", "v-explicit-action", valid, "admin");
+
+        assertThat(service.validate("demo", "order-scene", "v-explicit-action").valid()).isTrue();
+
+        ConfigBundle invalid = new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_CANCEL", "intentName", "订单取消")),
+                null,
+                null,
+                null,
+                null,
+                List.of(Map.of(
+                        "actionCode", "VIP_CANCEL_COMMAND",
+                        "actionType", "MQ",
+                        "target", "order.command.cancel.vip",
+                        "actionSchema", Map.of("intentCode", "ORDER_REFUND")
+                ))
+        );
+        service.importBundle("demo", "order-scene", "v-explicit-action-invalid", invalid, "admin");
+
+        ConfigValidationResult result = service.validate("demo", "order-scene", "v-explicit-action-invalid");
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.errors()).contains("downstream action VIP_CANCEL_COMMAND references missing intent ORDER_REFUND");
+    }
+
+    @Test
     void upsertsConfigObjectsOnlyForDraftVersions() {
         service.createDraft("demo", "order-scene", "v1", "base", "admin");
         ConfigObjectAppService objectService = new ConfigObjectAppService(port, port, auditLogPort);
@@ -165,6 +208,36 @@ class ConfigVersionAppServiceTest {
                 "timeoutMs", 1800,
                 "minConfidence", 0.72
         ));
+    }
+
+    @Test
+    void storesExplicitIntentCodeIntoDownstreamActionSchema() {
+        service.createDraft("demo", "order-scene", "v-action-intent", "action intent", "admin");
+        ConfigObjectAppService objectService = new ConfigObjectAppService(port, port, auditLogPort);
+
+        Map<String, Object> saved = objectService.upsert("demo", "order-scene", "v-action-intent", ConfigObjectType.DOWNSTREAM_ACTION, Map.of(
+                "actionCode", "VIP_CANCEL_COMMAND",
+                "intentCode", "ORDER_CANCEL",
+                "actionType", "MQ",
+                "target", "order.command.cancel.vip"
+        ), "admin");
+
+        assertThat(saved.get("actionSchema")).isEqualTo(Map.of("intentCode", "ORDER_CANCEL"));
+    }
+
+    @Test
+    void rejectsDownstreamActionIntentCodeMismatch() {
+        service.createDraft("demo", "order-scene", "v-action-intent-mismatch", "action intent mismatch", "admin");
+        ConfigObjectAppService objectService = new ConfigObjectAppService(port, port, auditLogPort);
+
+        assertThatThrownBy(() -> objectService.upsert("demo", "order-scene", "v-action-intent-mismatch", ConfigObjectType.DOWNSTREAM_ACTION, Map.of(
+                "actionCode", "VIP_CANCEL_COMMAND",
+                "intentCode", "ORDER_CANCEL",
+                "actionType", "MQ",
+                "target", "order.command.cancel.vip",
+                "actionSchema", Map.of("intentCode", "ORDER_QUERY")
+        ), "admin")).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("intentCode must match actionSchema.intentCode");
     }
 
     @Test
@@ -285,7 +358,8 @@ class ConfigVersionAppServiceTest {
             ConfigBundle bundle = bundles.get(key(tenantId, sceneId, version));
             List<Map<String, Object>> intents = type == ConfigObjectType.INTENT ? upsertByKey(bundle.intents(), payload, "intentCode") : bundle.intents();
             List<Map<String, Object>> strategies = type == ConfigObjectType.STRATEGY ? List.of(payload) : bundle.strategies();
-            bundles.put(key(tenantId, sceneId, version), new ConfigBundle(bundle.version(), intents, bundle.slots(), bundle.synonyms(), strategies, bundle.routes(), bundle.downstreamActions()));
+            List<Map<String, Object>> downstreamActions = type == ConfigObjectType.DOWNSTREAM_ACTION ? upsertByKey(bundle.downstreamActions(), payload, "actionCode") : bundle.downstreamActions();
+            bundles.put(key(tenantId, sceneId, version), new ConfigBundle(bundle.version(), intents, bundle.slots(), bundle.synonyms(), strategies, bundle.routes(), downstreamActions));
             return payload;
         }
 

@@ -110,6 +110,16 @@ curl -X POST http://localhost:8080/api/v1/intent/recognize \
 - [FastAPI 模型服务示例](examples/model-service-fastapi/README.md)
 - [运维样例总入口](ops/README.md)
 
+## 本地端到端冒烟
+
+模型服务容器与 Intent Hub jar 的完整本地联调可直接运行：
+
+```powershell
+.\scripts\smoke-model-service-e2e.ps1
+```
+
+脚本会自动打包、启动模型服务容器、启动 Intent Hub、验证 `model_service.healthy=true` 和 `ModelRecognitionPolicy` 识别路径，并在结束后清理本地进程与容器。
+
 ## 架构图片
 
 - [架构图](docs/assets/architecture/intent-hub-architecture.png)

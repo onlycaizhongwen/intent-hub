@@ -32,6 +32,8 @@
     启动 Docker Compose 前检查本地配置文件、Intent Hub health/metrics endpoint 和 Docker 命令。
 13. [本地观测栈配置校验脚本](../scripts/validate-observability-compose.ps1)
     不启动容器，校验 Docker Compose 文件、Prometheus 引用和 Grafana provisioning 引用。
+14. [模型服务端到端冒烟脚本](../scripts/smoke-model-service-e2e.ps1)
+    自动打包 Intent Hub、启动模型服务容器、启动 Intent Hub jar，并验证模型服务健康状态和 `ModelRecognitionPolicy` 识别路径。
 
 ## 当前能力边界
 
@@ -43,6 +45,7 @@
 - 已提供告警演练场景，用于安全触发和验证 P2.x 告警链路。
 - 已提供本地观测栈预检脚本，用于启动 compose 前发现基础环境缺口。
 - 已提供本地观测栈配置校验脚本，用于启动 compose 前验证配置引用。
+- 已提供模型服务端到端冒烟脚本，用于回归验证 Docker 模型服务容器与 Intent Hub jar 的真实联调链路。
 - 暂未引入 Actuator/Micrometer/OpenTelemetry runtime 桥接。
 - 暂未提供生产服务发现、TLS/鉴权、真实 receiver secret、Grafana 持久化、正式 SLA 审批、多实例压测和高可用部署。
 

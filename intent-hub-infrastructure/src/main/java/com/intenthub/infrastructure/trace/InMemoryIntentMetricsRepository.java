@@ -8,6 +8,7 @@ import com.intenthub.domain.recognition.IntentResult;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.DoubleAdder;
@@ -15,6 +16,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
+    private static final int LATENCY_SAMPLE_WINDOW = 2048;
+
     private final Instant startedAt = Instant.now();
     private final AtomicLong totalRequests = new AtomicLong();
     private final AtomicLong totalBadCases = new AtomicLong();
@@ -25,6 +28,8 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
     private final AtomicLong totalLlmBudgetReconciliations = new AtomicLong();
     private final AtomicLong totalLatencyMillis = new AtomicLong();
     private final AtomicLong maxLatencyMillis = new AtomicLong();
+    private final long[] latencySamples = new long[LATENCY_SAMPLE_WINDOW];
+    private final AtomicLong latencySampleCursor = new AtomicLong();
     private final ConcurrentHashMap<String, AtomicLong> decisions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, AtomicLong> intents = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, AtomicLong> scenes = new ConcurrentHashMap<>();
@@ -45,6 +50,7 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
         long boundedLatency = Math.max(0L, latencyMillis);
         totalLatencyMillis.addAndGet(boundedLatency);
         maxLatencyMillis.accumulateAndGet(boundedLatency, Math::max);
+        recordLatencySample(boundedLatency);
         increment(decisions, result.decision().name());
         increment(intents, result.intentCode());
         increment(scenes, result.sceneId());
@@ -66,6 +72,8 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
                 latency,
                 requests == 0 ? 0.0 : (double) latency / requests,
                 maxLatencyMillis.get(),
+                percentile(0.95),
+                percentile(0.99),
                 snapshot(decisions),
                 snapshot(intents),
                 snapshot(scenes),
@@ -96,6 +104,30 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
 
     private void increment(ConcurrentHashMap<String, AtomicLong> counters, String key) {
         counters.computeIfAbsent(key == null || key.isBlank() ? "UNKNOWN" : key, ignored -> new AtomicLong()).incrementAndGet();
+    }
+
+    private void recordLatencySample(long latencyMillis) {
+        long cursor = latencySampleCursor.getAndIncrement();
+        int index = (int) (Math.floorMod(cursor, LATENCY_SAMPLE_WINDOW));
+        synchronized (latencySamples) {
+            latencySamples[index] = latencyMillis;
+        }
+    }
+
+    private double percentile(double quantile) {
+        long seen = latencySampleCursor.get();
+        int size = (int) Math.min(seen, LATENCY_SAMPLE_WINDOW);
+        if (size <= 0) {
+            return 0.0;
+        }
+        long[] copy = new long[size];
+        synchronized (latencySamples) {
+            System.arraycopy(latencySamples, 0, copy, 0, size);
+        }
+        Arrays.sort(copy);
+        int index = (int) Math.ceil(quantile * size) - 1;
+        index = Math.max(0, Math.min(index, size - 1));
+        return copy[index];
     }
 
     private Map<String, Long> snapshot(ConcurrentHashMap<String, AtomicLong> counters) {

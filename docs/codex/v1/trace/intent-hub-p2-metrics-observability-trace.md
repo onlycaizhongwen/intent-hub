@@ -50,12 +50,12 @@ P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径
 - `scripts/check-observability-local.ps1`：提供本地观测栈预检脚本，检查 ops 配置文件、health/metrics endpoint 和 Docker 命令。
 - `scripts/validate-observability-compose.ps1`：提供本地观测栈配置校验脚本，不启动容器即可验证 compose、Prometheus 和 Grafana provisioning 引用。
 - `ops/prometheus/intent-hub-scrape-config.yml`：提供 Prometheus scrape 配置片段样例，抓取 `GET /api/v1/admin/metrics/prometheus`。
-- `ops/prometheus/intent-hub-alert-rules.yml`：提供 Prometheus/Alertmanager 告警规则样例，覆盖 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时和最大耗时。
+- `ops/prometheus/intent-hub-alert-rules.yml`：提供 Prometheus/Alertmanager 告警规则样例，覆盖 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时、P95/P99 长尾耗时和最大耗时。
 - `ops/alertmanager/alertmanager-route-sample.yml`：提供 Alertmanager route/receiver/inhibit 样例，按 `critical` 和 `warning` 分流。
 - `ops/grafana/intent-hub-dashboard.json`：提供 Grafana dashboard 样例，覆盖请求量、bad case 率、耗时、decision 分布、fallback、LLM 预算活动、intent 和 scene 分布。
 - `ops/slo/README.md`：提供 SLO 与错误预算样例，区分可用性、延迟、质量、受控 LLM、预算补偿和 Bad Case 回流口径。
 - `ops/local-observability/README.md`：提供本地 Prometheus、Alertmanager、Grafana Docker Compose 样例，用于验证观测链路。
-- `ops/runbooks/intent-hub-alert-runbook.md`：提供当前 6 条 P2.x 告警的排查、止血和复盘步骤。
+- `ops/runbooks/intent-hub-alert-runbook.md`：提供当前 8 条 P2.x 告警的排查、止血和复盘步骤。
 
 当前指标：
 
@@ -65,8 +65,8 @@ P2-3 已完成最小指标采集闭环，能在不改变现有健康检查口径
 - LLM fallback 次数。
 - LLM 预算消费尝试次数与消费单位。
 - LLM 预算后台补偿校正数量。
-- 基础告警：bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时和最大耗时。
-- 总耗时、平均耗时、最大耗时。
+- 基础告警：bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时、P95/P99 长尾耗时和最大耗时。
+- 总耗时、平均耗时、最大耗时、P95/P99 长尾耗时。
 - 按 decision 计数。
 - 按 intent 计数。
 - 按 scene 计数。
@@ -100,14 +100,14 @@ mvn test
 结果：
 
 - Reactor build success。
-- 测试共 26 个。
+- 测试共 66 个。
 - 失败 0，错误 0，跳过 0。
 
 覆盖点：
 
 - `RecognizeAppServiceTest` 验证识别链路会调用 metrics port。
-- `InMemoryIntentMetricsRepositoryTest` 验证模型 fallback、LLM fallback 和 LLM 预算消费分别计数。
-- `AdminMetricsControllerTest` 验证 JSON 快照、Prometheus 文本出口和基础告警快照。
+- `InMemoryIntentMetricsRepositoryTest` 验证模型 fallback、LLM fallback、LLM 预算消费分别计数，并覆盖 P95/P99 长尾耗时计算。
+- `AdminMetricsControllerTest` 验证 JSON 快照、Prometheus 文本出口、P95/P99 指标和基础告警快照。
 - 既有 P1、P2-1、P2-2 测试仍全部通过。
 
 ## 当前限制
@@ -115,7 +115,7 @@ mvn test
 - P2-3 暂不引入 Actuator/Micrometer，不暴露 `/actuator/prometheus`。
 - 指标为进程内内存指标，服务重启后清零。
 - 多实例部署时需要后续通过 Prometheus scrape 或 Micrometer/OpenTelemetry 做聚合。
-- 已提供进程内基础告警快照、运维样例总入口、生产化落地检查清单、试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape 配置片段样例、Prometheus 告警规则样例、Alertmanager route 样例、Grafana dashboard 样例、SLO 样例、本地观测栈样例和告警 Runbook；暂未真正落地生产化服务发现、TLS/鉴权、真实 receiver secret、Grafana 持久化存储、正式 SLA 和错误预算审批流程。
+- 已提供进程内基础告警快照、P95/P99 长尾耗时指标、运维样例总入口、生产化落地检查清单、试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape 配置片段样例、Prometheus 告警规则样例、Alertmanager route 样例、Grafana dashboard 样例、SLO 样例、本地观测栈样例和告警 Runbook；暂未真正落地生产化服务发现、TLS/鉴权、真实 receiver secret、Grafana 持久化存储、正式 SLA 和错误预算审批流程。
 - 当前模型/LLM fallback 统计依赖 `recognitionPath` 字符串，后续可改为结构化 recognition span/event。
 
 ## 后续建议
@@ -123,6 +123,6 @@ mvn test
 P2 后续建议：
 
 - 将 `IntentMetricsPort` 桥接到 Micrometer 或 OpenTelemetry Metrics。
-- 将 Grafana dashboard 样例接入真实环境，并扩展拒识率、澄清率、异步接收率、P95/P99 耗时、窗口化速率和 bad case 堆积口径。
-- 将基础告警快照和 Prometheus 规则样例桥接到真实 Alertmanager 或 Grafana Alerting，并补 P95/P99、窗口化速率和 bad case 堆积口径。
+- 将 Grafana dashboard 样例接入真实环境，并扩展拒识率、澄清率、异步接收率、窗口化速率和 bad case 堆积口径。
+- 将基础告警快照和 Prometheus 规则样例桥接到真实 Alertmanager 或 Grafana Alerting，并补窗口化速率和 bad case 堆积口径。
 - 多实例部署时由 Prometheus 统一聚合，避免依赖单实例内存快照。

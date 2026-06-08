@@ -24,6 +24,8 @@ public class MetricsAppService {
         appendGauge(builder, "intent_hub_latency_millis_sum", "Total recognition latency in milliseconds.", snapshot.totalLatencyMillis());
         appendGauge(builder, "intent_hub_latency_millis_avg", "Average recognition latency in milliseconds.", snapshot.averageLatencyMillis());
         appendGauge(builder, "intent_hub_latency_millis_max", "Max recognition latency in milliseconds.", snapshot.maxLatencyMillis());
+        appendGauge(builder, "intent_hub_latency_millis_p95", "Approximate p95 recognition latency in milliseconds.", snapshot.p95LatencyMillis());
+        appendGauge(builder, "intent_hub_latency_millis_p99", "Approximate p99 recognition latency in milliseconds.", snapshot.p99LatencyMillis());
         snapshot.decisions().forEach((decision, count) ->
                 appendGauge(builder, "intent_hub_decisions_total", "Decision counts.", count, "decision", decision));
         snapshot.intents().forEach((intent, count) ->

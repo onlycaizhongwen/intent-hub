@@ -150,10 +150,64 @@ intent_hub_latency_millis_avg > 1000
 
 定位步骤：
 
-1. 查看平均耗时和最大耗时走势。
+1. 查看平均耗时、P95、P99 和最大耗时走势。
 2. 抽样 trace，比对 Rule、Model、LLM 路径。
 3. 检查模型服务和 LLM provider timeout。
 4. 检查 PostgreSQL、Redis、网关、网络延迟。
+
+## IntentHubP95LatencyHigh
+
+触发条件：
+
+```promql
+intent_hub_latency_millis_p95 > 1500
+```
+
+影响判断：
+
+- 是否大部分用户已经感知变慢，而不是单个离群请求。
+- 是否集中在某个 tenant、scene、channel 或特定识别路径。
+- 是否在模型服务、LLM 兜底或数据库读取配置后出现。
+
+止血动作：
+
+- 对慢 scene 临时关闭模型服务或 LLM 兜底。
+- 回滚最近发布的 scene 配置或模型服务版本。
+- 临时提高高频规则覆盖，减少慢路径调用。
+
+定位步骤：
+
+1. 对比 P95 与平均耗时，如果 P95 明显高于平均值，优先找慢 scene 和慢 path。
+2. 抽样查询慢窗口内的 trace，检查 `recognition_path`。
+3. 检查模型服务 `/health`、LLM provider timeout 和 PostgreSQL 查询耗时。
+4. 将慢路径样本归档到试点执行记录，作为后续优化证据。
+
+## IntentHubP99LatencyCritical
+
+触发条件：
+
+```promql
+intent_hub_latency_millis_p99 > 3000
+```
+
+影响判断：
+
+- 是否有 1% 左右请求达到用户超时边界。
+- 是否有外部依赖卡住、timeout 未生效或连接池耗尽。
+- 是否会导致上游网关重试、请求堆积或预算异常消耗。
+
+止血动作：
+
+- 立即关闭或隔离慢外部依赖路径，包括模型服务或 LLM。
+- 收紧 timeout，并确认失败关闭路径仍能返回拒识或规则结果。
+- 对高风险 tenant/scene 临时限流。
+
+定位步骤：
+
+1. 查询 P99 告警窗口内的 trace 和 metrics snapshot。
+2. 检查是否集中在 `ModelRecognitionPolicy`、`LlmRecognizePolicy` 或 JDBC 配置读取。
+3. 确认 connect/read timeout、provider 限流和网络状态。
+4. 复盘是否需要把 `recognition_path` 升级为结构化 span/event。
 
 ## IntentHubMaxLatencyCritical
 
@@ -180,7 +234,7 @@ intent_hub_latency_millis_max > 3000
 1. 查找长尾请求对应 trace_id。
 2. 查看 recognition_path 是否包含 Model 或 LLM。
 3. 检查 connect/read timeout 是否按配置生效。
-4. 复盘是否需要 P95/P99 histogram 指标和链路 span。
+4. 对照 P95/P99 判断是单点异常还是群体长尾，并复盘是否需要链路 span。
 
 ## 复盘清单
 

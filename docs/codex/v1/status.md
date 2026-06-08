@@ -89,9 +89,9 @@
 - 2026-06-03：补齐 LLM 日预算同步失败释放闭环，新增 `LlmBudgetAuditPort.releaseDailyBudgetReservation`，memory/JDBC 在 provider 同步异常后释放本次预占；`TongyiLlmAdapter` 在远端失败时释放 reserved 预算但保留 confirmed 外呼尝试审计，管理端 pending 差额可用于发现未释放或异步异常。`mvn -pl intent-hub-infrastructure,intent-hub-interfaces -am test` 通过，相关模块共 57 个测试。
 - 2026-06-03：补齐 LLM 日预算 stale pending 后台补偿最小能力，新增 `LlmBudgetAuditPort.reconcileStaleDailyBudgetReservations`、memory/JDBC 实现和默认关闭的 `intent-hub.llm.budget-reconciliation.*` 调度任务；补偿只校正 `__budget__/__daily__` reserved 预占行，不回滚 confirmed 外呼审计。`mvn test` 通过，全量共 61 个测试。
 - 2026-06-03：补齐 LLM 日预算后台补偿指标，新增 `intent_hub_llm_budget_reconciliations_total`，用于观察 stale reserved 预占被后台补偿校正的数量，为后续告警接入打基础；补偿指标只记录校正行数，不改变预算补偿语义。
-- 2026-06-04：补齐基础告警快照，新增 `MetricsAlertAppService` 与 `GET /api/v1/admin/metrics/alerts`，基于 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时和最大耗时返回 `OK/WARN/CRITICAL`；`mvn -pl intent-hub-interfaces -am test` 通过，共 62 个测试。
-- 2026-06-04：补充 `ops/prometheus/intent-hub-alert-rules.yml` Prometheus/Alertmanager 告警规则样例，覆盖 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时和最大耗时；该样例不改变运行时代码，不引入 Actuator/Micrometer/Alertmanager 依赖，生产化 scrape、route、Grafana dashboard 和 SLO 仍待后续补齐。
-- 2026-06-04：补充 `ops/grafana/intent-hub-dashboard.json` Grafana 看板样例，覆盖请求量、bad case 率、耗时、decision 分布、fallback、LLM 预算活动、intent 和 scene 分布；该样例依赖 Prometheus 已抓取 `/api/v1/admin/metrics/prometheus`，不提供生产化 datasource、folder/provisioning、权限和 SLO 配置。
+- 2026-06-04：补齐基础告警快照，新增 `MetricsAlertAppService` 与 `GET /api/v1/admin/metrics/alerts`，基于 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时和最大耗时返回 `OK/WARN/CRITICAL`；后续已补 P95/P99 长尾耗时告警。`mvn -pl intent-hub-interfaces -am test` 通过，共 62 个测试。
+- 2026-06-04：补充 `ops/prometheus/intent-hub-alert-rules.yml` Prometheus/Alertmanager 告警规则样例，覆盖 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时、P95/P99 长尾耗时和最大耗时；该样例不改变运行时代码，不引入 Actuator/Micrometer/Alertmanager 依赖，生产化 scrape、route、Grafana dashboard 和 SLO 仍待后续补齐。
+- 2026-06-04：补充 `ops/grafana/intent-hub-dashboard.json` Grafana 看板样例，覆盖请求量、bad case 率、耗时、P95/P99 长尾耗时、decision 分布、fallback、LLM 预算活动、intent 和 scene 分布；该样例依赖 Prometheus 已抓取 `/api/v1/admin/metrics/prometheus`，不提供生产化 datasource、folder/provisioning、权限和 SLO 配置。
 - 2026-06-04：补充 `ops/prometheus/intent-hub-scrape-config.yml` 和 `ops/prometheus/README.md`，提供 Prometheus 抓取 `/api/v1/admin/metrics/prometheus` 的配置片段样例与接入说明；生产环境仍需补服务发现、TLS/鉴权、Alertmanager route、receiver、SLO 和多实例聚合策略。
 - 2026-06-04：补充 `ops/slo/README.md` SLO 与错误预算样例，按可用性、延迟、质量、受控 LLM、预算补偿和 Bad Case 回流划分目标；该样例不是正式 SLA，生产落地前仍需结合租户等级、真实流量、成本预算和监管要求确认阈值。
 - 2026-06-04：补充 `ops/alertmanager/alertmanager-route-sample.yml` 和 `ops/alertmanager/README.md`，提供 Alertmanager route、receiver 和 inhibit 样例；生产环境仍需替换真实接收地址，并补齐 TLS/鉴权、secret 管理、升级策略、静默策略和审计要求。
@@ -111,3 +111,4 @@
 - 2026-06-08：增强模型服务健康详情，`GET /api/v1/admin/health` 可透出 `model_service.modelVersion` 与 `threshold`；该信息仅用于观测和 smoke 断言，不进入识别候选或下游业务动作。
 - 2026-06-08：补齐 scene 级 `model_policy` 最小治理闭环，已支持从已发布 `nlu_strategy.model_policy` 读取模型参与开关、endpoint、timeout 与最低置信度；当前运行时已按 `enabled/minConfidence` 控制模型候选，endpoint/timeout 动态路由留作后续增强。
 - 2026-06-08：修复 Admin 策略对象规范化遗漏 `modelPolicy` 的问题，避免 HTTP Admin upsert 时写入 `{}`；新增 `scripts/smoke-model-policy-jdbc.ps1`，已通过真实 PostgreSQL 16 空库验证 Flyway V1/V2/V3、`nlu_strategy.model_policy` 字段、Admin `modelPolicy` 写入/查询、发布配置读取和 `MODEL_POLICY:DISABLED` 识别路径。
+- 2026-06-08：补齐 P95/P99 长尾耗时指标与告警，`MetricsSnapshot`、Prometheus 文本、`/api/v1/admin/metrics/alerts`、Prometheus 规则、Grafana 看板和 Runbook 均已同步；相关模块测试通过，共 66 个测试。

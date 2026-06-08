@@ -51,6 +51,26 @@ groups:
           summary: "Intent Hub average latency is high"
           description: "Average recognition latency is above 1000 ms for 5 minutes. Check routing strategy, model service, LLM fallback, and database latency."
 
+      - alert: IntentHubP95LatencyHigh
+        expr: intent_hub_latency_millis_p95 > 1500
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: intent-hub
+        annotations:
+          summary: "Intent Hub P95 latency is high"
+          description: "P95 recognition latency is above 1500 ms for 5 minutes. Check slow scenes, model service, LLM fallback, and database latency."
+
+      - alert: IntentHubP99LatencyCritical
+        expr: intent_hub_latency_millis_p99 > 3000
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: intent-hub
+        annotations:
+          summary: "Intent Hub P99 latency is critical"
+          description: "P99 recognition latency is above 3000 ms. Check slow external dependencies and timeout settings immediately."
+
       - alert: IntentHubMaxLatencyCritical
         expr: intent_hub_latency_millis_max > 3000
         for: 2m

@@ -46,6 +46,26 @@ class InMemoryIntentMetricsRepositoryTest {
         assertThat(snapshot.totalLlmBudgetConsumed()).isEqualTo(2.0);
         assertThat(snapshot.totalLlmBudgetReconciliations()).isEqualTo(3);
         assertThat(snapshot.totalBadCases()).isEqualTo(2);
+        assertThat(snapshot.p95LatencyMillis()).isEqualTo(18.0);
+        assertThat(snapshot.p99LatencyMillis()).isEqualTo(18.0);
+    }
+
+    @Test
+    void calculatesLatencyPercentilesFromRecentSamples() {
+        InMemoryIntentMetricsRepository repository = new InMemoryIntentMetricsRepository();
+
+        for (int index = 1; index <= 100; index++) {
+            Envelope envelope = envelope("REQ-METRICS-PERCENTILE-" + index);
+            repository.recordRecognition(envelope, result(envelope, List.of("RuleRecognitionPolicy")), index);
+        }
+
+        MetricsSnapshot snapshot = repository.snapshot();
+
+        assertThat(snapshot.totalRequests()).isEqualTo(100);
+        assertThat(snapshot.averageLatencyMillis()).isEqualTo(50.5);
+        assertThat(snapshot.maxLatencyMillis()).isEqualTo(100);
+        assertThat(snapshot.p95LatencyMillis()).isEqualTo(95.0);
+        assertThat(snapshot.p99LatencyMillis()).isEqualTo(99.0);
     }
 
     private Envelope envelope(String requestId) {

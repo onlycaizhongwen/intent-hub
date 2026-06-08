@@ -383,6 +383,28 @@
           "legendFormat": "max",
           "range": true,
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "intent_hub_latency_millis_p95",
+          "legendFormat": "p95",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "intent_hub_latency_millis_p99",
+          "legendFormat": "p99",
+          "range": true,
+          "refId": "D"
         }
       ],
       "title": "Recognition latency",

@@ -7,6 +7,8 @@ import java.util.List;
 public class MetricsAlertAppService {
     private static final double BAD_CASE_RATE_WARN_THRESHOLD = 0.30;
     private static final double AVG_LATENCY_WARN_MILLIS = 1000.0;
+    private static final double P95_LATENCY_WARN_MILLIS = 1500.0;
+    private static final double P99_LATENCY_CRITICAL_MILLIS = 3000.0;
     private static final double MAX_LATENCY_CRITICAL_MILLIS = 3000.0;
 
     private final IntentMetricsPort metricsPort;
@@ -29,6 +31,16 @@ public class MetricsAlertAppService {
             alerts.add(new MetricsAlert("AVG_LATENCY_HIGH", AlertSeverity.WARN,
                     "Average recognition latency is above the warning threshold.",
                     metrics.averageLatencyMillis(), AVG_LATENCY_WARN_MILLIS));
+        }
+        if (metrics.p95LatencyMillis() >= P95_LATENCY_WARN_MILLIS) {
+            alerts.add(new MetricsAlert("P95_LATENCY_HIGH", AlertSeverity.WARN,
+                    "P95 recognition latency is above the warning threshold.",
+                    metrics.p95LatencyMillis(), P95_LATENCY_WARN_MILLIS));
+        }
+        if (metrics.p99LatencyMillis() >= P99_LATENCY_CRITICAL_MILLIS) {
+            alerts.add(new MetricsAlert("P99_LATENCY_HIGH", AlertSeverity.CRITICAL,
+                    "P99 recognition latency is above the critical threshold.",
+                    metrics.p99LatencyMillis(), P99_LATENCY_CRITICAL_MILLIS));
         }
         if (metrics.maxLatencyMillis() >= MAX_LATENCY_CRITICAL_MILLIS) {
             alerts.add(new MetricsAlert("MAX_LATENCY_HIGH", AlertSeverity.CRITICAL,

@@ -14,12 +14,52 @@ public record MetricsSnapshot(
         long totalLatencyMillis,
         double averageLatencyMillis,
         long maxLatencyMillis,
+        double p95LatencyMillis,
+        double p99LatencyMillis,
         Map<String, Long> decisions,
         Map<String, Long> intents,
         Map<String, Long> scenes,
         Instant startedAt,
         Instant updatedAt
 ) {
+    public MetricsSnapshot(
+            long totalRequests,
+            long totalBadCases,
+            long totalModelFallbacks,
+            long totalLlmFallbacks,
+            long totalLlmBudgetAttempts,
+            double totalLlmBudgetConsumed,
+            long totalLlmBudgetReconciliations,
+            long totalLatencyMillis,
+            double averageLatencyMillis,
+            long maxLatencyMillis,
+            Map<String, Long> decisions,
+            Map<String, Long> intents,
+            Map<String, Long> scenes,
+            Instant startedAt,
+            Instant updatedAt
+    ) {
+        this(
+                totalRequests,
+                totalBadCases,
+                totalModelFallbacks,
+                totalLlmFallbacks,
+                totalLlmBudgetAttempts,
+                totalLlmBudgetConsumed,
+                totalLlmBudgetReconciliations,
+                totalLatencyMillis,
+                averageLatencyMillis,
+                maxLatencyMillis,
+                maxLatencyMillis,
+                maxLatencyMillis,
+                decisions,
+                intents,
+                scenes,
+                startedAt,
+                updatedAt
+        );
+    }
+
     public MetricsSnapshot {
         decisions = decisions == null ? Map.of() : Map.copyOf(decisions);
         intents = intents == null ? Map.of() : Map.copyOf(intents);

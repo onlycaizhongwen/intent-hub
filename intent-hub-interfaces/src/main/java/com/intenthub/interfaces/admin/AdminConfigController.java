@@ -1,6 +1,8 @@
 package com.intenthub.interfaces.admin;
 
+import com.intenthub.application.config.AuditLogEntry;
 import com.intenthub.application.config.ConfigBundle;
+import com.intenthub.application.config.ConfigAuditAppService;
 import com.intenthub.application.config.ConfigObjectAppService;
 import com.intenthub.application.config.ConfigObjectType;
 import com.intenthub.application.config.ConfigValidationResult;
@@ -23,10 +25,16 @@ import java.util.Map;
 public class AdminConfigController {
     private final ConfigVersionAppService configVersionAppService;
     private final ConfigObjectAppService configObjectAppService;
+    private final ConfigAuditAppService configAuditAppService;
 
-    public AdminConfigController(ConfigVersionAppService configVersionAppService, ConfigObjectAppService configObjectAppService) {
+    public AdminConfigController(
+            ConfigVersionAppService configVersionAppService,
+            ConfigObjectAppService configObjectAppService,
+            ConfigAuditAppService configAuditAppService
+    ) {
         this.configVersionAppService = configVersionAppService;
         this.configObjectAppService = configObjectAppService;
+        this.configAuditAppService = configAuditAppService;
     }
 
     @PostMapping("/versions")
@@ -88,6 +96,16 @@ public class AdminConfigController {
             @RequestParam(defaultValue = "system") String actor
     ) {
         return configVersionAppService.exportBundle(tenantId, sceneId, version, actor);
+    }
+
+    @GetMapping("/versions/{version}/audits")
+    public List<AuditLogEntry> listVersionAudits(
+            @RequestParam String tenantId,
+            @RequestParam String sceneId,
+            @PathVariable String version,
+            @RequestParam(required = false) Integer limit
+    ) {
+        return configAuditAppService.listVersionAudits(tenantId, sceneId, version, limit);
     }
 
     @PostMapping("/versions/import")

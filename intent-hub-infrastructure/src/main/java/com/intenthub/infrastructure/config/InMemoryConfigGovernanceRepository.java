@@ -1,6 +1,7 @@
 package com.intenthub.infrastructure.config;
 
 import com.intenthub.application.config.AuditLogPort;
+import com.intenthub.application.config.AuditLogEntry;
 import com.intenthub.application.config.ConfigBundle;
 import com.intenthub.application.config.ConfigObjectPort;
 import com.intenthub.application.config.ConfigObjectType;
@@ -20,6 +21,8 @@ import java.util.Optional;
 @ConditionalOnProperty(name = "intent-hub.persistence.mode", havingValue = "memory", matchIfMissing = true)
 public class InMemoryConfigGovernanceRepository implements ConfigVersionPort, ConfigObjectPort, AuditLogPort {
     private final Map<String, ConfigBundle> bundles = new LinkedHashMap<>();
+    private final List<AuditLogEntry> auditLogs = new ArrayList<>();
+    private long auditSequence = 0L;
 
     @Override
     public ConfigVersionInfo createDraft(String tenantId, String sceneId, String version, String description, String actor) {
@@ -99,7 +102,29 @@ public class InMemoryConfigGovernanceRepository implements ConfigVersionPort, Co
 
     @Override
     public void record(String tenantId, String sceneId, String actor, String action, String targetType, String targetId, Map<String, String> detail) {
-        // Memory mode keeps audit side effects in-process only; P1 JDBC mode persists audit_log.
+        auditLogs.add(new AuditLogEntry(
+                ++auditSequence,
+                tenantId,
+                sceneId,
+                actor,
+                action,
+                targetType,
+                targetId,
+                detail == null ? Map.of() : new LinkedHashMap<>(detail),
+                Instant.now()
+        ));
+    }
+
+    @Override
+    public List<AuditLogEntry> list(String tenantId, String sceneId, String targetType, String targetId, int limit) {
+        return auditLogs.stream()
+                .filter(entry -> tenantId.equals(entry.tenantId()))
+                .filter(entry -> sceneId.equals(entry.sceneId()))
+                .filter(entry -> targetType.equals(entry.targetType()))
+                .filter(entry -> targetId.equals(entry.targetId()))
+                .sorted((left, right) -> Long.compare(right.id(), left.id()))
+                .limit(limit)
+                .toList();
     }
 
     @Override

@@ -1,7 +1,9 @@
 package com.intenthub.interfaces.admin;
 
 import com.intenthub.application.config.AuditLogPort;
+import com.intenthub.application.config.AuditLogEntry;
 import com.intenthub.application.config.ConfigBundle;
+import com.intenthub.application.config.ConfigAuditAppService;
 import com.intenthub.application.config.ConfigObjectAppService;
 import com.intenthub.application.config.ConfigObjectPort;
 import com.intenthub.application.config.ConfigObjectType;
@@ -28,7 +30,8 @@ class AdminConfigControllerTest {
         NoopAuditLogPort auditLogPort = new NoopAuditLogPort();
         controller = new AdminConfigController(
                 new ConfigVersionAppService(port, auditLogPort),
-                new ConfigObjectAppService(port, port, auditLogPort)
+                new ConfigObjectAppService(port, port, auditLogPort),
+                new ConfigAuditAppService(auditLogPort)
         );
     }
 
@@ -45,6 +48,10 @@ class AdminConfigControllerTest {
 
         ConfigBundle exported = controller.exportBundle("demo", "order-scene", "v1", "admin");
         assertThat(exported.version().version()).isEqualTo("v1");
+
+        List<AuditLogEntry> audits = controller.listVersionAudits("demo", "order-scene", "v1", 10);
+        assertThat(audits).extracting(AuditLogEntry::action)
+                .containsExactly("CONFIG_EXPORTED", "CONFIG_PUBLISHED", "CONFIG_DRAFT_CREATED");
     }
 
     @Test
@@ -132,8 +139,33 @@ class AdminConfigControllerTest {
     }
 
     private static final class NoopAuditLogPort implements AuditLogPort {
+        private final List<AuditLogEntry> entries = new java.util.ArrayList<>();
+
         @Override
         public void record(String tenantId, String sceneId, String actor, String action, String targetType, String targetId, Map<String, String> detail) {
+            entries.add(new AuditLogEntry(
+                    (long) entries.size() + 1,
+                    tenantId,
+                    sceneId,
+                    actor,
+                    action,
+                    targetType,
+                    targetId,
+                    detail,
+                    Instant.now()
+            ));
+        }
+
+        @Override
+        public List<AuditLogEntry> list(String tenantId, String sceneId, String targetType, String targetId, int limit) {
+            return entries.stream()
+                    .filter(entry -> tenantId.equals(entry.tenantId()))
+                    .filter(entry -> sceneId.equals(entry.sceneId()))
+                    .filter(entry -> targetType.equals(entry.targetType()))
+                    .filter(entry -> targetId.equals(entry.targetId()))
+                    .sorted((left, right) -> Long.compare(right.id(), left.id()))
+                    .limit(limit)
+                    .toList();
         }
     }
 }

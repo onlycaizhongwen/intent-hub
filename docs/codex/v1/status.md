@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、管理端 confirmed/reserved/pending 查询与模型策略 JDBC 冒烟已完成
+- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、管理端 confirmed/reserved/pending 查询、模型策略 JDBC 冒烟与配置版本审计查询已完成
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -112,3 +112,4 @@
 - 2026-06-08：补齐 scene 级 `model_policy` 最小治理闭环，已支持从已发布 `nlu_strategy.model_policy` 读取模型参与开关、endpoint、timeout 与最低置信度；当前运行时已按 `enabled/minConfidence` 控制模型候选，endpoint/timeout 动态路由留作后续增强。
 - 2026-06-08：修复 Admin 策略对象规范化遗漏 `modelPolicy` 的问题，避免 HTTP Admin upsert 时写入 `{}`；新增 `scripts/smoke-model-policy-jdbc.ps1`，已通过真实 PostgreSQL 16 空库验证 Flyway V1/V2/V3、`nlu_strategy.model_policy` 字段、Admin `modelPolicy` 写入/查询、发布配置读取和 `MODEL_POLICY:DISABLED` 识别路径。
 - 2026-06-08：补齐 P95/P99 长尾耗时指标与告警，`MetricsSnapshot`、Prometheus 文本、`/api/v1/admin/metrics/alerts`、Prometheus 规则、Grafana 看板和 Runbook 均已同步；相关模块测试通过，共 66 个测试。
+- 2026-06-08：补齐配置版本审计查询闭环，新增 `AuditLogEntry`、`ConfigAuditAppService` 与 `GET /api/v1/admin/config/versions/{version}/audits`；memory/JDBC 审计仓储均支持按 `tenantId + sceneId + version` 倒序查询，JDBC 覆盖 `audit_log.detail` JSON 解析。相关模块测试通过，共 68 个测试。

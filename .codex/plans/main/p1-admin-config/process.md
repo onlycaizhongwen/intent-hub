@@ -1,11 +1,11 @@
-﻿# P1-4 Admin Portal 最小配置治理 API 过程
+# P1-4 Admin Portal 最小配置治理 API 过程
 
 ## 恢复胶囊
 
 - 任务需求：继续推进 P1-4，落地 Admin Portal 最小配置治理 API，覆盖草稿、校验、发布、回滚、导入导出和审计。
 - 关键决策：P1 先以 API 闭环代替完整 UI；事实源为 PostgreSQL `config_version` + 配置表，Nacos/GitOps 后置；保持 DDD 分层，接口层只做入参出参。
-- 当前阶段：P1-4 已发布配置读取已完成。
-- 已完成产物：任务记录、配置版本应用服务、配置对象应用服务、已发布配置读取仓储、内存/JDBC 适配器、Admin REST API、自动化测试、默认 memory 模式 API 冒烟、`local-jdbc` PostgreSQL 审计写入联调。
+- 当前阶段：P1-4 已发布配置读取与配置版本审计查询已完成。
+- 已完成产物：任务记录、配置版本应用服务、配置对象应用服务、配置审计查询应用服务、已发布配置读取仓储、内存/JDBC 适配器、Admin REST API、自动化测试、默认 memory 模式 API 冒烟、`local-jdbc` PostgreSQL 审计写入联调。
 - 剩余工作：补配置对象删除/批量导入细节、完善配置字段校验，并补更多场景的已发布配置读取测试。
 - 重要发现：P1-3 已完成真实 PostgreSQL/Flyway 联调，现有 `config_version` 与 `audit_log` 可支撑最小治理闭环。
 
@@ -43,11 +43,17 @@
   - 映射范围：从 `intent_definition.definition` 映射规则的 `matchType`、`pattern`、`confidence`、`explanation`、`fixedSlots`；从 `slot_definition.required` 映射必填槽；从 `downstream_action` 映射后置动作。
   - 验证结果：发布 `v-published-read-1` 后，识别请求 `REQ-PUBLISHED-READ-1` 命中 `INVOICE_QUERY/SUCCESS`，识别路径包含 `PRE_ROUTE:order-scene:v-published-read-1` 与 `POST_ROUTE:INVOICE_QUERY_API`。
   - 数据库结果：`config_version.status=PUBLISHED`，`intent_definition.intent_code=INVOICE_QUERY`，`downstream_action.action_code=INVOICE_QUERY_API`，`recognition_trace.intent_code=INVOICE_QUERY`。
+- [v] 补齐配置版本审计查询。
+  - 当前产物：`AuditLogEntry`、`ConfigAuditAppService`、`GET /api/v1/admin/config/versions/{version}/audits`。
+  - 查询口径：按 `tenantId + sceneId + targetType=CONFIG_VERSION + targetId=version` 倒序返回最近审计记录，默认 100 条，最大 500 条。
+  - 存储实现：memory 模式保留进程内审计历史；JDBC 模式从 `audit_log` 查询并解析 `detail` JSON。
+  - 验证结果：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过，共 68 个测试。
 
 ## 研究发现
 
 - `config_version` 已有 tenant、scene、version、status、description、created_by、published_at 和唯一约束。
 - `audit_log` 已有 action、target_type、target_id、detail，可用于发布、回滚、导入导出审计。
+- 审计闭环不能只写不查；Admin 侧需要能按配置版本查看发布、回滚、导入、导出等历史，才方便试点期定位配置事故。
 - P1 最小版本治理可先不实现完整配置对象 UI，先提供 JSON 导入导出与版本生命周期。
 - 发布逻辑应只归档同租户同场景下旧的 `PUBLISHED` 版本，不能把尚未发布的草稿提前归档。
 - 当前第一阶段导入接口只建立版本草稿并保留 bundle 边界；细粒度写入意图、槽位、路由、动作配置表留到后续配置对象 CRUD。
@@ -62,3 +68,4 @@
 - 测试首次暴露发布 v1 时会把 v2 草稿归档；已修正为只归档旧 `PUBLISHED` 版本。
 - 配置对象测试首次编译失败，原因是接口层测试缺少 `java.util.List` import；已补齐并复验通过。
 - 已发布配置读取首次编译失败，原因是 infrastructure 缺少 Jackson 3 显式依赖；已增加 `tools.jackson.core:jackson-databind` 并复验通过。
+- 配置版本审计查询首次测试暴露 H2 PostgreSQL 模式下 `jsonb::text` 可能返回双层 JSON 文本；已在 `JdbcAuditLogRepository` 中兼容文本节点再次解析，并复验通过。

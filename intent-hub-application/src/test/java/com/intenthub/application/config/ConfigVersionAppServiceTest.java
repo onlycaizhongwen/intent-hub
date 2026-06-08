@@ -117,6 +117,19 @@ class ConfigVersionAppServiceTest {
         ));
     }
 
+    @Test
+    void listsVersionAuditsByTargetVersion() {
+        service.createDraft("demo", "order-scene", "v-audit", "audit", "admin");
+        service.publish("demo", "order-scene", "v-audit", "admin");
+        service.createDraft("demo", "order-scene", "v-other", "other", "admin");
+
+        ConfigAuditAppService auditService = new ConfigAuditAppService(auditLogPort);
+
+        assertThat(auditService.listVersionAudits("demo", "order-scene", "v-audit", 1))
+                .extracting(AuditLogEntry::action)
+                .containsExactly("CONFIG_PUBLISHED");
+    }
+
     private static final class InMemoryPort implements ConfigVersionPort, ConfigObjectPort {
         private final Map<String, ConfigBundle> bundles = new LinkedHashMap<>();
 
@@ -198,10 +211,34 @@ class ConfigVersionAppServiceTest {
 
     private static final class RecordingAuditLogPort implements AuditLogPort {
         private final List<String> actions = new ArrayList<>();
+        private final List<AuditLogEntry> entries = new ArrayList<>();
 
         @Override
         public void record(String tenantId, String sceneId, String actor, String action, String targetType, String targetId, Map<String, String> detail) {
             actions.add(action);
+            entries.add(new AuditLogEntry(
+                    (long) entries.size() + 1,
+                    tenantId,
+                    sceneId,
+                    actor,
+                    action,
+                    targetType,
+                    targetId,
+                    detail,
+                    Instant.now()
+            ));
+        }
+
+        @Override
+        public List<AuditLogEntry> list(String tenantId, String sceneId, String targetType, String targetId, int limit) {
+            return entries.stream()
+                    .filter(entry -> tenantId.equals(entry.tenantId()))
+                    .filter(entry -> sceneId.equals(entry.sceneId()))
+                    .filter(entry -> targetType.equals(entry.targetType()))
+                    .filter(entry -> targetId.equals(entry.targetId()))
+                    .sorted((left, right) -> Long.compare(right.id(), left.id()))
+                    .limit(limit)
+                    .toList();
         }
     }
 }

@@ -104,3 +104,4 @@
 - 2026-06-04：补充 `scripts/check-observability-local.ps1` 本地观测栈预检脚本，用于检查本地 ops 配置文件、Intent Hub health/metrics endpoint 和 Docker 命令。
 - 2026-06-04：补充 `scripts/validate-observability-compose.ps1` 本地观测栈配置校验脚本，用于不启动容器校验 Docker Compose、Prometheus rule 引用、target 和 Grafana provisioning 引用。
 - 2026-06-04：补充 `examples/model-service-fastapi` 容器化配置样例和 `scripts/validate-model-service-container.ps1` 校验脚本，用于后续模型服务部署化联调前验证 Dockerfile、Compose、端口映射和健康检查。
+- 2026-06-08：完成模型服务容器与 Intent Hub jar 本地端到端联调，并修复 Spring AI Alibaba optional 依赖未进入运行包时的启动失败；`GET /api/v1/admin/health` 已验证 `model_service.healthy=true`，识别路径已验证进入 `ModelRecognitionPolicy`。

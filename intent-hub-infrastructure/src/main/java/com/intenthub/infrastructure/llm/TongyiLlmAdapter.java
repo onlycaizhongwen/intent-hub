@@ -8,18 +8,19 @@ import com.intenthub.domain.config.LlmPolicy;
 import com.intenthub.domain.recognition.RecognitionCandidate;
 import com.intenthub.domain.recognition.policy.LlmClientPort;
 import com.intenthub.infrastructure.http.ExternalRestClients;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.web.client.RestClient;
 
-import java.time.Instant;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Optional;
 
 public class TongyiLlmAdapter implements LlmClientPort {
     private final RestClient restClient;
-    private final ChatClient chatClient;
+    private final Object chatClient;
     private final LlmGovernanceProperties properties;
     private final IntentMetricsPort metricsPort;
     private final LlmBudgetAuditPort budgetAuditPort;
@@ -30,14 +31,14 @@ public class TongyiLlmAdapter implements LlmClientPort {
 
     public TongyiLlmAdapter(
             RestClient.Builder restClientBuilder,
-            ChatClient.Builder chatClientBuilder,
+            Object chatClientBuilder,
             LlmGovernanceProperties properties,
             IntentMetricsPort metricsPort,
             LlmBudgetAuditPort budgetAuditPort
     ) {
         this(
                 ExternalRestClients.build(restClientBuilder, properties.baseUrl(), properties.timeoutMs()),
-                chatClientBuilder == null ? null : chatClientBuilder.build(),
+                buildChatClient(chatClientBuilder),
                 properties,
                 metricsPort,
                 budgetAuditPort
@@ -52,11 +53,11 @@ public class TongyiLlmAdapter implements LlmClientPort {
         this(restClient, null, properties, metricsPort, new NoopLlmBudgetAuditPort());
     }
 
-    TongyiLlmAdapter(RestClient restClient, ChatClient chatClient, LlmGovernanceProperties properties, IntentMetricsPort metricsPort) {
+    TongyiLlmAdapter(RestClient restClient, Object chatClient, LlmGovernanceProperties properties, IntentMetricsPort metricsPort) {
         this(restClient, chatClient, properties, metricsPort, new NoopLlmBudgetAuditPort());
     }
 
-    TongyiLlmAdapter(RestClient restClient, ChatClient chatClient, LlmGovernanceProperties properties, IntentMetricsPort metricsPort, LlmBudgetAuditPort budgetAuditPort) {
+    TongyiLlmAdapter(RestClient restClient, Object chatClient, LlmGovernanceProperties properties, IntentMetricsPort metricsPort, LlmBudgetAuditPort budgetAuditPort) {
         this.restClient = restClient;
         this.chatClient = chatClient;
         this.properties = properties;
@@ -106,23 +107,78 @@ public class TongyiLlmAdapter implements LlmClientPort {
 
     private LlmRecognitionResponse recognizeByProvider(String text, String sceneId, LlmPolicy policy) {
         if (chatClient != null && "spring-ai-alibaba".equalsIgnoreCase(policy.provider())) {
-            return chatClient.prompt()
-                    .system("""
-                            You are the controlled fallback recognizer for IntentHub.
-                            Return only structured data matching this schema:
-                            intentCode string, confidence number from 0.0 to 1.0,
-                            slots object of string values, explanation string.
-                            Do not execute business actions or request business data.
-                            """)
-                    .user("sceneId=%s\nmodel=%s\ntext=%s".formatted(sceneId, policy.model(), text))
-                    .call()
-                    .entity(LlmRecognitionResponse.class);
+            return recognizeBySpringAi(text, sceneId, policy);
         }
         return restClient.post()
                 .uri("/recognize")
                 .body(new LlmRecognitionRequest(text, sceneId, policy.provider(), policy.model()))
                 .retrieve()
                 .body(LlmRecognitionResponse.class);
+    }
+
+    private LlmRecognitionResponse recognizeBySpringAi(String text, String sceneId, LlmPolicy policy) {
+        try {
+            Object requestSpec = invoke(chatClient, "prompt");
+            requestSpec = invoke(requestSpec, "system", """
+                    You are the controlled fallback recognizer for IntentHub.
+                    Return only structured data matching this schema:
+                    intentCode string, confidence number from 0.0 to 1.0,
+                    slots object of string values, explanation string.
+                    Do not execute business actions or request business data.
+                    """);
+            requestSpec = invoke(requestSpec, "user", "sceneId=%s\nmodel=%s\ntext=%s".formatted(sceneId, policy.model(), text));
+            Object responseSpec = invoke(requestSpec, "call");
+            return (LlmRecognitionResponse) invoke(responseSpec, "entity", LlmRecognitionResponse.class);
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("Spring AI ChatClient invocation failed", ex);
+        }
+    }
+
+    private static Object buildChatClient(Object chatClientBuilder) {
+        if (chatClientBuilder == null) {
+            return null;
+        }
+        try {
+            return invoke(chatClientBuilder, "build");
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("Spring AI ChatClient builder invocation failed", ex);
+        }
+    }
+
+    private static Object invoke(Object target, String methodName, Object... args) throws ReflectiveOperationException {
+        Method method = findMethod(target.getClass(), methodName, args);
+        try {
+            return method.invoke(target, args);
+        } catch (InvocationTargetException ex) {
+            Throwable cause = ex.getCause();
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw ex;
+        }
+    }
+
+    private static Method findMethod(Class<?> targetType, String methodName, Object[] args) throws NoSuchMethodException {
+        for (Method method : targetType.getMethods()) {
+            if (!method.getName().equals(methodName) || method.getParameterCount() != args.length) {
+                continue;
+            }
+            Class<?>[] parameterTypes = method.getParameterTypes();
+            boolean matches = true;
+            for (int i = 0; i < parameterTypes.length; i++) {
+                if (args[i] != null && !parameterTypes[i].isAssignableFrom(args[i].getClass())) {
+                    matches = false;
+                    break;
+                }
+            }
+            if (matches) {
+                return method;
+            }
+        }
+        throw new NoSuchMethodException(targetType.getName() + "#" + methodName);
     }
 
     private Optional<RecognitionCandidate> candidate(LlmRecognitionResponse response) {

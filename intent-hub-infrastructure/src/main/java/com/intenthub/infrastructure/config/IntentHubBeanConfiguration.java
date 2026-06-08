@@ -27,8 +27,7 @@ import com.intenthub.infrastructure.llm.TongyiLlmAdapter;
 import com.intenthub.infrastructure.model.HttpModelClientAdapter;
 import com.intenthub.infrastructure.model.ModelServiceProperties;
 import com.intenthub.infrastructure.model.NoopModelClientAdapter;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -116,11 +115,24 @@ public class IntentHubBeanConfiguration {
     @Bean
     LlmClientPort llmClientPort(
             RestClient.Builder restClientBuilder,
-            ObjectProvider<ChatClient.Builder> chatClientBuilderProvider,
+            ListableBeanFactory beanFactory,
             LlmGovernanceProperties properties,
             IntentMetricsPort metricsPort,
             LlmBudgetAuditPort budgetAuditPort
     ) {
-        return new TongyiLlmAdapter(restClientBuilder, chatClientBuilderProvider.getIfAvailable(), properties, metricsPort, budgetAuditPort);
+        return new TongyiLlmAdapter(restClientBuilder, springAiChatClientBuilder(beanFactory), properties, metricsPort, budgetAuditPort);
+    }
+
+    private Object springAiChatClientBuilder(ListableBeanFactory beanFactory) {
+        try {
+            Class<?> builderType = Class.forName("org.springframework.ai.chat.client.ChatClient$Builder");
+            String[] beanNames = beanFactory.getBeanNamesForType(builderType);
+            if (beanNames.length == 0) {
+                return null;
+            }
+            return beanFactory.getBean(beanNames[0]);
+        } catch (ClassNotFoundException ex) {
+            return null;
+        }
     }
 }

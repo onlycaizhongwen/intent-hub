@@ -251,3 +251,12 @@
 - 已完成：新增 `scripts/validate-observability-compose.ps1`，并同步 `ops/local-observability/README.md`、`ops/README.md`、status、HTML 生命周期页、P2-3 指标观测 trace 和 P2-5 LLM 治理 trace。
 - 检查口径：本地观测栈 compose 文件、Prometheus 配置、Alertmanager 配置、Grafana datasource/dashboard provisioning、Prometheus rule 文件、dashboard JSON 文件、compose volume 引用、scrape target 和 metrics path；如本地存在 Docker，则执行 `docker compose config`。
 - 边界：脚本只校验配置引用，不启动容器，不创建后台服务；生产环境仍需补 TLS/鉴权、真实 receiver、持久化、高可用和演练证据。
+
+## 2026-06-08 补充记录：模型服务容器联调与 Spring AI 可选依赖启动修复
+
+- 本轮目标：验证 `examples/model-service-fastapi` 容器化模型服务与 Intent Hub jar 的本地端到端联调，并修复真实运行包在未携带 Spring AI 类时的启动失败。
+- 问题发现：使用 JDK17 启动 jar 时，`IntentHubBeanConfiguration` 方法签名直接引用 `ChatClient.Builder`，导致 Spring AI 作为 optional 依赖未进入运行包时触发 `ClassNotFoundException: org.springframework.ai.chat.client.ChatClient$Builder`。
+- 已完成：`IntentHubBeanConfiguration` 改为通过 `ListableBeanFactory` + 反射探测 `ChatClient$Builder`；`TongyiLlmAdapter` 改为反射构造与调用 Spring AI `ChatClient`，没有 Spring AI 类时保留 HTTP fallback，不再让 optional 依赖影响默认启动。
+- 验证证据：`scripts/validate-model-service-container.ps1` 通过；`docker compose up --build -d` 后模型容器 healthy；直连 `GET http://localhost:18081/health` 返回 `UP`，直连 `/recognize` 对 `cancel A100` 返回 `ORDER_CANCEL`、`confidence=0.86`、`slots.order_id=A100`。
+- 端到端证据：使用 JDK17 启动 Intent Hub jar 并配置 `intent-hub.model-service.enabled=true`、`base-url=http://localhost:18081` 后，`GET /api/v1/admin/health` 返回 `model_service.healthy=true`；`POST /api/v1/intent/recognize` 返回 `ORDER_CANCEL/ASYNC_ACCEPTED`，识别路径包含 `RuleRecognitionPolicy`、`ModelRecognitionPolicy`、`POST_ROUTE:ORDER_CANCEL_COMMAND`。
+- 边界：本轮验证的是本地 Docker 模型服务与默认 memory 模式 Intent Hub jar；未执行真实 DashScope 沙箱外呼，也未覆盖生产多实例、TLS/鉴权、K8s 服务发现和 Prometheus/Grafana 真实接入。

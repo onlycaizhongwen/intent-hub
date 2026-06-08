@@ -147,3 +147,11 @@ mvn test
 - 接入真实 DashScope 沙箱密钥，做小流量冒烟并记录 trace、指标和 bad case。
 - 补充 DashScope 限流告警和失败分类。
 - 将 LLM 调用次数、失败次数、fallback decision、预算消耗和补偿校正数量进一步接入 Prometheus/Grafana 告警、分布式保护和真实多实例压测。
+
+## 2026-06-08 追加审查：模型服务容器联调与 Spring AI optional 运行时边界
+
+- 审查结论：通过。模型服务容器化样例已能被 Intent Hub jar 真实调用，且 Spring AI Alibaba 预接入不会再破坏未携带 Spring AI 运行类的默认启动路径。
+- 修复点：`IntentHubBeanConfiguration` 不再在 Bean 方法签名中强引用 `ChatClient.Builder`，改为运行时反射探测；`TongyiLlmAdapter` 不再直接依赖 `ChatClient` 类型，Spring AI 存在时走 ChatClient，缺失时保持 HTTP 契约 fallback。
+- 验证证据：模型容器 direct `/health` 与 `/recognize` 通过；Intent Hub `GET /api/v1/admin/health` 返回 `model_service.healthy=true`；`POST /api/v1/intent/recognize` 对 `cancel A100` 返回 `ORDER_CANCEL/ASYNC_ACCEPTED`，`recognitionPath` 包含 `ModelRecognitionPolicy`。
+- 一致性判断：符合“LLM 受控”和“防腐层”约束。Spring AI 仍只处于 infrastructure adapter 内，不进入领域层；模型服务只返回识别候选，不接触业务数据。
+- 剩余风险：反射调用降低了编译期类型保护，后续升级 Spring AI 时需要保留 `TongyiLlmAdapterTest#usesSpringAiChatClientWhenAlibabaProviderIsConfigured` 作为兼容性哨兵，并在真实 DashScope 沙箱环境补一次外部 smoke。

@@ -92,6 +92,31 @@ class ConfigVersionAppServiceTest {
                 .hasMessageContaining("only DRAFT");
     }
 
+    @Test
+    void preservesModelPolicyWhenUpsertingStrategy() {
+        service.createDraft("demo", "order-scene", "v-model-policy", "model policy", "admin");
+        ConfigObjectAppService objectService = new ConfigObjectAppService(port, port, auditLogPort);
+
+        Map<String, Object> saved = objectService.upsert("demo", "order-scene", "v-model-policy", ConfigObjectType.STRATEGY, Map.of(
+                "strategyCode", "default",
+                "confidenceThreshold", 0.60,
+                "modelPolicy", Map.of(
+                        "enabled", false,
+                        "endpoint", "https://model.example.test",
+                        "timeoutMs", 1800,
+                        "minConfidence", 0.72
+                )
+        ), "admin");
+
+        assertThat(saved).containsKey("modelPolicy");
+        assertThat(saved.get("modelPolicy")).isEqualTo(Map.of(
+                "enabled", false,
+                "endpoint", "https://model.example.test",
+                "timeoutMs", 1800,
+                "minConfidence", 0.72
+        ));
+    }
+
     private static final class InMemoryPort implements ConfigVersionPort, ConfigObjectPort {
         private final Map<String, ConfigBundle> bundles = new LinkedHashMap<>();
 
@@ -145,14 +170,21 @@ class ConfigVersionAppServiceTest {
         public Map<String, Object> upsert(String tenantId, String sceneId, String version, ConfigObjectType type, Map<String, Object> payload) {
             ConfigBundle bundle = bundles.get(key(tenantId, sceneId, version));
             List<Map<String, Object>> intents = type == ConfigObjectType.INTENT ? List.of(payload) : bundle.intents();
-            bundles.put(key(tenantId, sceneId, version), new ConfigBundle(bundle.version(), intents, bundle.slots(), bundle.synonyms(), bundle.strategies(), bundle.routes(), bundle.downstreamActions()));
+            List<Map<String, Object>> strategies = type == ConfigObjectType.STRATEGY ? List.of(payload) : bundle.strategies();
+            bundles.put(key(tenantId, sceneId, version), new ConfigBundle(bundle.version(), intents, bundle.slots(), bundle.synonyms(), strategies, bundle.routes(), bundle.downstreamActions()));
             return payload;
         }
 
         @Override
         public List<Map<String, Object>> list(String tenantId, String sceneId, String version, ConfigObjectType type) {
             ConfigBundle bundle = bundles.get(key(tenantId, sceneId, version));
-            return type == ConfigObjectType.INTENT ? bundle.intents() : List.of();
+            if (type == ConfigObjectType.INTENT) {
+                return bundle.intents();
+            }
+            if (type == ConfigObjectType.STRATEGY) {
+                return bundle.strategies();
+            }
+            return List.of();
         }
 
         private ConfigBundle withInfo(ConfigBundle bundle, ConfigVersionInfo info) {

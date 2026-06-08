@@ -77,7 +77,8 @@ public class ConfigObjectAppService {
             case STRATEGY -> mapOf(
                     "strategyCode", required(payload, "strategyCode"),
                     "confidenceThreshold", decimal(payload, "confidenceThreshold", "0.600"),
-                    "llmPolicy", objectMap(payload, "llmPolicy")
+                    "llmPolicy", objectMap(payload, "llmPolicy"),
+                    "modelPolicy", objectMap(payload, "modelPolicy")
             );
             case ROUTE -> mapOf(
                     "routeStage", required(payload, "routeStage"),

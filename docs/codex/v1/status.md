@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook 与管理端 confirmed/reserved/pending 查询已完成
+- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、管理端 confirmed/reserved/pending 查询与模型策略 JDBC 冒烟已完成
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -38,6 +38,7 @@
 - P2-5 LLM 受控兜底审查：`docs/codex/v1/trace/intent-hub-p2-llm-governance-trace.md`
 - 模型服务 FastAPI 示例：`examples/model-service-fastapi/README.md`
 - 模型服务容器化校验脚本：`scripts/validate-model-service-container.ps1`
+- 模型策略 JDBC 冒烟脚本：`scripts/smoke-model-policy-jdbc.ps1`
 - 运维样例总入口：`ops/README.md`
 - 生产化落地检查清单：`ops/production-readiness-checklist.md`
 - 观测告警试点接入计划：`ops/pilot-rollout-plan.md`
@@ -109,3 +110,4 @@
 - 2026-06-08：扩展 FastAPI 模型服务示例，补充 `modelVersion`、`threshold` 与退款、物流、发票等多意图样本；Java adapter 核心消费字段保持不变，端到端 smoke 已增加模型版本断言。
 - 2026-06-08：增强模型服务健康详情，`GET /api/v1/admin/health` 可透出 `model_service.modelVersion` 与 `threshold`；该信息仅用于观测和 smoke 断言，不进入识别候选或下游业务动作。
 - 2026-06-08：补齐 scene 级 `model_policy` 最小治理闭环，已支持从已发布 `nlu_strategy.model_policy` 读取模型参与开关、endpoint、timeout 与最低置信度；当前运行时已按 `enabled/minConfidence` 控制模型候选，endpoint/timeout 动态路由留作后续增强。
+- 2026-06-08：修复 Admin 策略对象规范化遗漏 `modelPolicy` 的问题，避免 HTTP Admin upsert 时写入 `{}`；新增 `scripts/smoke-model-policy-jdbc.ps1`，已通过真实 PostgreSQL 16 空库验证 Flyway V1/V2/V3、`nlu_strategy.model_policy` 字段、Admin `modelPolicy` 写入/查询、发布配置读取和 `MODEL_POLICY:DISABLED` 识别路径。

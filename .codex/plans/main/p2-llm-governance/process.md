@@ -4,8 +4,8 @@
 
 - 任务需求：继续 P2，完成小流量 LLM 受控兜底的最小闭环。
 - 关键决策：LLM 仍是最后一道防线；默认关闭且预算为 0；只有全局治理配置和 scene 级 `llm_policy` 同时允许时才触发；失败按 fallback decision 关闭。
-- 当前阶段：P2.x 日预算原子预占、同步失败释放、后台补偿、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例与告警 Runbook 已完成；本轮在既有 LLM 受控兜底基础上补齐外呼前日预算原子预占、管理端 confirmed/reserved/pending 预算查询、远端失败释放本次预占、默认关闭的 stale pending 后台补偿、`GET /api/v1/admin/metrics/alerts` 基础告警快照、`ops/README.md` 运维样例总入口、`ops/production-readiness-checklist.md` 生产化落地检查清单、`ops/pilot-rollout-plan.md` 观测告警试点接入计划、`ops/pilot-execution-record-template.md` 试点执行记录模板、`ops/alert-drill-scenarios.md` 告警演练场景、`scripts/check-observability-local.ps1` 本地观测栈预检脚本、`scripts/validate-observability-compose.ps1` 本地观测栈配置校验脚本、`ops/prometheus/intent-hub-scrape-config.yml` scrape 样例、`ops/prometheus/intent-hub-alert-rules.yml` 告警规则样例、`ops/alertmanager/alertmanager-route-sample.yml` 路由样例、`ops/grafana/intent-hub-dashboard.json` 看板样例、`ops/slo/README.md` SLO 样例、`ops/local-observability` 本地观测栈样例和 `ops/runbooks/intent-hub-alert-runbook.md` 告警 Runbook，相关模块测试通过，待用户明确指令后推送 GitHub。
-- 已完成产物：LLM 领域策略门禁、基础设施治理配置、Spring AI Alibaba 优先/HTTP fallback adapter、LLM 预算审计端口与 memory/JDBC 实现、同步失败释放、后台补偿调度、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、DashScope smoke profile/script、JDBC 策略读取、测试、README/status/HTML/trace 同步。
+- 当前阶段：P2.x 日预算原子预占、同步失败释放、后台补偿、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook 与模型策略 JDBC 冒烟已完成；本轮在既有 LLM 受控兜底基础上补齐外呼前日预算原子预占、管理端 confirmed/reserved/pending 预算查询、远端失败释放本次预占、默认关闭的 stale pending 后台补偿、`GET /api/v1/admin/metrics/alerts` 基础告警快照、`ops/README.md` 运维样例总入口、`ops/production-readiness-checklist.md` 生产化落地检查清单、`ops/pilot-rollout-plan.md` 观测告警试点接入计划、`ops/pilot-execution-record-template.md` 试点执行记录模板、`ops/alert-drill-scenarios.md` 告警演练场景、`scripts/check-observability-local.ps1` 本地观测栈预检脚本、`scripts/validate-observability-compose.ps1` 本地观测栈配置校验脚本、`ops/prometheus/intent-hub-scrape-config.yml` scrape 样例、`ops/prometheus/intent-hub-alert-rules.yml` 告警规则样例、`ops/alertmanager/alertmanager-route-sample.yml` 路由样例、`ops/grafana/intent-hub-dashboard.json` 看板样例、`ops/slo/README.md` SLO 样例、`ops/local-observability` 本地观测栈样例和 `ops/runbooks/intent-hub-alert-runbook.md` 告警 Runbook，相关模块测试通过，待用户明确指令后推送 GitHub。
+- 已完成产物：LLM 领域策略门禁、基础设施治理配置、Spring AI Alibaba 优先/HTTP fallback adapter、LLM 预算审计端口与 memory/JDBC 实现、同步失败释放、后台补偿调度、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、DashScope smoke profile/script、JDBC 策略读取、模型策略 JDBC smoke、测试、README/status/HTML/trace 同步。
 - 剩余工作：GitHub 推送只在用户明确发指令时执行。
 - 重要发现：当前 Spring AI Alibaba 依赖已作为 optional 存在；P2-5 已在基础设施层预接入 `ChatClient`，同时保留 HTTP 契约 fallback，真实 DashScope 沙箱冒烟仍需凭证。
 
@@ -285,3 +285,11 @@
 - 本轮目标：把模型服务参与识别的开关和最低置信度从纯全局配置推进到 `tenant + scene + version` 的配置治理里，先解决“该 scene 是否允许模型候选进入识别链路”。
 - 已完成：新增 `ModelPolicy`，`SceneConfig` 持有 `modelPolicy`；`ModelRecognitionPolicy` 支持 `MODEL_POLICY:DISABLED` 与 `MODEL_POLICY:LOW_CONFIDENCE`；`JdbcSceneConfigRepository` 从已发布 `nlu_strategy.model_policy` 读取 `enabled/endpoint/timeoutMs/minConfidence`；新增 Flyway `V3__p2_model_policy.sql`；Admin 策略对象 upsert 已写入 `model_policy`。
 - 边界：当前运行时只消费 `enabled/minConfidence` 控制模型候选；`endpoint/timeoutMs` 已进入配置存储但尚未动态切换 HTTP adapter，后续需要补连接池隔离、鉴权和按 scene 路由策略。
+
+## 2026-06-08 补充记录：模型策略 JDBC 迁移与 Admin 真链路冒烟
+
+- 本轮目标：关闭 `V3__p2_model_policy.sql` 只停留在单元测试的缺口，验证真实 PostgreSQL/Flyway 增量迁移、Admin `modelPolicy` 写入/查询和发布配置读取。
+- 问题发现：`JdbcConfigObjectRepository` 已支持写入 `model_policy`，但 `ConfigObjectAppService` 规范化 `STRATEGY` payload 时遗漏 `modelPolicy`，导致 HTTP Admin upsert 真链路会把模型策略写成 `{}`。
+- 已完成：`ConfigObjectAppService` 保留 `modelPolicy`；`ConfigVersionAppServiceTest` 增加防回归用例；新增 `scripts/smoke-model-policy-jdbc.ps1`，默认使用宿主机 `15432` 启动临时 PostgreSQL 16 容器并覆盖 `spring.datasource.url`。
+- 验证证据：`mvn -pl intent-hub-application -am test` 通过，相关模块 14 个测试；`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-model-policy-jdbc.ps1` 通过，覆盖 Flyway V1/V2/V3、`nlu_strategy.model_policy` 字段、Admin list、DB JSON 持久化、发布配置和 `MODEL_POLICY:DISABLED` 识别路径。
+- 边界：本轮仍未实现按 scene 动态切换模型 endpoint/timeout；该能力需要连接池隔离、租户鉴权和失败关闭设计后再进入运行时。

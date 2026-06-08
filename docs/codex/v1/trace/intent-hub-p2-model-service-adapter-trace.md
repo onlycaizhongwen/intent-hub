@@ -80,6 +80,7 @@ FastAPI 示例部署化入口：
 - `examples/model-service-fastapi/docker-compose.yml`
 - `scripts/validate-model-service-container.ps1`
 - `scripts/smoke-model-service-e2e.ps1`
+- `scripts/smoke-model-policy-jdbc.ps1`
 
 FastAPI 示例扩展字段：
 
@@ -120,7 +121,7 @@ mvn test
 结果：
 
 - Reactor build success。
-- 测试共 45 个。
+- 测试共 63 个。
 - 失败 0，错误 0，跳过 0。
 
 覆盖点：
@@ -129,12 +130,14 @@ mvn test
 - `RecognizeAppServiceTest` 覆盖 scene 级 `model_policy.enabled=false` 跳过模型，以及 `minConfidence` 过滤低置信模型候选。
 - `RecognizeAppServiceTest` 覆盖模型服务异常时失败关闭，并验证路径包含 `MODEL_FALLBACK:CLOSED`。
 - `JdbcSceneConfigRepositoryTest` 覆盖从已发布 `nlu_strategy.model_policy` 读取模型开关、endpoint、timeout 和最低置信度。
+- `ConfigVersionAppServiceTest` 覆盖 Admin 策略对象 upsert 时保留 `modelPolicy`，防止应用层规范化吞掉模型策略。
 - `ModelClientAdapterTest` 覆盖 no-op adapter、inactive HTTP adapter、MockRestServiceServer 成功返回、模型服务健康详情，以及 JDK 本地 HTTP server POST/JSON 解析冒烟。
 - `AdminHealthControllerTest` 覆盖 `GET /api/v1/admin/health` 返回模型服务健康状态、模型版本和阈值。
 - `IntentHubBeanConfigurationTest` 覆盖 `RestClient.Builder` Bean，防止真实 jar 启动时 HTTP adapter 依赖缺失。
 - 既有 P1、P2-1、P2-2、P2-3 测试仍全部通过。
 - `scripts/validate-model-service-container.ps1` 校验 Dockerfile、Docker Compose、端口映射、健康检查和 `docker compose config`，不启动容器。
 - `scripts/smoke-model-service-e2e.ps1` 自动打包 Intent Hub jar、启动模型服务容器、验证直连模型识别、启动 Intent Hub、验证 `model_service.healthy=true`、`model_service.modelVersion` 和 `ModelRecognitionPolicy` 识别路径，并在结束后清理进程与容器。
+- `scripts/smoke-model-policy-jdbc.ps1` 自动启动临时 PostgreSQL 16 空库，使用 `local-jdbc` profile 验证 Flyway V1/V2/V3、`nlu_strategy.model_policy` 字段、Admin `modelPolicy` 写入/查询、发布配置读取和 `MODEL_POLICY:DISABLED` 识别路径。
 - FastAPI 示例覆盖 `ORDER_CANCEL`、`ORDER_QUERY`、`REFUND_APPLY`、`LOGISTICS_QUERY`、`INVOICE_APPLY` 多意图样本，且 smoke 脚本会断言 `modelVersion`，防止误用旧镜像或旧服务。
 
 ## 当前限制
@@ -146,10 +149,12 @@ mvn test
 - 容器端到端联调证据：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-model-service-e2e.ps1` 已完整通过，覆盖 Docker 模型服务容器与 Intent Hub jar 的本地端到端链路。
 - 全局 `timeoutMs` 已通过 `SimpleClientHttpRequestFactory` 绑定到底层 HTTP connect/read timeout。
 - scene 级 `model_policy.enabled/minConfidence` 已纳入 `tenant + scene + version` 配置治理；`endpoint/timeoutMs` 已进入配置存储，但运行时 HTTP adapter 尚未按 scene 动态切换 endpoint。
+- 已修复 Admin 应用层策略规范化遗漏 `modelPolicy` 的问题；此前 repository 已支持 `model_policy`，但 HTTP Admin 真链路会把该字段落成 `{}`，现已通过单测和真实 JDBC smoke 锁定。
 
 ## 后续建议
 
 - 将模型健康详情继续纳入发布前 smoke 和观测面板，用于识别旧镜像、旧模型或错误阈值配置。
 - 将 scene 级 `model_policy.endpoint/timeoutMs` 接入运行时动态模型服务路由，注意连接池隔离、租户鉴权和失败关闭边界。
 - 将 `scripts/smoke-model-service-e2e.ps1` 纳入后续 CI 或发布前检查，作为模型 adapter 与容器配置变更后的回归入口。
+- 将 `scripts/smoke-model-policy-jdbc.ps1` 纳入发布前检查，作为 Flyway 增量迁移和 Admin 配置治理链路的回归入口。
 - 后续 GPU/高并发部署再切 Triton，不影响当前 adapter 端口。

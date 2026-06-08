@@ -3,6 +3,7 @@ package com.intenthub.application;
 import com.intenthub.domain.config.IntentRule;
 import com.intenthub.domain.config.LlmPolicy;
 import com.intenthub.domain.config.ModelPolicy;
+import com.intenthub.domain.config.PostRouteRule;
 import com.intenthub.domain.config.SceneConfig;
 import com.intenthub.domain.recognition.Decision;
 import com.intenthub.domain.recognition.DownstreamAction;
@@ -85,6 +86,19 @@ class RecognizeAppServiceTest {
         assertThat(first.idempotencyKey()).isNotBlank();
         assertThat(repeated.idempotencyKey()).isEqualTo(first.idempotencyKey());
         assertThat(idempotencyPort.keys).containsExactly(first.idempotencyKey(), repeated.idempotencyKey());
+    }
+
+    @Test
+    void selectsPostRouteActionBySlotConditionBeforeIntentFallback() {
+        IntentResult result = service.recognize(envelope("REQ-P2-POST-ROUTE-001", "取消订单 VIP100"));
+
+        assertThat(result.intentCode()).isEqualTo("ORDER_CANCEL");
+        assertThat(result.downstreamAction().actionCode()).isEqualTo("VIP_CANCEL_COMMAND");
+        assertThat(result.recognitionPath()).containsExactly(
+                "PRE_ROUTE:order-scene:v1-p1",
+                "RuleRecognitionPolicy",
+                "POST_ROUTE:VIP_CANCEL_COMMAND"
+        );
     }
 
     @Test
@@ -289,6 +303,7 @@ class RecognizeAppServiceTest {
                 List.of(),
                 Map.of(),
                 Map.of("UNKNOWN", DownstreamAction.none()),
+                List.of(),
                 ModelPolicy.enabledByDefault(),
                 new LlmPolicy(true, "spring-ai-alibaba", "qwen-plus", 2000, 0, dailyBudget, "REJECTED")
         );
@@ -303,6 +318,7 @@ class RecognizeAppServiceTest {
                 List.of(),
                 Map.of(),
                 Map.of("ORDER_QUERY", new DownstreamAction("ORDER_QUERY_SYNC", "NONE", "", false, 0)),
+                List.of(),
                 modelPolicy,
                 LlmPolicy.disabled()
         );
@@ -324,7 +340,11 @@ class RecognizeAppServiceTest {
                     Map.of("ORDER_CANCEL", List.of("order_id")),
                     Map.of(
                             "ORDER_QUERY", new DownstreamAction("ORDER_QUERY_SYNC", "NONE", "", false, 0),
-                            "ORDER_CANCEL", new DownstreamAction("ORDER_CANCEL_COMMAND", "MQ", "order.command.cancel", true, 3000)
+                            "ORDER_CANCEL", new DownstreamAction("ORDER_CANCEL_COMMAND", "MQ", "order.command.cancel", true, 3000),
+                            "VIP_CANCEL", new DownstreamAction("VIP_CANCEL_COMMAND", "MQ", "order.command.cancel.vip", true, 3000)
+                    ),
+                    List.of(
+                            new PostRouteRule(0, "VIP_CANCEL", "ORDER_CANCEL", 0.90, Map.of("order_id", "VIP100"))
                     ),
                     ModelPolicy.enabledByDefault(),
                     new LlmPolicy(false, "spring-ai-alibaba", "qwen-plus", 2000, 0, 0.0, "REJECTED")

@@ -59,7 +59,6 @@ public class RecognizeAppService {
 
         Optional<RecognitionCandidate> candidate = recognizer.recognize(task);
         DownstreamAction action = candidate
-                .map(RecognitionCandidate::intentCode)
                 .map(sceneConfig::actionFor)
                 .orElse(DownstreamAction.none());
 

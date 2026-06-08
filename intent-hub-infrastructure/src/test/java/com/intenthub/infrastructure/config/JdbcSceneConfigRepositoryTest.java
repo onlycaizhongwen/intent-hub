@@ -3,6 +3,7 @@ package com.intenthub.infrastructure.config;
 import com.intenthub.domain.config.SceneConfig;
 import com.intenthub.domain.recognition.Envelope;
 import com.intenthub.domain.recognition.InputType;
+import com.intenthub.domain.recognition.RecognitionCandidate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -106,6 +107,39 @@ class JdbcSceneConfigRepositoryTest {
         assertThat(config.modelPolicy().minConfidence()).isEqualTo(0.72);
     }
 
+    @Test
+    void loadsPostRouteRulesFromPublishedSceneRoutingRules() {
+        publishScene("demo", "order-scene", "v-order", "ORDER_CANCEL", "cancel");
+        jdbcTemplate.update("""
+                        insert into downstream_action (tenant_id, scene_id, version, action_code, action_type, target, idempotency_required, timeout_ms)
+                        values (?, ?, ?, 'VIP_CANCEL_COMMAND', 'MQ', 'order.command.cancel.vip', true, 3000)
+                        """,
+                "demo",
+                "order-scene",
+                "v-order"
+        );
+        jdbcTemplate.update("""
+                        insert into scene_routing_rule (tenant_id, scene_id, version, route_stage, priority, match_condition, route_target)
+                        values (?, ?, ?, 'POST', 0, ?, 'VIP_CANCEL_COMMAND')
+                        """,
+                "demo",
+                "order-scene",
+                "v-order",
+                ConfigJsonSupport.objectMap(Map.of(
+                        "intentCode", "ORDER_CANCEL",
+                        "minConfidence", 0.90,
+                        "slots", Map.of("order_id", "VIP100")
+                ))
+        );
+
+        SceneConfig config = repository.loadPublishedConfig(envelope(Map.of("scene_id", "order-scene")));
+
+        assertThat(config.actionFor(new RecognitionCandidate("ORDER_CANCEL", 0.95, Map.of("order_id", "VIP100"), "rule hit")).actionCode())
+                .isEqualTo("VIP_CANCEL_COMMAND");
+        assertThat(config.actionFor(new RecognitionCandidate("ORDER_CANCEL", 0.95, Map.of("order_id", "A100"), "rule hit")).actionCode())
+                .isEqualTo("ORDER_CANCEL_API");
+    }
+
     private Envelope envelope(Map<String, String> metadata) {
         return new Envelope(
                 "demo",
@@ -160,6 +194,7 @@ class JdbcSceneConfigRepositoryTest {
 
     private void resetSchema() {
         jdbcTemplate.execute("drop table if exists downstream_action");
+        jdbcTemplate.execute("drop table if exists scene_routing_rule");
         jdbcTemplate.execute("drop table if exists nlu_strategy");
         jdbcTemplate.execute("drop table if exists slot_definition");
         jdbcTemplate.execute("drop table if exists intent_definition");
@@ -208,6 +243,18 @@ class JdbcSceneConfigRepositoryTest {
                     confidence_threshold numeric(5,4) not null default 0.6000,
                     llm_policy varchar(2048) not null default '{}',
                     model_policy varchar(2048) not null default '{}'
+                )
+                """);
+        jdbcTemplate.execute("""
+                create table scene_routing_rule (
+                    id bigserial primary key,
+                    tenant_id varchar(64) not null,
+                    scene_id varchar(64) not null,
+                    version varchar(64) not null,
+                    route_stage varchar(32) not null,
+                    priority integer not null default 0,
+                    match_condition varchar(2048) not null default '{}',
+                    route_target varchar(256) not null
                 )
                 """);
         jdbcTemplate.execute("""

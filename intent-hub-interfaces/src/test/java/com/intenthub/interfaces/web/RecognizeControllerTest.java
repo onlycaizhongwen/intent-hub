@@ -129,6 +129,7 @@ class RecognizeControllerTest {
                         "ORDER_QUERY", new DownstreamAction("ORDER_QUERY_SYNC", "NONE", "", false, 0),
                         "ORDER_CANCEL", new DownstreamAction("ORDER_CANCEL_COMMAND", "MQ", "order.command.cancel", true, 3000)
                 ),
+                List.of(),
                 ModelPolicy.enabledByDefault(),
                 new LlmPolicy(false, "spring-ai-alibaba", "qwen-plus", 2000, 0, 0.0, "REJECTED")
         );

@@ -4,6 +4,7 @@ import com.intenthub.application.SceneConfigPort;
 import com.intenthub.domain.config.IntentRule;
 import com.intenthub.domain.config.LlmPolicy;
 import com.intenthub.domain.config.ModelPolicy;
+import com.intenthub.domain.config.PostRouteRule;
 import com.intenthub.domain.config.SceneConfig;
 import com.intenthub.domain.recognition.DownstreamAction;
 import com.intenthub.domain.recognition.Envelope;
@@ -79,7 +80,7 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
                 Collectors.mapping(row -> row.get("slot_code").toString(), Collectors.toList())
         ));
 
-        Map<String, DownstreamAction> actions = jdbcTemplate.queryForList("""
+        List<Map<String, Object>> actionRows = jdbcTemplate.queryForList("""
                         select action_code, action_type, target, idempotency_required, timeout_ms
                         from downstream_action
                         where tenant_id = ? and scene_id = ? and version = ?
@@ -88,21 +89,24 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
                 envelope.tenantId(),
                 publishedScene.sceneId(),
                 publishedScene.version()
-        ).stream().collect(Collectors.toMap(
-                row -> inferIntentCode(row.get("action_code").toString()),
-                row -> new DownstreamAction(
-                        row.get("action_code").toString(),
-                        row.get("action_type").toString(),
-                        row.get("target").toString(),
-                        Boolean.parseBoolean(row.get("idempotency_required").toString()),
-                        Integer.parseInt(row.get("timeout_ms").toString())
-                ),
-                (left, right) -> left,
-                LinkedHashMap::new
-        ));
+        );
+        Map<String, DownstreamAction> actions = new LinkedHashMap<>();
+        for (Map<String, Object> row : actionRows) {
+            String actionCode = row.get("action_code").toString();
+            DownstreamAction action = new DownstreamAction(
+                    actionCode,
+                    row.get("action_type").toString(),
+                    row.get("target").toString(),
+                    Boolean.parseBoolean(row.get("idempotency_required").toString()),
+                    Integer.parseInt(row.get("timeout_ms").toString())
+            );
+            actions.putIfAbsent(inferIntentCode(actionCode), action);
+            actions.putIfAbsent(actionCode, action);
+        }
         Map<String, Object> strategy = loadStrategy(envelope, publishedScene);
         ModelPolicy modelPolicy = toModelPolicy(strategy);
         LlmPolicy llmPolicy = toLlmPolicy(strategy);
+        List<PostRouteRule> postRouteRules = loadPostRouteRules(envelope, publishedScene);
 
         return new SceneConfig(
                 envelope.tenantId(),
@@ -112,8 +116,32 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
                 rules.isEmpty() ? BuiltinSceneConfigFactory.orderScene(envelope).rules() : rules,
                 requiredSlots,
                 actions,
+                postRouteRules,
                 modelPolicy,
                 llmPolicy
+        );
+    }
+
+    private List<PostRouteRule> loadPostRouteRules(Envelope envelope, PublishedScene publishedScene) {
+        return jdbcTemplate.query("""
+                        select priority, match_condition, route_target
+                        from scene_routing_rule
+                        where tenant_id = ? and scene_id = ? and version = ? and route_stage = 'POST'
+                        order by priority asc, id asc
+                        """,
+                (rs, rowNum) -> {
+                    Map<String, Object> condition = json(rs.getString("match_condition"));
+                    return new PostRouteRule(
+                            rs.getInt("priority"),
+                            rs.getString("route_target"),
+                            string(condition, "intentCode", string(condition, "intent_code", "")),
+                            decimal(condition, "minConfidence", decimal(condition, "min_confidence", "0.0").toPlainString()).doubleValue(),
+                            stringMap(firstPresent(condition, "slotEquals", "slot_equals", "slotConditions", "slot_conditions", "slots"))
+                    );
+                },
+                envelope.tenantId(),
+                publishedScene.sceneId(),
+                publishedScene.version()
         );
     }
 
@@ -255,6 +283,16 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
     private boolean bool(Map<String, Object> values, String key, boolean defaultValue) {
         Object value = values.get(key);
         return value == null ? defaultValue : Boolean.parseBoolean(value.toString());
+    }
+
+    private Object firstPresent(Map<String, Object> values, String... keys) {
+        for (String key : keys) {
+            Object value = values.get(key);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")

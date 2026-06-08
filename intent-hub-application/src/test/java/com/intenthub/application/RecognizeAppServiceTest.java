@@ -2,6 +2,7 @@ package com.intenthub.application;
 
 import com.intenthub.domain.config.IntentRule;
 import com.intenthub.domain.config.LlmPolicy;
+import com.intenthub.domain.config.ModelPolicy;
 import com.intenthub.domain.config.SceneConfig;
 import com.intenthub.domain.recognition.Decision;
 import com.intenthub.domain.recognition.DownstreamAction;
@@ -163,6 +164,54 @@ class RecognizeAppServiceTest {
     }
 
     @Test
+    void skipsModelWhenSceneModelPolicyIsDisabled() {
+        service = new RecognizeAppService(
+                envelope -> sceneWithModelPolicy(envelope, ModelPolicy.disabled()),
+                tracePort,
+                badCasePort,
+                idempotencyPort,
+                new DisabledLlmClient(),
+                metricsPort,
+                (text, sceneId) -> {
+                    throw new AssertionError("model service should be skipped by scene policy");
+                }
+        );
+
+        IntentResult result = service.recognize(envelope("REQ-P2-MODEL-POLICY-001", "model only text"));
+
+        assertThat(result.intentCode()).isEqualTo("UNKNOWN");
+        assertThat(result.recognitionPath()).containsExactly(
+                "PRE_ROUTE:order-scene:v-model-policy",
+                "RuleRecognitionPolicy",
+                "MODEL_POLICY:DISABLED",
+                "POST_ROUTE:NONE"
+        );
+    }
+
+    @Test
+    void rejectsLowConfidenceModelCandidateBeforePostRoute() {
+        service = new RecognizeAppService(
+                envelope -> sceneWithModelPolicy(envelope, new ModelPolicy(true, "", 0, 0.85)),
+                tracePort,
+                badCasePort,
+                idempotencyPort,
+                new DisabledLlmClient(),
+                metricsPort,
+                (text, sceneId) -> Optional.of(new RecognitionCandidate("ORDER_QUERY", 0.80, Map.of(), "model hit"))
+        );
+
+        IntentResult result = service.recognize(envelope("REQ-P2-MODEL-POLICY-002", "model low confidence"));
+
+        assertThat(result.intentCode()).isEqualTo("UNKNOWN");
+        assertThat(result.recognitionPath()).containsExactly(
+                "PRE_ROUTE:order-scene:v-model-policy",
+                "RuleRecognitionPolicy",
+                "MODEL_POLICY:LOW_CONFIDENCE",
+                "POST_ROUTE:NONE"
+        );
+    }
+
+    @Test
     void failsClosedWhenLlmFallbackThrows() {
         service = new RecognizeAppService(
                 envelope -> llmEnabledScene(envelope, 10.0),
@@ -240,7 +289,22 @@ class RecognizeAppServiceTest {
                 List.of(),
                 Map.of(),
                 Map.of("UNKNOWN", DownstreamAction.none()),
+                ModelPolicy.enabledByDefault(),
                 new LlmPolicy(true, "spring-ai-alibaba", "qwen-plus", 2000, 0, dailyBudget, "REJECTED")
+        );
+    }
+
+    private SceneConfig sceneWithModelPolicy(Envelope envelope, ModelPolicy modelPolicy) {
+        return new SceneConfig(
+                envelope.tenantId(),
+                "order-scene",
+                "v-model-policy",
+                0.60,
+                List.of(),
+                Map.of(),
+                Map.of("ORDER_QUERY", new DownstreamAction("ORDER_QUERY_SYNC", "NONE", "", false, 0)),
+                modelPolicy,
+                LlmPolicy.disabled()
         );
     }
 
@@ -262,6 +326,7 @@ class RecognizeAppServiceTest {
                             "ORDER_QUERY", new DownstreamAction("ORDER_QUERY_SYNC", "NONE", "", false, 0),
                             "ORDER_CANCEL", new DownstreamAction("ORDER_CANCEL_COMMAND", "MQ", "order.command.cancel", true, 3000)
                     ),
+                    ModelPolicy.enabledByDefault(),
                     new LlmPolicy(false, "spring-ai-alibaba", "qwen-plus", 2000, 0, 0.0, "REJECTED")
             );
         }

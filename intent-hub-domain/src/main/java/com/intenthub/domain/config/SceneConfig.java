@@ -13,12 +13,14 @@ public record SceneConfig(
         List<IntentRule> rules,
         Map<String, List<String>> requiredSlots,
         Map<String, DownstreamAction> downstreamActions,
+        ModelPolicy modelPolicy,
         LlmPolicy llmPolicy
 ) {
     public SceneConfig {
         rules = rules == null ? List.of() : List.copyOf(rules);
         requiredSlots = requiredSlots == null ? Map.of() : Map.copyOf(requiredSlots);
         downstreamActions = downstreamActions == null ? Map.of() : Map.copyOf(downstreamActions);
+        modelPolicy = modelPolicy == null ? ModelPolicy.enabledByDefault() : modelPolicy;
         llmPolicy = llmPolicy == null ? LlmPolicy.disabled() : llmPolicy;
     }
 

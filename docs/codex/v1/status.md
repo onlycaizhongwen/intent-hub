@@ -108,3 +108,4 @@
 - 2026-06-08：补充 `scripts/smoke-model-service-e2e.ps1`，将模型服务容器 + Intent Hub jar 端到端联调固化为一键 smoke，已验证自动打包、启动、识别断言和清理流程。
 - 2026-06-08：扩展 FastAPI 模型服务示例，补充 `modelVersion`、`threshold` 与退款、物流、发票等多意图样本；Java adapter 核心消费字段保持不变，端到端 smoke 已增加模型版本断言。
 - 2026-06-08：增强模型服务健康详情，`GET /api/v1/admin/health` 可透出 `model_service.modelVersion` 与 `threshold`；该信息仅用于观测和 smoke 断言，不进入识别候选或下游业务动作。
+- 2026-06-08：补齐 scene 级 `model_policy` 最小治理闭环，已支持从已发布 `nlu_strategy.model_policy` 读取模型参与开关、endpoint、timeout 与最低置信度；当前运行时已按 `enabled/minConfidence` 控制模型候选，endpoint/timeout 动态路由留作后续增强。

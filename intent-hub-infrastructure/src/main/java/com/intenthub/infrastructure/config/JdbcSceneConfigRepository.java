@@ -3,6 +3,7 @@ package com.intenthub.infrastructure.config;
 import com.intenthub.application.SceneConfigPort;
 import com.intenthub.domain.config.IntentRule;
 import com.intenthub.domain.config.LlmPolicy;
+import com.intenthub.domain.config.ModelPolicy;
 import com.intenthub.domain.config.SceneConfig;
 import com.intenthub.domain.recognition.DownstreamAction;
 import com.intenthub.domain.recognition.Envelope;
@@ -99,7 +100,9 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
                 (left, right) -> left,
                 LinkedHashMap::new
         ));
-        LlmPolicy llmPolicy = loadLlmPolicy(envelope, publishedScene);
+        Map<String, Object> strategy = loadStrategy(envelope, publishedScene);
+        ModelPolicy modelPolicy = toModelPolicy(strategy);
+        LlmPolicy llmPolicy = toLlmPolicy(strategy);
 
         return new SceneConfig(
                 envelope.tenantId(),
@@ -109,37 +112,65 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
                 rules.isEmpty() ? BuiltinSceneConfigFactory.orderScene(envelope).rules() : rules,
                 requiredSlots,
                 actions,
+                modelPolicy,
                 llmPolicy
         );
     }
 
-    private LlmPolicy loadLlmPolicy(Envelope envelope, PublishedScene publishedScene) {
+    private Map<String, Object> loadStrategy(Envelope envelope, PublishedScene publishedScene) {
         try {
-            String rawPolicy = jdbcTemplate.queryForObject("""
-                            select llm_policy
+            return jdbcTemplate.queryForObject("""
+                            select llm_policy, model_policy, confidence_threshold
                             from nlu_strategy
                             where tenant_id = ? and scene_id = ? and version = ?
                             order by id
                             limit 1
                             """,
-                    String.class,
+                    (rs, rowNum) -> {
+                        Map<String, Object> strategy = new LinkedHashMap<>();
+                        strategy.put("llm_policy", json(rs.getString("llm_policy")));
+                        strategy.put("model_policy", json(rs.getString("model_policy")));
+                        strategy.put("confidence_threshold", rs.getBigDecimal("confidence_threshold"));
+                        return strategy;
+                    },
                     envelope.tenantId(),
                     publishedScene.sceneId(),
                     publishedScene.version()
             );
-            Map<String, Object> policy = json(rawPolicy);
-            return new LlmPolicy(
-                    bool(policy, "enabled", false),
-                    string(policy, "provider", "spring-ai-alibaba"),
-                    string(policy, "model", "qwen-plus"),
-                    integer(policy, "timeoutMs", integer(policy, "timeout_ms", 3000)),
-                    integer(policy, "maxRetries", integer(policy, "max_retries", 0)),
-                    decimal(policy, "dailyBudget", decimal(policy, "daily_budget", "0.0").toPlainString()).doubleValue(),
-                    string(policy, "fallbackDecision", string(policy, "fallback_decision", "REJECTED"))
-            );
         } catch (EmptyResultDataAccessException ex) {
-            return LlmPolicy.disabled();
+            return Map.of();
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private LlmPolicy toLlmPolicy(Map<String, Object> strategy) {
+        Map<String, Object> policy = (Map<String, Object>) strategy.getOrDefault("llm_policy", Map.of());
+        return new LlmPolicy(
+                bool(policy, "enabled", false),
+                string(policy, "provider", "spring-ai-alibaba"),
+                string(policy, "model", "qwen-plus"),
+                integer(policy, "timeoutMs", integer(policy, "timeout_ms", 3000)),
+                integer(policy, "maxRetries", integer(policy, "max_retries", 0)),
+                decimal(policy, "dailyBudget", decimal(policy, "daily_budget", "0.0").toPlainString()).doubleValue(),
+                string(policy, "fallbackDecision", string(policy, "fallback_decision", "REJECTED"))
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    private ModelPolicy toModelPolicy(Map<String, Object> strategy) {
+        Map<String, Object> policy = (Map<String, Object>) strategy.getOrDefault("model_policy", Map.of());
+        if (policy.isEmpty()) {
+            return ModelPolicy.enabledByDefault();
+        }
+        BigDecimal fallbackThreshold = strategy.containsKey("confidence_threshold")
+                ? new BigDecimal(strategy.get("confidence_threshold").toString())
+                : BigDecimal.ZERO;
+        return new ModelPolicy(
+                bool(policy, "enabled", true),
+                string(policy, "endpoint", string(policy, "baseUrl", string(policy, "base_url", ""))),
+                integer(policy, "timeoutMs", integer(policy, "timeout_ms", 0)),
+                decimal(policy, "minConfidence", decimal(policy, "min_confidence", fallbackThreshold.toPlainString()).toPlainString()).doubleValue()
+        );
     }
 
     private Optional<PublishedScene> resolvePublishedScene(Envelope envelope) {

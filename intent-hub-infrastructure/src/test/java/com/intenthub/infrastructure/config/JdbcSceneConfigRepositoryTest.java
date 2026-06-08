@@ -69,8 +69,8 @@ class JdbcSceneConfigRepositoryTest {
     void loadsLlmPolicyFromPublishedStrategy() {
         publishScene("demo", "order-scene", "v-order", "ORDER_QUERY", "order");
         jdbcTemplate.update("""
-                        insert into nlu_strategy (tenant_id, scene_id, version, strategy_code, confidence_threshold, llm_policy)
-                        values (?, ?, ?, 'default', 0.60, ?)
+                        insert into nlu_strategy (tenant_id, scene_id, version, strategy_code, confidence_threshold, llm_policy, model_policy)
+                        values (?, ?, ?, 'default', 0.60, ?, ?)
                         """,
                 "demo",
                 "order-scene",
@@ -83,6 +83,12 @@ class JdbcSceneConfigRepositoryTest {
                         "maxRetries", 1,
                         "dailyBudget", 10.0,
                         "fallbackDecision", "REJECTED"
+                )),
+                ConfigJsonSupport.objectMap(Map.of(
+                        "enabled", true,
+                        "endpoint", "https://model.example.test",
+                        "timeoutMs", 1800,
+                        "minConfidence", 0.72
                 ))
         );
 
@@ -94,6 +100,10 @@ class JdbcSceneConfigRepositoryTest {
         assertThat(config.llmPolicy().timeoutMs()).isEqualTo(2500);
         assertThat(config.llmPolicy().maxRetries()).isEqualTo(1);
         assertThat(config.llmPolicy().dailyBudget()).isEqualTo(10.0);
+        assertThat(config.modelPolicy().enabled()).isTrue();
+        assertThat(config.modelPolicy().endpoint()).isEqualTo("https://model.example.test");
+        assertThat(config.modelPolicy().timeoutMs()).isEqualTo(1800);
+        assertThat(config.modelPolicy().minConfidence()).isEqualTo(0.72);
     }
 
     private Envelope envelope(Map<String, String> metadata) {
@@ -196,7 +206,8 @@ class JdbcSceneConfigRepositoryTest {
                     version varchar(64) not null,
                     strategy_code varchar(128) not null,
                     confidence_threshold numeric(5,4) not null default 0.6000,
-                    llm_policy varchar(2048) not null default '{}'
+                    llm_policy varchar(2048) not null default '{}',
+                    model_policy varchar(2048) not null default '{}'
                 )
                 """);
         jdbcTemplate.execute("""

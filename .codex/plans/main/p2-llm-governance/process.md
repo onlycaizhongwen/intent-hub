@@ -279,3 +279,9 @@
 - 本轮目标：把模型服务 `/health` 中的 `modelVersion` 与 `threshold` 纳入 Intent Hub Admin health，便于本地 smoke 和后续观测识别旧镜像、旧模型或错误阈值。
 - 已完成：新增 `ModelServiceHealth` 领域健康详情对象，`ModelClientPort.healthDetails()` 默认兼容既有 `healthy()`；`HttpModelClientAdapter` 解析健康详情，`AdminHealthController` 在 `model_service` 下按需透出 `modelVersion` 与 `threshold`。
 - 边界：健康详情只用于观测与发布前验证，不改变 `/api/v1/intent/recognize` 输出契约，也不参与后置路由或下游业务动作。
+
+## 2026-06-08 补充记录：scene 级模型策略门禁
+
+- 本轮目标：把模型服务参与识别的开关和最低置信度从纯全局配置推进到 `tenant + scene + version` 的配置治理里，先解决“该 scene 是否允许模型候选进入识别链路”。
+- 已完成：新增 `ModelPolicy`，`SceneConfig` 持有 `modelPolicy`；`ModelRecognitionPolicy` 支持 `MODEL_POLICY:DISABLED` 与 `MODEL_POLICY:LOW_CONFIDENCE`；`JdbcSceneConfigRepository` 从已发布 `nlu_strategy.model_policy` 读取 `enabled/endpoint/timeoutMs/minConfidence`；新增 Flyway `V3__p2_model_policy.sql`；Admin 策略对象 upsert 已写入 `model_policy`。
+- 边界：当前运行时只消费 `enabled/minConfidence` 控制模型候选；`endpoint/timeoutMs` 已进入配置存储但尚未动态切换 HTTP adapter，后续需要补连接池隔离、鉴权和按 scene 路由策略。

@@ -92,15 +92,16 @@ public class JdbcConfigObjectRepository implements ConfigObjectPort {
 
     private void upsertStrategy(String tenantId, String sceneId, String version, Map<String, Object> payload) {
         jdbcTemplate.update("""
-                        insert into nlu_strategy (tenant_id, scene_id, version, strategy_code, confidence_threshold, llm_policy)
-                        values (?, ?, ?, ?, ?, ?::jsonb)
+                        insert into nlu_strategy (tenant_id, scene_id, version, strategy_code, confidence_threshold, llm_policy, model_policy)
+                        values (?, ?, ?, ?, ?, ?::jsonb, ?::jsonb)
                         on conflict (tenant_id, scene_id, version, strategy_code)
-                        do update set confidence_threshold = excluded.confidence_threshold, llm_policy = excluded.llm_policy
+                        do update set confidence_threshold = excluded.confidence_threshold, llm_policy = excluded.llm_policy, model_policy = excluded.model_policy
                         """,
                 tenantId, sceneId, version,
                 payload.get("strategyCode"),
                 payload.get("confidenceThreshold"),
-                ConfigJsonSupport.objectMap(map(payload.get("llmPolicy")))
+                ConfigJsonSupport.objectMap(map(payload.get("llmPolicy"))),
+                ConfigJsonSupport.objectMap(map(payload.get("modelPolicy")))
         );
     }
 

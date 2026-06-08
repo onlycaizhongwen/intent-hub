@@ -267,3 +267,9 @@
 - 已完成：新增 `scripts/smoke-model-service-e2e.ps1`，自动完成 JDK17/Maven/Docker 检查、Intent Hub jar 打包、模型服务容器启动、模型直连识别、Intent Hub jar 启动、`model_service.healthy=true` 健康检查、`ModelRecognitionPolicy` 路径识别断言和清理。
 - 验证证据：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-model-service-e2e.ps1` 已完整通过，结束后自动停止 Intent Hub 进程并执行 `docker compose down`。
 - 边界：脚本用于本地 smoke，不替代真实 DashScope 外呼、生产 K8s 部署、TLS/鉴权或多实例压测。
+
+## 2026-06-08 补充记录：模型服务样本、阈值与版本扩展示例
+
+- 本轮目标：让 FastAPI 模型服务样例更接近真实推理服务，补齐模型版本、阈值和多意图样本输出，同时保持 Java adapter 核心契约兼容。
+- 已完成：`examples/model-service-fastapi/app.py` 响应新增 `modelVersion=fastapi-example-2026-06-08` 与 `threshold=0.70`，并扩展 `ORDER_CANCEL`、`ORDER_QUERY`、`REFUND_APPLY`、`LOGISTICS_QUERY`、`INVOICE_APPLY` 样本；`scripts/smoke-model-service-e2e.ps1` 增加模型版本断言。
+- 边界：扩展字段当前仅用于示例和 smoke 验证，Intent Hub Java adapter 仍只消费 `intentCode/confidence/slots/explanation`，不会把模型服务扩展字段传播为业务动作或业务数据。

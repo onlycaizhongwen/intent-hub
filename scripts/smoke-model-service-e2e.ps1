@@ -182,12 +182,18 @@ try {
     if ($modelHealth.status -ne "UP") {
         Fail "model service health is not UP"
     }
+    if ($modelHealth.modelVersion -ne "fastapi-example-2026-06-08") {
+        Fail "model service version is not fastapi-example-2026-06-08"
+    }
     Ok "model service health is UP"
 
     $directBody = @{ text = "cancel A100"; tenant_id = "tenant-a"; scene_id = "order-scene"; request_id = "direct-model-e2e" } | ConvertTo-Json -Compress
     $directResult = Invoke-RestMethod -Method Post -Uri "http://localhost:18081/recognize" -ContentType "application/json" -Body $directBody -TimeoutSec 5
     if ($directResult.intentCode -ne "ORDER_CANCEL" -or $directResult.slots.order_id -ne "A100") {
         Fail "direct model recognition did not return ORDER_CANCEL/A100"
+    }
+    if ($directResult.modelVersion -ne "fastapi-example-2026-06-08") {
+        Fail "direct model recognition did not return expected modelVersion"
     }
     Ok "direct model recognition returned ORDER_CANCEL/A100"
 

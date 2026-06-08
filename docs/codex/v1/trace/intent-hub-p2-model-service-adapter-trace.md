@@ -62,6 +62,12 @@ FastAPI 示例部署化入口：
 - `scripts/validate-model-service-container.ps1`
 - `scripts/smoke-model-service-e2e.ps1`
 
+FastAPI 示例扩展字段：
+
+- `modelVersion`：当前样例返回 `fastapi-example-2026-06-08`，用于验证模型版本透出。
+- `threshold`：当前样例返回 `0.70`，用于验证阈值配置透出。
+- Java adapter 当前仍只消费 `intentCode`、`confidence`、`slots`、`explanation`，扩展字段仅作为模型服务示例能力和 smoke 断言。
+
 ## 架构一致性
 
 ### 双阶段路由
@@ -108,6 +114,7 @@ mvn test
 - 既有 P1、P2-1、P2-2、P2-3 测试仍全部通过。
 - `scripts/validate-model-service-container.ps1` 校验 Dockerfile、Docker Compose、端口映射、健康检查和 `docker compose config`，不启动容器。
 - `scripts/smoke-model-service-e2e.ps1` 自动打包 Intent Hub jar、启动模型服务容器、验证直连模型识别、启动 Intent Hub、验证 `model_service.healthy=true` 和 `ModelRecognitionPolicy` 识别路径，并在结束后清理进程与容器。
+- FastAPI 示例覆盖 `ORDER_CANCEL`、`ORDER_QUERY`、`REFUND_APPLY`、`LOGISTICS_QUERY`、`INVOICE_APPLY` 多意图样本，且 smoke 脚本会断言 `modelVersion`，防止误用旧镜像或旧服务。
 
 ## 当前限制
 

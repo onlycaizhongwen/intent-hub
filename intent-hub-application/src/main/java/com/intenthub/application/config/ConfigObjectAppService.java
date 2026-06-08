@@ -2,11 +2,19 @@ package com.intenthub.application.config;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 public class ConfigObjectAppService {
+    private static final int MIN_TIMEOUT_MS = 1;
+    private static final int MAX_TIMEOUT_MS = 60_000;
+    private static final int MAX_LLM_RETRIES = 5;
+    private static final Set<String> ROUTE_STAGES = new LinkedHashSet<>(List.of("PRE", "POST"));
+    private static final Set<String> ACTION_TYPES = new LinkedHashSet<>(List.of("API", "MQ", "WEBHOOK", "MQTT"));
+
     private final ConfigVersionPort configVersionPort;
     private final ConfigObjectPort configObjectPort;
     private final AuditLogPort auditLogPort;
@@ -104,22 +112,22 @@ public class ConfigObjectAppService {
             );
             case STRATEGY -> mapOf(
                     "strategyCode", required(payload, "strategyCode"),
-                    "confidenceThreshold", decimal(payload, "confidenceThreshold", "0.600"),
-                    "llmPolicy", objectMap(payload, "llmPolicy"),
-                    "modelPolicy", objectMap(payload, "modelPolicy")
+                    "confidenceThreshold", decimalRange(payload, "confidenceThreshold", "0.600", "0.0", "1.0"),
+                    "llmPolicy", policyMap(payload, "llmPolicy"),
+                    "modelPolicy", policyMap(payload, "modelPolicy")
             );
             case ROUTE -> mapOf(
-                    "routeStage", required(payload, "routeStage"),
-                    "priority", integer(payload, "priority", 0),
+                    "routeStage", enumValue(payload, "routeStage", ROUTE_STAGES),
+                    "priority", integerRange(payload, "priority", 0, 0, Integer.MAX_VALUE),
                     "matchCondition", objectMap(payload, "matchCondition"),
                     "routeTarget", required(payload, "routeTarget")
             );
             case DOWNSTREAM_ACTION -> mapOf(
                     "actionCode", required(payload, "actionCode"),
-                    "actionType", required(payload, "actionType"),
+                    "actionType", enumValue(payload, "actionType", ACTION_TYPES),
                     "target", required(payload, "target"),
                     "idempotencyRequired", bool(payload, "idempotencyRequired", false),
-                    "timeoutMs", integer(payload, "timeoutMs", 3000),
+                    "timeoutMs", integerRange(payload, "timeoutMs", 3000, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS),
                     "actionSchema", objectMap(payload, "actionSchema")
             );
         };
@@ -166,12 +174,38 @@ public class ConfigObjectAppService {
         return Integer.parseInt(value.toString());
     }
 
+    private int integerRange(Map<String, Object> payload, String key, int defaultValue, int min, int max) {
+        int value = integer(payload, key, defaultValue);
+        if (value < min || value > max) {
+            throw new IllegalArgumentException(key + " must be between " + min + " and " + max);
+        }
+        return value;
+    }
+
     private BigDecimal decimal(Map<String, Object> payload, String key, String defaultValue) {
         Object value = payload.get(key);
         if (value == null) {
             return new BigDecimal(defaultValue);
         }
         return new BigDecimal(value.toString());
+    }
+
+    private BigDecimal decimalRange(Map<String, Object> payload, String key, String defaultValue, String min, String max) {
+        BigDecimal value = decimal(payload, key, defaultValue);
+        BigDecimal lower = new BigDecimal(min);
+        BigDecimal upper = new BigDecimal(max);
+        if (value.compareTo(lower) < 0 || value.compareTo(upper) > 0) {
+            throw new IllegalArgumentException(key + " must be between " + min + " and " + max);
+        }
+        return value;
+    }
+
+    private String enumValue(Map<String, Object> payload, String key, Set<String> allowedValues) {
+        String value = required(payload, key).toString().toUpperCase();
+        if (!allowedValues.contains(value)) {
+            throw new IllegalArgumentException(key + " must be one of " + allowedValues);
+        }
+        return value;
     }
 
     @SuppressWarnings("unchecked")
@@ -184,6 +218,50 @@ public class ConfigObjectAppService {
             return new LinkedHashMap<>((Map<String, Object>) map);
         }
         throw new IllegalArgumentException(key + " must be an object");
+    }
+
+    private Map<String, Object> policyMap(Map<String, Object> payload, String key) {
+        Map<String, Object> policy = objectMap(payload, key);
+        if (policy.isEmpty()) {
+            return policy;
+        }
+        Map<String, Object> normalized = new LinkedHashMap<>(policy);
+        validatePolicyFields(normalized, key);
+        return normalized;
+    }
+
+    private void validatePolicyFields(Map<String, Object> policy, String key) {
+        if (policy.containsKey("enabled")) {
+            policy.put("enabled", bool(policy, "enabled", false));
+        }
+        if (policy.containsKey("timeoutMs")) {
+            policy.put("timeoutMs", policyIntegerRange(policy, key, "timeoutMs", MIN_TIMEOUT_MS, MAX_TIMEOUT_MS));
+        }
+        if (policy.containsKey("minConfidence")) {
+            policyDecimalRange(policy, key, "minConfidence", "0.0", "1.0");
+        }
+        if (policy.containsKey("dailyBudget")) {
+            policyDecimalRange(policy, key, "dailyBudget", "0.0", "999999999.0");
+        }
+        if (policy.containsKey("maxRetries")) {
+            policy.put("maxRetries", policyIntegerRange(policy, key, "maxRetries", 0, MAX_LLM_RETRIES));
+        }
+    }
+
+    private int policyIntegerRange(Map<String, Object> policy, String policyKey, String field, int min, int max) {
+        try {
+            return integerRange(policy, field, 0, min, max);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException(policyKey + "." + ex.getMessage());
+        }
+    }
+
+    private BigDecimal policyDecimalRange(Map<String, Object> policy, String policyKey, String field, String min, String max) {
+        try {
+            return decimalRange(policy, field, min, min, max);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException(policyKey + "." + ex.getMessage());
+        }
     }
 
     private Map<String, Object> mapOf(Object... values) {

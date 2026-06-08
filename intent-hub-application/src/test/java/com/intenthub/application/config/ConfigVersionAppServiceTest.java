@@ -141,6 +141,57 @@ class ConfigVersionAppServiceTest {
     }
 
     @Test
+    void rejectsInvalidConfigObjectFields() {
+        service.createDraft("demo", "order-scene", "v-field-validation", "field validation", "admin");
+        ConfigObjectAppService objectService = new ConfigObjectAppService(port, port, auditLogPort);
+
+        assertThatThrownBy(() -> objectService.upsert("demo", "order-scene", "v-field-validation", ConfigObjectType.STRATEGY, Map.of(
+                "strategyCode", "invalid-confidence",
+                "confidenceThreshold", 1.20
+        ), "admin")).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("confidenceThreshold must be between 0.0 and 1.0");
+
+        assertThatThrownBy(() -> objectService.upsert("demo", "order-scene", "v-field-validation", ConfigObjectType.STRATEGY, Map.of(
+                "strategyCode", "invalid-model-policy",
+                "modelPolicy", Map.of(
+                        "minConfidence", -0.10
+                )
+        ), "admin")).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("modelPolicy.minConfidence must be between 0.0 and 1.0");
+
+        assertThatThrownBy(() -> objectService.upsert("demo", "order-scene", "v-field-validation", ConfigObjectType.STRATEGY, Map.of(
+                "strategyCode", "invalid-llm-policy",
+                "llmPolicy", Map.of(
+                        "timeoutMs", 0,
+                        "maxRetries", 9,
+                        "dailyBudget", -1.0
+                )
+        ), "admin")).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("llmPolicy.timeoutMs must be between 1 and 60000");
+
+        assertThatThrownBy(() -> objectService.upsert("demo", "order-scene", "v-field-validation", ConfigObjectType.ROUTE, Map.of(
+                "routeStage", "MIDDLE",
+                "routeTarget", "ORDER_QUERY"
+        ), "admin")).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("routeStage must be one of [PRE, POST]");
+
+        assertThatThrownBy(() -> objectService.upsert("demo", "order-scene", "v-field-validation", ConfigObjectType.DOWNSTREAM_ACTION, Map.of(
+                "actionCode", "SQL_ACTION",
+                "actionType", "SQL",
+                "target", "select * from orders"
+        ), "admin")).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("actionType must be one of [API, MQ, WEBHOOK, MQTT]");
+
+        assertThatThrownBy(() -> objectService.upsert("demo", "order-scene", "v-field-validation", ConfigObjectType.DOWNSTREAM_ACTION, Map.of(
+                "actionCode", "SLOW_ACTION",
+                "actionType", "API",
+                "target", "https://api.example.test",
+                "timeoutMs", 60001
+        ), "admin")).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("timeoutMs must be between 1 and 60000");
+    }
+
+    @Test
     void listsVersionAuditsByTargetVersion() {
         service.createDraft("demo", "order-scene", "v-audit", "audit", "admin");
         service.publish("demo", "order-scene", "v-audit", "admin");

@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、管理端 confirmed/reserved/pending 查询、模型策略 JDBC 冒烟、配置版本审计查询、配置对象删除与批量导入已完成
+- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、管理端 confirmed/reserved/pending 查询、模型策略 JDBC 冒烟、配置版本审计查询、配置对象删除与批量导入、配置字段基础校验已完成
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -114,3 +114,4 @@
 - 2026-06-08：补齐 P95/P99 长尾耗时指标与告警，`MetricsSnapshot`、Prometheus 文本、`/api/v1/admin/metrics/alerts`、Prometheus 规则、Grafana 看板和 Runbook 均已同步；相关模块测试通过，共 66 个测试。
 - 2026-06-08：补齐配置版本审计查询闭环，新增 `AuditLogEntry`、`ConfigAuditAppService` 与 `GET /api/v1/admin/config/versions/{version}/audits`；memory/JDBC 审计仓储均支持按 `tenantId + sceneId + version` 倒序查询，JDBC 覆盖 `audit_log.detail` JSON 解析。相关模块测试通过，共 68 个测试。
 - 2026-06-08：补齐配置对象删除与批量导入闭环，新增 `POST /api/v1/admin/config/versions/{version}/{objectType}/bulk` 与 `DELETE /api/v1/admin/config/versions/{version}/{objectType}/{objectId}`；保留仅 `DRAFT` 可写约束，并记录 `CONFIG_OBJECT_BULK_UPSERTED` 与 `CONFIG_OBJECT_DELETED` 审计动作。相关模块测试通过，共 71 个测试。
+- 2026-06-08：补齐配置字段基础校验，`ConfigObjectAppService.normalize` 已拦截 `confidenceThreshold`、`modelPolicy.minConfidence`、`routeStage`、`actionType`、`timeoutMs`、`llmPolicy.timeoutMs/maxRetries/dailyBudget` 等高风险字段边界；单条 upsert 与批量 upsert 复用同一校验入口。应用层相关测试通过，共 17 个测试。

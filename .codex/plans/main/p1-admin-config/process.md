@@ -4,9 +4,9 @@
 
 - 任务需求：继续推进 P1-4，落地 Admin Portal 最小配置治理 API，覆盖草稿、校验、发布、回滚、导入导出和审计。
 - 关键决策：P1 先以 API 闭环代替完整 UI；事实源为 PostgreSQL `config_version` + 配置表，Nacos/GitOps 后置；保持 DDD 分层，接口层只做入参出参。
-- 当前阶段：P1-4 已发布配置读取、配置版本审计查询、配置对象删除与批量导入已完成。
-- 已完成产物：任务记录、配置版本应用服务、配置对象应用服务、配置审计查询应用服务、配置对象删除/批量导入接口、已发布配置读取仓储、内存/JDBC 适配器、Admin REST API、自动化测试、默认 memory 模式 API 冒烟、`local-jdbc` PostgreSQL 审计写入联调。
-- 剩余工作：完善更细配置字段校验，并补更多场景的已发布配置读取测试。
+- 当前阶段：P1-4 已发布配置读取、配置版本审计查询、配置对象删除与批量导入、配置字段基础校验已完成。
+- 已完成产物：任务记录、配置版本应用服务、配置对象应用服务、配置审计查询应用服务、配置对象删除/批量导入接口、配置对象字段基础校验、已发布配置读取仓储、内存/JDBC 适配器、Admin REST API、自动化测试、默认 memory 模式 API 冒烟、`local-jdbc` PostgreSQL 审计写入联调。
+- 剩余工作：补跨对象引用校验，并补更多场景的已发布配置读取测试。
 - 重要发现：P1-3 已完成真实 PostgreSQL/Flyway 联调，现有 `config_version` 与 `audit_log` 可支撑最小治理闭环。
 
 ## 步骤列表
@@ -53,6 +53,10 @@
   - 写入约束：继续复用 `DRAFT` 版本门禁，已发布版本不可批量写入或删除。
   - 审计动作：批量写入记录 `CONFIG_OBJECT_BULK_UPSERTED`，删除记录 `CONFIG_OBJECT_DELETED`。
   - 验证结果：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过，共 71 个测试。
+- [v] 补齐配置字段基础校验。
+  - 当前产物：`ConfigObjectAppService.normalize` 增强，覆盖 `confidenceThreshold`、`routeStage`、`actionType`、`timeoutMs`、`modelPolicy.minConfidence/timeoutMs`、`llmPolicy.timeoutMs/maxRetries/dailyBudget` 等关键字段。
+  - 写入约束：单条 upsert 与批量 upsert 继续复用同一 normalize 入口，避免批量导入绕过字段校验。
+  - 验证结果：`mvn -pl intent-hub-application -am test` 通过，共 17 个测试。
 
 ## 研究发现
 
@@ -66,6 +70,7 @@
 - 配置对象最小 CRUD 采用通用对象类型入口，先满足 P1 Admin API 闭环；后续完整后台可按对象拆更细的专用接口和表单校验。
 - 批量导入采用同类型对象列表，逐条复用单对象 normalize/upsert，避免出现批量路径和单条路径校验口径不一致。
 - 发布后只读是配置治理底线：对象编辑必须发生在 `DRAFT`，通过发布/回滚改变线上版本。
+- 字段基础校验先放在应用层 normalize 入口，不新增 DB migration；后续跨对象引用校验应放到发布前 validate 阶段，避免单对象保存时强依赖完整对象图。
 - 已发布配置读取目前以 `order-scene` 为最小试点场景，后续需要补前置路由规则决定 scene 的动态选择。
 - 当前 action 到 intent 的映射先按 `ACTION_CODE` 后缀推断，例如 `INVOICE_QUERY_API` 映射到 `INVOICE_QUERY`；后续应在路由或动作配置中显式声明 intent/action 关系。
 

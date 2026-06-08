@@ -27,9 +27,37 @@ public class ConfigObjectAppService {
         return saved;
     }
 
+    public List<Map<String, Object>> bulkUpsert(String tenantId, String sceneId, String version, ConfigObjectType type, List<Map<String, Object>> payloads, String actor) {
+        requireDraftVersion(tenantId, sceneId, version);
+        if (payloads == null || payloads.isEmpty()) {
+            throw new IllegalArgumentException("payloads is required");
+        }
+        List<Map<String, Object>> saved = payloads.stream()
+                .map(payload -> configObjectPort.upsert(tenantId, sceneId, version, type, normalize(type, payload)))
+                .toList();
+        auditLogPort.record(tenantId, sceneId, actor, "CONFIG_OBJECT_BULK_UPSERTED", type.name(), type.name(), Map.of(
+                "version", version,
+                "count", Integer.toString(saved.size())
+        ));
+        return saved;
+    }
+
     public List<Map<String, Object>> list(String tenantId, String sceneId, String version, ConfigObjectType type) {
         requireVersion(tenantId, sceneId, version);
         return configObjectPort.list(tenantId, sceneId, version, type);
+    }
+
+    public boolean delete(String tenantId, String sceneId, String version, ConfigObjectType type, String objectId, String actor) {
+        requireDraftVersion(tenantId, sceneId, version);
+        if (objectId == null || objectId.isBlank()) {
+            throw new IllegalArgumentException("objectId is required");
+        }
+        boolean deleted = configObjectPort.delete(tenantId, sceneId, version, type, objectId);
+        auditLogPort.record(tenantId, sceneId, actor, "CONFIG_OBJECT_DELETED", type.name(), objectId, Map.of(
+                "version", version,
+                "deleted", Boolean.toString(deleted)
+        ));
+        return deleted;
     }
 
     private void requireDraftVersion(String tenantId, String sceneId, String version) {

@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、管理端 confirmed/reserved/pending 查询、模型策略 JDBC 冒烟与配置版本审计查询已完成
+- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、管理端 confirmed/reserved/pending 查询、模型策略 JDBC 冒烟、配置版本审计查询、配置对象删除与批量导入已完成
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -78,7 +78,7 @@
 - 2026-06-01：完成 P1-4 配置对象最小 CRUD：新增 `ConfigObjectAppService`、`ConfigObjectPort`、`ConfigObjectType`、`JdbcConfigObjectRepository` 和 `ConfigObjectRequest`；支持 `POST/GET /api/v1/admin/config/versions/{version}/{objectType}` 管理意图、槽位、同义词、策略、路由、下游动作，并限制仅 `DRAFT` 版本可编辑。`mvn test` 通过，共 15 个测试；默认 memory 模式 HTTP 冒烟验证 intent、slot、downstream-action 写入后可通过 export bundle 导出。下一步把识别配置读取切到已发布版本。
 - 2026-06-01：完成 P1-4 已发布配置读取：新增 `JdbcSceneConfigRepository` 与 `BuiltinSceneConfigFactory`，`local-jdbc` 模式优先读取 PostgreSQL 最新 `PUBLISHED` 配置，未找到发布版本时回退 P1 内置配置；发布 `v-published-read-1` 后，`POST /api/v1/intent/recognize` 对 `REQ-PUBLISHED-READ-1` 命中 `INVOICE_QUERY/SUCCESS`，路径包含 `PRE_ROUTE:order-scene:v-published-read-1` 和 `POST_ROUTE:INVOICE_QUERY_API`，数据库 trace 已记录。`mvn test` 通过，共 15 个测试。
 - 2026-06-01：完成 P1-5 可观测与数据回流最小查询闭环：新增 `ObservabilityAppService`、`ObservabilityQueryPort`、trace/bad case 查询模型和 `AdminObservabilityController`；支持 `GET /api/v1/admin/observability/traces/{traceId}` 与 `GET /api/v1/admin/observability/bad-cases`。`mvn test` 通过，共 17 个测试；默认 memory 模式已验证 `TRACE-OBS-SMOKE-003` 查询到 `ORDER_QUERY/SUCCESS`，`local-jdbc` 模式已验证 `TRACE-JDBC-OBS-003` 从 PostgreSQL 查询到 `INVOICE_QUERY/SUCCESS`。
-- 2026-06-01：完成 P1-6 退出评审，结论为有条件通过（Conditionally Approved）；P1 已具备可运行、可配置、可回溯、可持久化的最小闭环，可进入 P2 规划与试点扩展。非阻塞遗留项包括指标采集、bad case 标注流转、动态 scene 路由、配置对象删除/批量导入、真实模型服务和真实 LLM 小流量验证。
+- 2026-06-01：完成 P1-6 退出评审，结论为有条件通过（Conditionally Approved）；P1 已具备可运行、可配置、可回溯、可持久化的最小闭环，可进入 P2 规划与试点扩展。非阻塞遗留项包括指标采集、bad case 标注流转、动态 scene 路由、更细配置字段校验、真实模型服务和真实 LLM 小流量验证。
 - 2026-06-01：完成 P2-1 动态 scene 读取最小闭环：`JdbcSceneConfigRepository` 不再固定 `order-scene`，支持 Envelope `metadata.scene_id` / `metadata.sceneId` 显式选择已发布 scene；未指定时读取租户最新 `PUBLISHED` scene；指定 scene 无发布版本时回退内置 `order-scene/v1-p1`。新增 `JdbcSceneConfigRepositoryTest` 覆盖 metadata 指定、租户最新发布和回退兼容，`mvn test` 通过，共 20 个测试。
 - 2026-06-02：完成 P2-2 Bad Case 标注流转与样本导出最小闭环：新增 `BadCaseWorkflowAppService`、`BadCaseWorkflowPort`、标注/关闭/导出训练样本 Admin API，并接入 memory/JDBC 双实现；最小状态流转复用 `bad_case.status` 表达 `OPEN/ANNOTATED/CLOSED/EXPORTED`，暂不新增破坏性 DB migration。`mvn test` 通过，共 24 个测试。
 - 2026-06-02：完成 P2-3 最小指标采集与观测接口：新增 `IntentMetricsPort`、`MetricsAppService`、`MetricsSnapshot`、`InMemoryIntentMetricsRepository` 和 `AdminMetricsController`；支持 `GET /api/v1/admin/metrics` JSON 快照与 `GET /api/v1/admin/metrics/prometheus` 文本导出。当前不引入 Actuator/Micrometer，不改变 `/api/v1/admin/health` 口径。`mvn test` 通过，共 26 个测试。
@@ -113,3 +113,4 @@
 - 2026-06-08：修复 Admin 策略对象规范化遗漏 `modelPolicy` 的问题，避免 HTTP Admin upsert 时写入 `{}`；新增 `scripts/smoke-model-policy-jdbc.ps1`，已通过真实 PostgreSQL 16 空库验证 Flyway V1/V2/V3、`nlu_strategy.model_policy` 字段、Admin `modelPolicy` 写入/查询、发布配置读取和 `MODEL_POLICY:DISABLED` 识别路径。
 - 2026-06-08：补齐 P95/P99 长尾耗时指标与告警，`MetricsSnapshot`、Prometheus 文本、`/api/v1/admin/metrics/alerts`、Prometheus 规则、Grafana 看板和 Runbook 均已同步；相关模块测试通过，共 66 个测试。
 - 2026-06-08：补齐配置版本审计查询闭环，新增 `AuditLogEntry`、`ConfigAuditAppService` 与 `GET /api/v1/admin/config/versions/{version}/audits`；memory/JDBC 审计仓储均支持按 `tenantId + sceneId + version` 倒序查询，JDBC 覆盖 `audit_log.detail` JSON 解析。相关模块测试通过，共 68 个测试。
+- 2026-06-08：补齐配置对象删除与批量导入闭环，新增 `POST /api/v1/admin/config/versions/{version}/{objectType}/bulk` 与 `DELETE /api/v1/admin/config/versions/{version}/{objectType}/{objectId}`；保留仅 `DRAFT` 可写约束，并记录 `CONFIG_OBJECT_BULK_UPSERTED` 与 `CONFIG_OBJECT_DELETED` 审计动作。相关模块测试通过，共 71 个测试。

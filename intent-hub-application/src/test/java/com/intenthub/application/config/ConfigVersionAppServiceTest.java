@@ -93,6 +93,29 @@ class ConfigVersionAppServiceTest {
     }
 
     @Test
+    void bulkUpsertsAndDeletesConfigObjectsOnlyForDraftVersions() {
+        service.createDraft("demo", "order-scene", "v-bulk", "bulk", "admin");
+        ConfigObjectAppService objectService = new ConfigObjectAppService(port, port, auditLogPort);
+
+        List<Map<String, Object>> saved = objectService.bulkUpsert("demo", "order-scene", "v-bulk", ConfigObjectType.INTENT, List.of(
+                Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询"),
+                Map.of("intentCode", "ORDER_CANCEL", "intentName", "订单取消")
+        ), "admin");
+
+        assertThat(saved).hasSize(2);
+        assertThat(objectService.list("demo", "order-scene", "v-bulk", ConfigObjectType.INTENT)).hasSize(2);
+        assertThat(objectService.delete("demo", "order-scene", "v-bulk", ConfigObjectType.INTENT, "ORDER_QUERY", "admin")).isTrue();
+        assertThat(objectService.list("demo", "order-scene", "v-bulk", ConfigObjectType.INTENT)).extracting(item -> item.get("intentCode"))
+                .containsExactly("ORDER_CANCEL");
+        assertThat(auditLogPort.actions).contains("CONFIG_OBJECT_BULK_UPSERTED", "CONFIG_OBJECT_DELETED");
+
+        service.publish("demo", "order-scene", "v-bulk", "admin");
+        assertThatThrownBy(() -> objectService.delete("demo", "order-scene", "v-bulk", ConfigObjectType.INTENT, "ORDER_CANCEL", "admin"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("only DRAFT");
+    }
+
+    @Test
     void preservesModelPolicyWhenUpsertingStrategy() {
         service.createDraft("demo", "order-scene", "v-model-policy", "model policy", "admin");
         ConfigObjectAppService objectService = new ConfigObjectAppService(port, port, auditLogPort);
@@ -182,7 +205,7 @@ class ConfigVersionAppServiceTest {
         @Override
         public Map<String, Object> upsert(String tenantId, String sceneId, String version, ConfigObjectType type, Map<String, Object> payload) {
             ConfigBundle bundle = bundles.get(key(tenantId, sceneId, version));
-            List<Map<String, Object>> intents = type == ConfigObjectType.INTENT ? List.of(payload) : bundle.intents();
+            List<Map<String, Object>> intents = type == ConfigObjectType.INTENT ? upsertByKey(bundle.intents(), payload, "intentCode") : bundle.intents();
             List<Map<String, Object>> strategies = type == ConfigObjectType.STRATEGY ? List.of(payload) : bundle.strategies();
             bundles.put(key(tenantId, sceneId, version), new ConfigBundle(bundle.version(), intents, bundle.slots(), bundle.synonyms(), strategies, bundle.routes(), bundle.downstreamActions()));
             return payload;
@@ -198,6 +221,26 @@ class ConfigVersionAppServiceTest {
                 return bundle.strategies();
             }
             return List.of();
+        }
+
+        @Override
+        public boolean delete(String tenantId, String sceneId, String version, ConfigObjectType type, String objectId) {
+            ConfigBundle bundle = bundles.get(key(tenantId, sceneId, version));
+            if (type != ConfigObjectType.INTENT || bundle.intents() == null) {
+                return false;
+            }
+            List<Map<String, Object>> remaining = bundle.intents().stream()
+                    .filter(item -> !objectId.equals(item.get("intentCode")))
+                    .toList();
+            bundles.put(key(tenantId, sceneId, version), new ConfigBundle(bundle.version(), remaining, bundle.slots(), bundle.synonyms(), bundle.strategies(), bundle.routes(), bundle.downstreamActions()));
+            return remaining.size() != bundle.intents().size();
+        }
+
+        private List<Map<String, Object>> upsertByKey(List<Map<String, Object>> current, Map<String, Object> payload, String key) {
+            List<Map<String, Object>> values = new ArrayList<>(current == null ? List.of() : current);
+            values.removeIf(item -> payload.get(key).equals(item.get(key)));
+            values.add(payload);
+            return values;
         }
 
         private ConfigBundle withInfo(ConfigBundle bundle, ConfigVersionInfo info) {

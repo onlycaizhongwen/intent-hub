@@ -151,6 +151,24 @@ public class InMemoryConfigGovernanceRepository implements ConfigVersionPort, Co
         return listFrom(bundle, type);
     }
 
+    @Override
+    public boolean delete(String tenantId, String sceneId, String version, ConfigObjectType type, String objectId) {
+        String key = key(tenantId, sceneId, version);
+        ConfigBundle bundle = bundles.get(key);
+        if (bundle == null) {
+            throw new IllegalArgumentException("config version not found");
+        }
+        List<Map<String, Object>> current = listFrom(bundle, type);
+        List<Map<String, Object>> remaining = current.stream()
+                .filter(candidate -> !objectId.equals(objectKey(type, candidate)))
+                .toList();
+        if (remaining.size() == current.size()) {
+            return false;
+        }
+        bundles.put(key, replaceList(bundle, type, remaining));
+        return true;
+    }
+
     private ConfigBundle emptyBundle(ConfigVersionInfo info) {
         return new ConfigBundle(info, null, null, null, null, null, null);
     }

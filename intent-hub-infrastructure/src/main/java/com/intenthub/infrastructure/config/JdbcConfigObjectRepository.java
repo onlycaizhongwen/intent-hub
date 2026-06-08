@@ -43,6 +43,19 @@ public class JdbcConfigObjectRepository implements ConfigObjectPort {
         };
     }
 
+    @Override
+    public boolean delete(String tenantId, String sceneId, String version, ConfigObjectType type, String objectId) {
+        int affected = switch (type) {
+            case INTENT -> deleteBySingleKey("intent_definition", "intent_code", tenantId, sceneId, version, objectId);
+            case SLOT -> deleteSlot(tenantId, sceneId, version, objectId);
+            case SYNONYM -> deleteBySingleKey("synonym_mapping", "term", tenantId, sceneId, version, objectId);
+            case STRATEGY -> deleteBySingleKey("nlu_strategy", "strategy_code", tenantId, sceneId, version, objectId);
+            case ROUTE -> deleteRoute(tenantId, sceneId, version, objectId);
+            case DOWNSTREAM_ACTION -> deleteBySingleKey("downstream_action", "action_code", tenantId, sceneId, version, objectId);
+        };
+        return affected > 0;
+    }
+
     private void upsertIntent(String tenantId, String sceneId, String version, Map<String, Object> payload) {
         jdbcTemplate.update("""
                         insert into intent_definition (tenant_id, scene_id, version, intent_code, intent_name, enabled, definition)
@@ -158,6 +171,52 @@ public class JdbcConfigObjectRepository implements ConfigObjectPort {
                 tenantId,
                 sceneId,
                 version
+        );
+    }
+
+    private int deleteBySingleKey(String tableName, String columnName, String tenantId, String sceneId, String version, String objectId) {
+        return jdbcTemplate.update("""
+                        delete from %s
+                        where tenant_id = ? and scene_id = ? and version = ? and %s = ?
+                        """.formatted(tableName, columnName),
+                tenantId,
+                sceneId,
+                version,
+                objectId
+        );
+    }
+
+    private int deleteSlot(String tenantId, String sceneId, String version, String objectId) {
+        String[] parts = objectId.split("\\.", 2);
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("slot objectId must be intentCode.slotCode");
+        }
+        return jdbcTemplate.update("""
+                        delete from slot_definition
+                        where tenant_id = ? and scene_id = ? and version = ? and intent_code = ? and slot_code = ?
+                        """,
+                tenantId,
+                sceneId,
+                version,
+                parts[0],
+                parts[1]
+        );
+    }
+
+    private int deleteRoute(String tenantId, String sceneId, String version, String objectId) {
+        String[] parts = objectId.split("\\.", 2);
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("route objectId must be routeStage.routeTarget");
+        }
+        return jdbcTemplate.update("""
+                        delete from scene_routing_rule
+                        where tenant_id = ? and scene_id = ? and version = ? and route_stage = ? and route_target = ?
+                        """,
+                tenantId,
+                sceneId,
+                version,
+                parts[0],
+                parts[1]
         );
     }
 }

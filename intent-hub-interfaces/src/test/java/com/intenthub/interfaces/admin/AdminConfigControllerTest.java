@@ -79,6 +79,23 @@ class AdminConfigControllerTest {
         assertThat(controller.exportBundle("demo", "order-scene", "v1", "admin").intents()).hasSize(1);
     }
 
+    @Test
+    void bulkUpsertsAndDeletesConfigObjectsThroughControllerContract() {
+        controller.createDraft(new ConfigDraftRequest("demo", "order-scene", "v-bulk", "base", "admin"));
+
+        List<Map<String, Object>> saved = controller.bulkUpsertConfigObjects("demo", "order-scene", "v-bulk", "intents", new ConfigObjectBulkRequest("admin", List.of(
+                Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询"),
+                Map.of("intentCode", "ORDER_CANCEL", "intentName", "订单取消")
+        )));
+
+        assertThat(saved).hasSize(2);
+        assertThat(controller.listConfigObjects("demo", "order-scene", "v-bulk", "intents")).hasSize(2);
+        assertThat(controller.deleteConfigObject("demo", "order-scene", "v-bulk", "intents", "ORDER_QUERY", "admin"))
+                .containsEntry("deleted", true);
+        assertThat(controller.listConfigObjects("demo", "order-scene", "v-bulk", "intents")).extracting(item -> item.get("intentCode"))
+                .containsExactly("ORDER_CANCEL");
+    }
+
     private static final class InMemoryPort implements ConfigVersionPort, ConfigObjectPort {
         private final Map<String, ConfigBundle> bundles = new LinkedHashMap<>();
 
@@ -124,13 +141,27 @@ class AdminConfigControllerTest {
         @Override
         public Map<String, Object> upsert(String tenantId, String sceneId, String version, ConfigObjectType type, Map<String, Object> payload) {
             ConfigBundle bundle = bundles.get(key(tenantId, sceneId, version));
-            bundles.put(key(tenantId, sceneId, version), new ConfigBundle(bundle.version(), List.of(payload), bundle.slots(), bundle.synonyms(), bundle.strategies(), bundle.routes(), bundle.downstreamActions()));
+            List<Map<String, Object>> intents = new java.util.ArrayList<>(bundle.intents() == null ? List.of() : bundle.intents());
+            intents.removeIf(item -> payload.get("intentCode").equals(item.get("intentCode")));
+            intents.add(payload);
+            bundles.put(key(tenantId, sceneId, version), new ConfigBundle(bundle.version(), intents, bundle.slots(), bundle.synonyms(), bundle.strategies(), bundle.routes(), bundle.downstreamActions()));
             return payload;
         }
 
         @Override
         public java.util.List<Map<String, Object>> list(String tenantId, String sceneId, String version, ConfigObjectType type) {
             return bundles.get(key(tenantId, sceneId, version)).intents();
+        }
+
+        @Override
+        public boolean delete(String tenantId, String sceneId, String version, ConfigObjectType type, String objectId) {
+            ConfigBundle bundle = bundles.get(key(tenantId, sceneId, version));
+            List<Map<String, Object>> current = bundle.intents() == null ? List.of() : bundle.intents();
+            List<Map<String, Object>> remaining = current.stream()
+                    .filter(item -> !objectId.equals(item.get("intentCode")))
+                    .toList();
+            bundles.put(key(tenantId, sceneId, version), new ConfigBundle(bundle.version(), remaining, bundle.slots(), bundle.synonyms(), bundle.strategies(), bundle.routes(), bundle.downstreamActions()));
+            return remaining.size() != current.size();
         }
 
         private String key(String tenantId, String sceneId, String version) {

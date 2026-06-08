@@ -9,6 +9,7 @@ import com.intenthub.application.config.ConfigValidationResult;
 import com.intenthub.application.config.ConfigVersionAppService;
 import com.intenthub.application.config.ConfigVersionInfo;
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -138,6 +139,25 @@ public class AdminConfigController {
         );
     }
 
+    @PostMapping("/versions/{version}/{objectType}/bulk")
+    public List<Map<String, Object>> bulkUpsertConfigObjects(
+            @RequestParam String tenantId,
+            @RequestParam String sceneId,
+            @PathVariable String version,
+            @PathVariable String objectType,
+            @RequestBody ConfigObjectBulkRequest request
+    ) {
+        ConfigObjectBulkRequest normalized = request == null ? new ConfigObjectBulkRequest("system", List.of()) : request;
+        return configObjectAppService.bulkUpsert(
+                tenantId,
+                sceneId,
+                version,
+                ConfigObjectType.fromPath(objectType),
+                normalized.payloads(),
+                normalized.normalizedActor()
+        );
+    }
+
     @GetMapping("/versions/{version}/{objectType}")
     public List<Map<String, Object>> listConfigObjects(
             @RequestParam String tenantId,
@@ -151,5 +171,25 @@ public class AdminConfigController {
                 version,
                 ConfigObjectType.fromPath(objectType)
         );
+    }
+
+    @DeleteMapping("/versions/{version}/{objectType}/{objectId}")
+    public Map<String, Object> deleteConfigObject(
+            @RequestParam String tenantId,
+            @RequestParam String sceneId,
+            @PathVariable String version,
+            @PathVariable String objectType,
+            @PathVariable String objectId,
+            @RequestParam(defaultValue = "system") String actor
+    ) {
+        boolean deleted = configObjectAppService.delete(
+                tenantId,
+                sceneId,
+                version,
+                ConfigObjectType.fromPath(objectType),
+                objectId,
+                actor
+        );
+        return Map.of("deleted", deleted);
     }
 }

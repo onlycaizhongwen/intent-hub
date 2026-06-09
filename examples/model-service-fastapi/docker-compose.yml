@@ -3,6 +3,11 @@ services:
     build:
       context: .
     image: intent-hub/model-service-fastapi:local
+    environment:
+      MODEL_SERVICE_AUTH_TOKEN: ${MODEL_SERVICE_AUTH_TOKEN:-}
+      MODEL_SERVICE_AUTH_TOKEN_FILE: ${MODEL_SERVICE_AUTH_TOKEN_FILE:-}
+    volumes:
+      - ${MODEL_SERVICE_SECRET_DIR:-./.secrets}:/run/secrets/intent-hub-model:ro
     ports:
       - "18081:18081"
     healthcheck:
@@ -15,4 +20,3 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
-

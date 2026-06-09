@@ -32,7 +32,9 @@
     启动 Docker Compose 前检查本地配置文件、Intent Hub health/metrics endpoint 和 Docker 命令。
 13. [本地观测栈配置校验脚本](../scripts/validate-observability-compose.ps1)
     不启动容器，校验 Docker Compose 文件、Prometheus 引用和 Grafana provisioning 引用。
-14. [模型服务端到端冒烟脚本](../scripts/smoke-model-service-e2e.ps1)
+14. [外部联调冒烟记录模板](external-integration-smoke-record-template.md)
+    真实模型服务或 DashScope 联调时复制填写，统一留存 Secret 引用、preflight、鉴权、trace、预算和安全复核证据。
+15. [模型服务端到端冒烟脚本](../scripts/smoke-model-service-e2e.ps1)
     自动打包 Intent Hub、启动模型服务容器、启动 Intent Hub jar，并验证模型服务健康状态和 `ModelRecognitionPolicy` 识别路径。
 
 ## 当前能力边界
@@ -42,12 +44,14 @@
 - 已提供生产化落地检查清单，用于确认样例进入真实环境前的必改项。
 - 已提供试点接入计划，用于在低风险环境获取真实观测与告警演练证据。
 - 已提供试点执行记录模板，用于沉淀真实试点证据和复盘结论。
+- 已提供外部联调冒烟记录模板，用于沉淀模型服务与 DashScope/LLM 外部 smoke 的 Secret、鉴权、trace、指标和安全复核证据。
 - 已提供告警演练场景，用于安全触发和验证 P2.x 告警链路。
 - 已提供本地观测栈预检脚本，用于启动 compose 前发现基础环境缺口。
 - 已提供本地观测栈配置校验脚本，用于启动 compose 前验证配置引用。
 - 已提供模型服务端到端冒烟脚本，用于回归验证 Docker 模型服务容器与 Intent Hub jar 的真实联调链路。
+- 已提供外部联调预检脚本，用于真实 smoke 前检查 Intent Hub、模型服务健康和 Secret 引用存在性，且不打印密钥值。
 - 暂未引入 Actuator/Micrometer/OpenTelemetry runtime 桥接。
-- 暂未提供生产服务发现、TLS/鉴权、真实 receiver secret、Grafana 持久化、正式 SLA 审批、多实例压测和高可用部署。
+- 暂未提供生产服务发现、TLS/鉴权、真实 receiver secret、Grafana 持久化、正式 SLA 审批、真实远端模型服务/DashScope 外呼证据、多实例压测和高可用部署。
 
 ## 生产化前必改项
 

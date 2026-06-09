@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、管理端 confirmed/reserved/pending 查询、模型策略 JDBC 冒烟、scene 级模型 endpoint/timeout 动态路由、场景模型客户端缓存复用、模型服务 token 引用鉴权与缺失失败关闭、配置版本审计查询、配置对象删除与批量导入、配置字段基础校验、发布前跨对象引用校验、`scene_routing_rule.match_condition` 最小后置路由条件解析、显式 `actionSchema.intentCode` 动作归属读取已完成
+- 当前阶段：P2-17 配置评审权限模型最小闭环已完成；P2-6 密钥治理与外部联调准入、P2-7 多实例一致性与压测、P2-8 观测告警本地试点、P2-9 配置发布治理增强、P2-10 配置审批与 GitOps 导出、P2-11 Admin 配置评审工作台聚合契约、P2-12 配置评审驳回与撤回、P2-13 审批快照哈希、P2-14 审批快照哈希强字段化、P2-15 发布 expectedSnapshotHash 条件校验、P2-16 审批元数据强字段化均已形成阶段证据。模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、本地试点执行记录、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、外部联调前预检脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、管理端 confirmed/reserved/pending 查询、模型策略 JDBC 冒烟、带鉴权模型服务本地 smoke、Secret 轮换 smoke、多实例一致性 smoke、LLM 预算多实例 smoke、LLM 补偿多实例 smoke、基础双实例压测 smoke、P2-8 本地观测告警 smoke、配置版本 diff API、发布前 dry-run 报告、GitOps 文件结构建议、提交评审、批准、驳回、撤回、审批快照哈希、审批快照哈希强字段、发布 expectedSnapshotHash 条件校验、审批人和审批时间强字段、配置评审权限角色门禁、GitOps 审查包导出、Admin 配置评审工作台聚合契约、scene 级模型 endpoint/timeout 动态路由、场景模型客户端缓存复用、模型服务 token 引用鉴权与缺失失败关闭、统一 Secret resolver 默认实现、文件挂载 Secret resolver 预留、managed-config Secret resolver、配置版本审计查询、配置对象删除与批量导入、配置字段基础校验、发布前跨对象引用校验、`scene_routing_rule.match_condition` 最小后置路由条件解析、显式 `actionSchema.intentCode` 动作归属读取已完成。真实 Prometheus/Alertmanager/Grafana dev/staging 接入、真实 GitOps PR 同步、前端 Admin Portal 页面、真实登录态/IAM、标准 JSON canonicalization 与结构化审批历史仍待后续环境与产品流程验证。
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -15,7 +15,7 @@
 
 | 主题 | Requirements | Design | Plan | Trace/Review | 整体状态 |
 | --- | --- | --- | --- | --- | --- |
-| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1 有条件通过；P2-1 动态 scene 读取、P2-2 Bad Case 标注流转、P2-3 最小指标采集、P2-4 模型服务适配和 P2-5 LLM 受控兜底均已完成 |
+| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1 有条件通过；P2-1 至 P2-5 已完成，P2-6/P2-7/P2-8 已形成本地阶段闭环，P2-9 至 P2-17 已完成最小配置发布治理、审批状态、GitOps 导出、评审工作台聚合契约、评审回退、审批快照哈希、hash 强字段化、发布 expected hash 条件校验、审批元数据强字段化与最小权限门禁；真实外部联调、真实观测栈试点、真实 GitOps PR 同步、前端页面、真实登录态/IAM 与完整审批流仍待后续验证 |
 
 ## 交付物
 
@@ -25,6 +25,7 @@
 - P1 最小识别闭环设计：`docs/codex/v1/designs/intent-hub-p1-minimal-loop-design.md`
 - 实施计划：`docs/codex/v1/plans/intent-hub-plan.md`
 - P1 下一步执行计划：`docs/codex/v1/plans/intent-hub-p1-next-step-plan.md`
+- P2 下一步执行计划：`docs/codex/v1/plans/intent-hub-p2-next-step-plan.md`
 - 资料审查：`docs/codex/v1/trace/intent-hub-material-review.md`
 - 确认决策：`docs/codex/v1/trace/intent-hub-confirmed-decisions.md`
 - P0 评审报告：`docs/codex/v1/trace/intent-hub-p0-review-report.md`
@@ -36,6 +37,18 @@
 - P2-3 指标观测审查：`docs/codex/v1/trace/intent-hub-p2-metrics-observability-trace.md`
 - P2-4 模型服务适配审查：`docs/codex/v1/trace/intent-hub-p2-model-service-adapter-trace.md`
 - P2-5 LLM 受控兜底审查：`docs/codex/v1/trace/intent-hub-p2-llm-governance-trace.md`
+- P2-7 多实例一致性与压测审查：`docs/codex/v1/trace/intent-hub-p2-multi-instance-consistency-trace.md`
+- P2-8 观测告警本地试点审查：`docs/codex/v1/trace/intent-hub-p2-observability-pilot-trace.md`
+- P2-9 配置发布治理增强审查：`docs/codex/v1/trace/intent-hub-p2-config-governance-trace.md`
+- P2-10 配置审批与 GitOps 导出审查：`docs/codex/v1/trace/intent-hub-p2-config-approval-gitops-trace.md`
+- P2-11 Admin 配置评审工作台聚合契约审查：`docs/codex/v1/trace/intent-hub-p2-admin-review-workspace-trace.md`
+- P2-12 配置评审驳回与撤回审查：`docs/codex/v1/trace/intent-hub-p2-config-review-return-trace.md`
+- P2-13 审批快照哈希审查：`docs/codex/v1/trace/intent-hub-p2-approval-snapshot-hash-trace.md`
+- P2-14 审批快照哈希强字段化审查：`docs/codex/v1/trace/intent-hub-p2-approval-snapshot-hash-field-trace.md`
+- P2-15 发布 expectedSnapshotHash 条件校验审查：`docs/codex/v1/trace/intent-hub-p2-publish-expected-snapshot-hash-trace.md`
+- P2-16 审批元数据强字段化审查：`docs/codex/v1/trace/intent-hub-p2-approval-metadata-field-trace.md`
+- P2-17 配置评审权限模型审查：`docs/codex/v1/trace/intent-hub-p2-config-review-permission-trace.md`
+- P2-18 评审工作台按角色过滤动作审查：`docs/codex/v1/trace/intent-hub-p2-review-workspace-role-filter-trace.md`
 - 模型服务 FastAPI 示例：`examples/model-service-fastapi/README.md`
 - 模型服务容器化校验脚本：`scripts/validate-model-service-container.ps1`
 - 模型策略 JDBC 冒烟脚本：`scripts/smoke-model-policy-jdbc.ps1`
@@ -43,9 +56,11 @@
 - 生产化落地检查清单：`ops/production-readiness-checklist.md`
 - 观测告警试点接入计划：`ops/pilot-rollout-plan.md`
 - 试点执行记录模板：`ops/pilot-execution-record-template.md`
+- 本地试点执行记录：`ops/pilot-execution-record-local.md`
 - 告警演练场景：`ops/alert-drill-scenarios.md`
 - 本地观测栈预检脚本：`scripts/check-observability-local.ps1`
 - 本地观测栈配置校验脚本：`scripts/validate-observability-compose.ps1`
+- P2-8 本地观测告警 smoke：`scripts/smoke-observability-pilot-local.ps1`
 - Prometheus 运维样例：`ops/prometheus/README.md`
 - Alertmanager 路由样例：`ops/alertmanager/README.md`
 - Grafana 看板样例：`ops/grafana/intent-hub-dashboard.json`
@@ -122,3 +137,139 @@
 - 2026-06-08：补齐 scene 级模型 endpoint/timeout 动态路由，`ModelRecognitionPolicy` 已将 `ModelPolicy` 传给模型端口，`HttpModelClientAdapter` 可优先使用 `modelPolicy.endpoint/timeoutMs` 构建请求客户端，并按 endpoint + timeout 缓存复用场景客户端；全局 `enabled=false` 仍保持 no-op，未配置 scene endpoint 时继续使用全局 base-url。应用层、基础设施层与接口层关联测试通过，共 83 个测试。
 - 2026-06-08：补齐模型服务 token 引用鉴权，`modelPolicy.authTokenRef` 只保存环境变量或系统属性引用名，运行时解析后向 scene 模型服务请求注入 Bearer 鉴权头；不在 DB、文档或仓库保存明文 token。应用层与基础设施层测试通过，共 65 个测试。
 - 2026-06-08：补齐模型服务 token 引用缺失失败关闭，`authTokenRef` 已配置但系统属性/环境变量无法解析时不再发无鉴权请求，识别路径记录 `MODEL_FALLBACK:AUTH_MISSING_TOKEN` 并进入 bad case/模型 fallback 指标口径。应用层与基础设施层测试通过，共 67 个测试。
+- 2026-06-09：新增 P2 下一步执行计划，建议按 P2-6 密钥治理与外部联调准入、P2-7 多实例一致性与压测、P2-8 观测告警真实试点、P2-9 配置发布治理增强推进；下一步最小动作优先落地 Secret 解析端口与默认 env/system property 实现。
+- 2026-06-09：启动 P2-6 密钥治理与外部联调准入，新增 `SecretRefResolver` 和默认 `EnvironmentSecretRefResolver`，模型服务 adapter 已改为通过统一 resolver 解析 `authTokenRef`，LLM adapter 已接入同一 resolver 作为 DashScope/Provider 凭证治理预留；基础设施层相关测试通过，共 47 个测试。Vault/K8s Secret、真实带鉴权模型服务和真实 DashScope 沙箱外呼仍待后续联调。
+- 2026-06-09：补齐 P2-6 外部联调前预检脚本 `scripts/preflight-external-integration.ps1`，可检查 Intent Hub health、模型服务 health、模型服务 `authTokenRef` 与 DashScope Secret 引用存在性，且不打印密钥值；该脚本不发识别请求、不调用 LLM，不代表真实带鉴权模型服务 smoke 或 DashScope 外呼已完成。
+- 2026-06-09：补齐 P2-6 文件挂载 Secret resolver 预留，新增 `CompositeSecretRefResolver` 与 `FileSecretRefResolver`，支持通过 `intent-hub.secret.file-root` 读取外部挂载 Secret 文件，并拒绝路径穿越；该形态可承接 K8s Secret/Vault Agent 文件挂载，但 Vault SDK、Nacos 加密配置、轮换审计和真实外部 smoke 仍待后续落地。
+- 2026-06-09：完成 P2-6 本地带鉴权模型服务 smoke，`scripts/smoke-model-service-e2e.ps1 -WithAuth` 会启动临时 PostgreSQL 16、FastAPI 模型服务容器和 Intent Hub `local-jdbc`，验证无 token 直连模型被 401 拒绝、preflight 不打印密钥值、已发布 `modelPolicy.authTokenRef` 配置可被识别链路读取，并通过 Bearer token 返回 `ORDER_CANCEL/ASYNC_ACCEPTED` 与 `ModelRecognitionPolicy` 路径。真实远端模型服务、DashScope 沙箱外呼和生产级 Secret 权限/轮换/审计仍待后续完成。
+- 2026-06-09：固化 P2-6 外部联调冒烟记录模板 `ops/external-integration-smoke-record-template.md`，用于真实模型服务和 DashScope/LLM 联调时统一留存 Secret 引用、preflight、鉴权、trace、预算、指标和安全复核证据；同步更新运维入口、生产化清单和 P2 计划，明确 preflight 与本地 smoke 不等同于真实远端联调完成。
+- 2026-06-09：补齐 P2-6 managed-config Secret resolver，支持通过 `intent-hub.secret.managed-config.enabled=true` 与 `intent-hub.secret.managed-config.refs.*` 读取外部托管配置注入的 Secret 映射；该能力可承接 Nacos/Apollo/Spring Config 等平台完成解密后的运行时配置，但不替代 Vault SDK、权限模型、轮换审计和真实外部 smoke。
+- 2026-06-09：补齐 P2-6 模型服务 Secret 轮换感知，scene 级模型客户端缓存 key 不再保存明文 token，而是使用 `authTokenRef + token fingerprint`；同一路由 token 解析值变化时会清理旧客户端并重建，避免旧 Bearer 鉴权头长期驻留。基础设施层相关测试通过，共 59 个测试。
+- 2026-06-09：新增并验证 `scripts/smoke-secret-rotation.ps1`，通过临时 PostgreSQL 16、文件挂载 Secret、FastAPI 模型服务容器和 Intent Hub `local-jdbc` 完成本地 Secret 轮换演练：初始 token 可识别，改写挂载文件后旧 token 直连被 401 拒绝、新 token 直连通过，Intent Hub 第二次识别仍进入 `ModelRecognitionPolicy`；脚本结束后已清理容器、进程和临时 Secret 文件。
+
+## 2026-06-09 P2-7 多实例一致性更新
+
+- 当前进展：P2-7 本地四段闭环已完成，本地双实例一致性 smoke、LLM 日预算多实例 smoke、LLM stale pending 后台补偿 smoke 与基础双实例并发压测已通过。
+- 新增交付物：`scripts/smoke-multi-instance-consistency.ps1`、`scripts/smoke-llm-budget-multi-instance.ps1`、`scripts/smoke-llm-budget-reconciliation-multi-instance.ps1`、`scripts/stress-multi-instance-basic.ps1`。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-multi-instance-consistency-trace.md`。
+- 验证证据：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-multi-instance-consistency.ps1 -SkipPackage` 通过；`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-llm-budget-multi-instance.ps1 -SkipPackage` 通过；`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-llm-budget-reconciliation-multi-instance.ps1 -SkipPackage` 通过；`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stress-multi-instance-basic.ps1 -SkipPackage` 通过。
+- 验证结论：同库双实例下，实例 A 发布配置后，实例 A/B 对同一个异步请求均返回 `ORDER_CANCEL/ASYNC_ACCEPTED` 和同一个非空 `idempotencyKey`；`idempotency_record` 仅 1 条共享记录，`recognition_trace` 有 2 条请求记录。LLM budget smoke 中，两个实例共享 PostgreSQL 与本地 mock LLM，`dailyBudget=2` 下 6 个并发请求只有 2 个成功命中 LLM，其余进入 `LLM_FALLBACK:REJECTED`；管理端预算 reserved 不超过日预算且派生 pending 为 0。LLM reconciliation smoke 中，两个实例同时开启补偿 scheduler 后只发生 1 次补偿，预算行从 stale pending 校正到 provider confirmed 用量，provider 外呼审计不被回滚。基础 stress 中，40 个并发请求输出 32 成功、8 拒识、0 fallback、0 error，平均 246.48ms、P95 319ms、P99 471ms，数据库 `recognition_trace=40`、`bad_case=8`。
+- 后续重点：可进入 P2-8 观测告警真实试点，或扩展 P2-7 到模型服务异常/缺 token fallback 组合压测。
+
+## 2026-06-09 P2-8 观测告警本地试点更新
+
+- 当前进展：P2-8 本地可重复试点已完成，真实 Prometheus/Alertmanager/Grafana dev/staging 接入仍待后续环境验证。
+- 新增交付物：`scripts/smoke-observability-pilot-local.ps1`、`ops/pilot-execution-record-local.md`。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-observability-pilot-trace.md`。
+- 验证证据：PowerShell Parser 检查通过；`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-observability-pilot-local.ps1 -SkipPackage` 通过。
+- 验证结论：本地单实例 memory 模式健康检查返回 `UP`；10 条本地流量形成 6 条 `SUCCESS`、4 条 `REJECTED`/bad case；`/api/v1/admin/metrics` 返回 `totalRequests=10` 与 `totalBadCases=4`；Prometheus 文本包含 `intent_hub_requests_total` 与 `intent_hub_bad_cases_total`；`/api/v1/admin/metrics/alerts` 返回 `WARN` 且包含 `BAD_CASE_RATE_HIGH`；执行记录已生成。
+- 关键修复：PowerShell 请求体改为 UTF-8 bytes 发送，并用 Unicode 码点构造“查一下订单”样本文本，避免 Windows 默认编码导致中文规则关键词无法命中。
+- 后续重点：在 dev/staging 环境接入真实 Prometheus target、Alertmanager receiver 与 Grafana dashboard，并按 `ops/pilot-execution-record-template.md` 留存真实试点证据；如果暂时没有真实观测栈环境，可进入 P2-9 配置发布治理增强。
+
+## 2026-06-09 P2-9 配置发布治理增强更新
+
+- 当前进展：P2-9 最小配置发布治理闭环已完成，审批状态流转与真实 GitOps PR 同步仍为后续预留。
+- 新增交付物：`ConfigDiffEntry`、`ConfigDiffResult`、`ConfigDryRunReport`、配置版本 diff 服务、发布前 dry-run 服务、Admin `/diff` 与 `/dry-run` API。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-config-governance-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-interfaces -am test` 通过。
+- 验证结论：配置版本 diff 可按业务标识识别 `ADDED/MODIFIED/REMOVED`，dry-run 可复用发布前跨对象引用校验、返回可发布状态、差异报告与 GitOps 文件结构建议；现有发布和回滚接口保持兼容。
+- 后续重点：补 Admin Portal diff 可视化、审批状态机、dry-run 报告审计快照、GitOps 导出/PR 流程，以及发布前乐观锁或版本状态保护。
+
+## 2026-06-09 P2-10 配置审批与 GitOps 导出更新
+
+- 当前进展：P2-10 最小审批状态机与 GitOps 审查包导出闭环已完成，完整 Git PR 同步、驳回/撤回、多人审批和审批快照哈希仍为后续预留。
+- 新增交付物：`ConfigVersionPort.updateStatus(...)`、`ConfigGitOpsExport`、`submitReview`、`approve`、`exportGitOps` 服务能力，以及 Admin `submit-review/approve/gitops` API。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-config-approval-gitops-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：配置版本可从 `DRAFT` 提交到 `REVIEWING`，`REVIEWING` 不能直接发布，必须先 `APPROVED`；GitOps 导出包含配置对象文件内容和 `dry-run.json`；历史 DRAFT 直接发布仍保持兼容。
+- 后续重点：补 Admin Portal diff + dry-run + approve 页面、`rejectReview/cancelReview`、审批意见与快照哈希、真实 GitOps 目录/PR 流程和 publish 乐观锁。
+
+## 2026-06-09 P2-11 Admin 配置评审工作台聚合契约更新
+
+- 当前进展：P2-11 页面数据聚合契约已完成；当前仓库没有独立前端工程或模板页面，因此本阶段不交付完整 UI。
+- 新增交付物：`ConfigReviewWorkspace`、`ConfigReviewWorkspaceAppService`、Admin `GET /api/v1/admin/config/versions/{version}/review-workspace`。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-admin-review-workspace-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：工作台接口可一次返回版本状态、校验、dry-run/diff、审计、可用动作和阻断原因；DRAFT 可见 `SUBMIT_REVIEW/PUBLISH_COMPAT`，REVIEWING 可见 `APPROVE` 且不直接暴露 `PUBLISH`。
+- 后续重点：建立 Admin Portal 前端页面、补用户权限与审批权限模型、增加字段级 diff/分页、补驳回/撤回与审批快照哈希。
+
+## 2026-06-09 P2-12 配置评审驳回与撤回更新
+
+- 当前进展：P2-12 评审回退最小闭环已完成，审批快照哈希、结构化 review history、权限模型和多人审批仍为后续预留。
+- 新增交付物：`ConfigVersionAppService.rejectReview(...)`、`ConfigVersionAppService.cancelReview(...)`、`ConfigVersionActionRequest.reason`、Admin `reject-review/cancel-review` API，以及工作台 `REJECT_REVIEW/CANCEL_REVIEW/CANCEL_APPROVAL` 动作。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-config-review-return-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：`REVIEWING` 可驳回回 `DRAFT`，`REVIEWING/APPROVED` 可撤回回 `DRAFT`；回退后复用既有“仅 DRAFT 可编辑”约束；驳回和撤回均写入审计 detail。
+- 后续重点：补审批快照哈希、review comment/history 查询、审批权限模型，以及前端 Admin Portal 操作页。
+
+## 2026-06-09 P2-13 审批快照哈希更新
+
+- 当前进展：P2-13 审批快照哈希最小闭环已完成，标准 JSON canonicalization、`config_version` 强字段和工作台显式 hash 字段仍为后续预留。
+- 新增交付物：`CONFIG_APPROVED.detail.snapshotHash`，以及 `APPROVED` 发布前的配置快照漂移校验。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-approval-snapshot-hash-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：批准时会记录配置包 SHA-256 快照哈希；批准后如配置内容漂移，发布会被 `approved config snapshot has changed` 阻断；接口层可从审计 detail 看到 `snapshotHash`。
+- 后续重点：将 hash 固化到 `config_version` 字段、在 `review-workspace` 显式返回当前/批准 hash、补 publish expected hash 条件发布和权限模型。
+
+## 2026-06-09 P2-14 审批快照哈希强字段化更新
+
+- 当前进展：P2-14 审批快照哈希强字段化已完成，`config_version.approved_snapshot_hash`、版本详情 hash 字段和工作台 hash 字段均已落地。
+- 新增交付物：Flyway `V4__p2_config_approval_snapshot_hash.sql`、`ConfigVersionInfo.approvedSnapshotHash/currentSnapshotHash`、`ConfigVersionPort.updateApprovedSnapshotHash(...)`，以及 `APPROVED` 发布优先读取强字段的漂移校验。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-approval-snapshot-hash-field-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：批准时会写入 `approved_snapshot_hash` 强字段；版本详情与 review-workspace 可直接返回 `approvedSnapshotHash/currentSnapshotHash`；旧数据仍可回退读取 `CONFIG_APPROVED.detail.snapshotHash`，批准后配置漂移仍会阻断发布。
+- 后续重点：补 publish `expectedSnapshotHash` 条件发布、`approved_by/approved_at` 强字段、审批权限模型和结构化 review history。
+
+## 2026-06-09 P2-15 发布 expectedSnapshotHash 条件校验更新
+
+- 当前进展：P2-15 发布 expectedSnapshotHash 条件校验已完成，Admin/API 调用方可携带工作台读取到的 `currentSnapshotHash` 做发布前二次确认。
+- 新增交付物：`ConfigVersionAppService.publish(..., expectedSnapshotHash)`、`ConfigVersionActionRequest.expectedSnapshotHash`、Admin publish 请求体透传。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-publish-expected-snapshot-hash-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：错误 expected hash 会阻断发布；正确 current hash 可发布成功；旧 publish 调用保持兼容，APPROVED 发布仍保留批准快照漂移校验。
+- 后续重点：Admin Portal 发布按钮强制携带 `currentSnapshotHash`，补接口示例、`approved_by/approved_at` 强字段、审批权限模型和结构化 review history。
+
+## 2026-06-09 P2-16 审批元数据强字段化更新
+
+- 当前进展：P2-16 审批元数据强字段化已完成，`config_version.approved_by/approved_at`、版本详情和工作台审批元数据均已落地。
+- 新增交付物：Flyway `V5__p2_config_approval_metadata.sql`、`ConfigVersionInfo.approvedBy/approvedAt`、memory/JDBC 审批元数据读写。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-approval-metadata-field-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：approve 后版本详情与 review-workspace 可直接返回审批人、审批时间和批准 hash；旧构造器保持兼容。
+- 后续重点：审批权限模型、结构化 review history、撤回审批元数据清理语义和 Admin Portal 审批信息展示。
+
+## 2026-06-09 P2-17 配置评审权限模型更新
+
+- 当前进展：P2-17 配置评审权限模型最小闭环已完成，Admin 配置评审动作已具备角色门禁。
+- 新增交付物：`ConfigVersionActionRequest.roles`、应用层 `CONFIG_APPROVER/CONFIG_PUBLISHER` 门禁、Admin 评审动作角色透传。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-config-review-permission-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：approve/reject/cancel 要求 `CONFIG_APPROVER`，publish 要求 `CONFIG_PUBLISHER`；错误角色被阻断，正确角色可通过；内部兼容调用保持可用。
+- 后续重点：真实登录态/IAM 接入、review-workspace 按角色过滤动作、统一 403 响应和 tenant/scene 级权限。
+
+## 2026-06-09 P2-18 评审工作台按角色过滤动作更新
+
+- 当前进展：P2-18 评审工作台按角色过滤动作最小闭环已完成，Admin 工作台数据面已能按调用方角色隐藏无权限受控动作。
+- 新增交付物：`ConfigReviewWorkspaceAppService.getWorkspace(..., roles)`、Admin `review-workspace` roles 查询参数、受控动作角色过滤、权限阻断原因返回。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-review-workspace-role-filter-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：应用层 32 个测试、基础设施层 59 个测试、接口层 23 个测试，合计 114 个测试；Admin 缺省 roles 不展示发布/审批受控动作，`CONFIG_APPROVER` 与 `CONFIG_PUBLISHER` 分别控制审批/撤回和发布动作可见性。
+- 后续重点：真实登录态/IAM 接入、统一 403 响应、tenant/scene 级权限、`SUBMIT_REVIEW/ROLLBACK_TARGET` 更细授权和结构化 review history。
+
+## 2026-06-09 P2-19 统一 403 响应更新
+
+- 当前进展：P2-19 统一 403 响应最小闭环已完成，Admin 配置评审权限失败已从应用层 `SecurityException` 映射为结构化 HTTP 403 JSON。
+- 新增交付物：`ApiErrorResponse`、`GlobalExceptionHandler`、接口层权限失败响应测试。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-forbidden-error-response-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：应用层 32 个测试、基础设施层 59 个测试、接口层 24 个测试，合计 115 个测试；错误角色调用 approve 返回 HTTP 403，响应包含 `code=FORBIDDEN`、`status=403` 和权限失败 message。
+- 后续重点：真实登录态/IAM 角色来源、tenant/scene 级权限、更多领域异常统一错误响应、错误响应 `traceId/requestId` 和结构化 review history。
+
+## 2026-06-09 P2-20 Admin 请求上下文角色来源更新
+
+- 当前进展：P2-20 Admin 请求上下文角色来源最小闭环已完成，配置评审动作和工作台数据面已能优先使用网关/IAM 注入式 header。
+- 新增交付物：`AdminRequestContext`、`X-IntentHub-Actor` / `X-IntentHub-Roles` 解析、动作接口与 `review-workspace` header 优先逻辑。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-admin-request-context-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：应用层 32 个测试、基础设施层 59 个测试、接口层 26 个测试，合计 117 个测试；header actor/roles 可覆盖请求体/query，旧兼容路径仍保留。
+- 后续重点：tenant/scene 级权限、Spring Security/JWT Filter、header 可信边界、更多领域异常统一错误响应和结构化 review history。

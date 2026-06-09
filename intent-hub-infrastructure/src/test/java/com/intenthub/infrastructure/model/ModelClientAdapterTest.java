@@ -1,6 +1,7 @@
 package com.intenthub.infrastructure.model;
 
 import com.intenthub.domain.config.ModelPolicy;
+import com.intenthub.infrastructure.security.SecretRefResolver;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
@@ -12,7 +13,9 @@ import org.springframework.web.client.RestClient;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -128,20 +131,41 @@ class ModelClientAdapterTest {
 
     @Test
     void httpAdapterSendsBearerTokenFromSceneModelPolicyTokenRef() throws IOException {
-        System.setProperty("INTENT_HUB_MODEL_TOKEN_TEST", "scene-secret");
-        try {
-            withLocalModelServer("""
-                    {"intentCode":"ORDER_QUERY","confidence":0.85,"slots":{},"explanation":"authorized scene hit"}
-                    """, exchange -> assertThat(exchange.getRequestHeaders().getFirst("Authorization")).isEqualTo("Bearer scene-secret"), baseUrl -> {
-                ModelServiceProperties properties = new ModelServiceProperties(true, "", 2000);
-                HttpModelClientAdapter adapter = new HttpModelClientAdapter(RestClient.builder(), properties);
+        withLocalModelServer("""
+                {"intentCode":"ORDER_QUERY","confidence":0.85,"slots":{},"explanation":"authorized scene hit"}
+                """, exchange -> assertThat(exchange.getRequestHeaders().getFirst("Authorization")).isEqualTo("Bearer scene-secret"), baseUrl -> {
+            ModelServiceProperties properties = new ModelServiceProperties(true, "", 2000);
+            SecretRefResolver resolver = ref -> "INTENT_HUB_MODEL_TOKEN_TEST".equals(ref) ? Optional.of("scene-secret") : Optional.empty();
+            HttpModelClientAdapter adapter = new HttpModelClientAdapter(RestClient.builder(), properties, resolver);
 
-                assertThat(adapter.recognize("text", "scene", new ModelPolicy(true, baseUrl, 1500, 0.70, "INTENT_HUB_MODEL_TOKEN_TEST")))
-                        .hasValueSatisfying(candidate -> assertThat(candidate.intentCode()).isEqualTo("ORDER_QUERY"));
-            });
-        } finally {
-            System.clearProperty("INTENT_HUB_MODEL_TOKEN_TEST");
-        }
+            assertThat(adapter.recognize("text", "scene", new ModelPolicy(true, baseUrl, 1500, 0.70, "INTENT_HUB_MODEL_TOKEN_TEST")))
+                    .hasValueSatisfying(candidate -> assertThat(candidate.intentCode()).isEqualTo("ORDER_QUERY"));
+        });
+    }
+
+    @Test
+    void httpAdapterRefreshesRoutedClientWhenResolvedTokenRotates() throws IOException {
+        AtomicInteger requests = new AtomicInteger();
+        AtomicReference<String> currentToken = new AtomicReference<>("first-secret");
+        withLocalModelServer("""
+                {"intentCode":"ORDER_QUERY","confidence":0.85,"slots":{},"explanation":"rotated token hit"}
+                """, exchange -> {
+            int requestNumber = requests.incrementAndGet();
+            String expectedToken = requestNumber == 1 ? "first-secret" : "second-secret";
+            assertThat(exchange.getRequestHeaders().getFirst("Authorization")).isEqualTo("Bearer " + expectedToken);
+        }, baseUrl -> {
+            ModelServiceProperties properties = new ModelServiceProperties(true, "", 2000);
+            SecretRefResolver resolver = ref -> "INTENT_HUB_MODEL_TOKEN_TEST".equals(ref) ? Optional.of(currentToken.get()) : Optional.empty();
+            HttpModelClientAdapter adapter = new HttpModelClientAdapter(RestClient.builder(), properties, resolver);
+            ModelPolicy policy = new ModelPolicy(true, baseUrl, 1500, 0.70, "INTENT_HUB_MODEL_TOKEN_TEST");
+
+            adapter.recognize("first", "scene", policy);
+            currentToken.set("second-secret");
+            adapter.recognize("second", "scene", policy);
+
+            assertThat(adapter.cachedClientCount()).isEqualTo(1);
+            assertThat(requests).hasValue(2);
+        });
     }
 
     @Test
@@ -151,7 +175,7 @@ class ModelClientAdapterTest {
                 {"intentCode":"ORDER_QUERY","confidence":0.85,"slots":{},"explanation":"should not be called"}
                 """, exchange -> requests.incrementAndGet(), baseUrl -> {
             ModelServiceProperties properties = new ModelServiceProperties(true, "", 2000);
-            HttpModelClientAdapter adapter = new HttpModelClientAdapter(RestClient.builder(), properties);
+            HttpModelClientAdapter adapter = new HttpModelClientAdapter(RestClient.builder(), properties, ref -> Optional.empty());
 
             assertThatThrownBy(() -> adapter.recognize("text", "scene", new ModelPolicy(true, baseUrl, 1500, 0.70, "INTENT_HUB_MODEL_TOKEN_MISSING_TEST")))
                     .isInstanceOf(com.intenthub.domain.recognition.policy.ModelServiceAuthenticationException.class)

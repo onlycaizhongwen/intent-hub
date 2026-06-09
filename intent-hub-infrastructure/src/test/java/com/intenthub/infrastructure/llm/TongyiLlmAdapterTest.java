@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.DoubleAdder;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -236,6 +237,21 @@ class TongyiLlmAdapterTest {
         assertThat(metrics.attempts.get()).isZero();
         assertThat(budgetAudit.attempts.get()).isZero();
         server.verify();
+    }
+
+    @Test
+    void exposesSharedSecretResolverForFutureProviderCredentials() {
+        TongyiLlmAdapter adapter = new TongyiLlmAdapter(
+                RestClient.builder(),
+                null,
+                new LlmGovernanceProperties(true, "https://llm.example.test", 3000, 0, 5.0, 0.70),
+                new RecordingMetricsPort(),
+                new RecordingBudgetAuditPort(),
+                ref -> "DASHSCOPE_API_KEY_TEST".equals(ref) ? Optional.of("dashscope-secret") : Optional.empty()
+        );
+
+        assertThat(adapter.resolveSecretRef("DASHSCOPE_API_KEY_TEST")).contains("dashscope-secret");
+        assertThat(adapter.resolveSecretRef("DASHSCOPE_API_KEY_MISSING_TEST")).isEmpty();
     }
 
     private LlmPolicy policy(double dailyBudget) {

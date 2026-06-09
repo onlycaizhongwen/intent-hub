@@ -70,6 +70,293 @@ class ConfigVersionAppServiceTest {
     }
 
     @Test
+    void comparesConfigVersionsByObjectIdentity() {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "diff bundle", "ops", Instant.now(), Instant.now());
+        service.importBundle("demo", "order-scene", "v-base", new ConfigBundle(
+                source,
+                List.of(
+                        Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询"),
+                        Map.of("intentCode", "ORDER_CANCEL", "intentName", "订单取消")
+                ),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+        service.importBundle("demo", "order-scene", "v-next", new ConfigBundle(
+                source,
+                List.of(
+                        Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询增强"),
+                        Map.of("intentCode", "REFUND_APPLY", "intentName", "退款申请")
+                ),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+
+        ConfigDiffResult diff = service.diff("demo", "order-scene", "v-base", "v-next");
+
+        assertThat(diff.added()).isEqualTo(1);
+        assertThat(diff.modified()).isEqualTo(1);
+        assertThat(diff.removed()).isEqualTo(1);
+        assertThat(diff.entries()).extracting(ConfigDiffEntry::objectId)
+                .contains("ORDER_QUERY", "ORDER_CANCEL", "REFUND_APPLY");
+        assertThat(diff.entries()).anySatisfy(entry -> {
+            assertThat(entry.objectId()).isEqualTo("ORDER_QUERY");
+            assertThat(entry.changeType()).isEqualTo("MODIFIED");
+            assertThat(entry.before()).containsEntry("intentName", "订单查询");
+            assertThat(entry.after()).containsEntry("intentName", "订单查询增强");
+        });
+    }
+
+    @Test
+    void dryRunPublishReturnsValidationDiffAndGitOpsFilePlan() {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "dry run bundle", "ops", Instant.now(), Instant.now());
+        service.importBundle("demo", "order-scene", "v-base", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询")),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+        service.importBundle("demo", "order-scene", "v-next", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询")),
+                List.of(Map.of("intentCode", "ORDER_CANCEL", "slotCode", "orderId")),
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+
+        ConfigDryRunReport report = service.dryRunPublish("demo", "order-scene", "v-next", "v-base");
+
+        assertThat(report.publishable()).isFalse();
+        assertThat(report.validation().errors()).contains("slot ORDER_CANCEL.orderId references missing intent ORDER_CANCEL");
+        assertThat(report.diff()).isNotNull();
+        assertThat(report.diff().added()).isEqualTo(1);
+        assertThat(report.gitOpsFiles()).contains(
+                "config/demo/order-scene/v-next/version.json",
+                "config/demo/order-scene/v-next/intents.json",
+                "config/demo/order-scene/v-next/downstream-actions.json"
+        );
+    }
+
+    @Test
+    void supportsReviewApprovalAndGitOpsExportBeforePublish() {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "review bundle", "ops", Instant.now(), Instant.now());
+        service.importBundle("demo", "order-scene", "v-base", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询")),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+        service.importBundle("demo", "order-scene", "v-review", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询增强")),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+
+        ConfigVersionInfo reviewing = service.submitReview("demo", "order-scene", "v-review", "reviewer");
+
+        assertThat(reviewing.status()).isEqualTo("REVIEWING");
+        assertThatThrownBy(() -> service.publish("demo", "order-scene", "v-review", "publisher"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("must be approved");
+
+        ConfigGitOpsExport export = service.exportGitOps("demo", "order-scene", "v-review", "v-base", "reviewer");
+
+        assertThat(export.files()).contains("config/demo/order-scene/v-review/version.json");
+        assertThat(export.content()).containsKeys(
+                "config/demo/order-scene/v-review/version.json",
+                "config/demo/order-scene/v-review/dry-run.json"
+        );
+        assertThat(((ConfigDryRunReport) export.content().get("config/demo/order-scene/v-review/dry-run.json")).diff().modified())
+                .isEqualTo(1);
+
+        ConfigVersionInfo approved = service.approve("demo", "order-scene", "v-review", "approver");
+        assertThat(approved.status()).isEqualTo("APPROVED");
+
+        ConfigVersionInfo published = service.publish("demo", "order-scene", "v-review", "publisher", approved.currentSnapshotHash());
+        assertThat(published.status()).isEqualTo("PUBLISHED");
+        assertThat(auditLogPort.actions).contains(
+                "CONFIG_REVIEW_SUBMITTED",
+                "CONFIG_GITOPS_EXPORTED",
+                "CONFIG_APPROVED",
+                "CONFIG_PUBLISHED"
+        );
+    }
+
+    @Test
+    void enforcesReviewAndPublishRolesWhenRolesAreProvided() {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "role bundle", "ops", Instant.now(), Instant.now());
+        service.importBundle("demo", "order-scene", "v-role", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询")),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+        service.submitReview("demo", "order-scene", "v-role", "reviewer");
+
+        assertThatThrownBy(() -> service.approve("demo", "order-scene", "v-role", "operator", List.of("CONFIG_OPERATOR")))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("requires role CONFIG_APPROVER");
+
+        ConfigVersionInfo approved = service.approve("demo", "order-scene", "v-role", "approver", List.of("CONFIG_APPROVER"));
+
+        assertThatThrownBy(() -> service.publish("demo", "order-scene", "v-role", "operator", approved.currentSnapshotHash(), List.of("CONFIG_APPROVER")))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("requires role CONFIG_PUBLISHER");
+
+        ConfigVersionInfo published = service.publish("demo", "order-scene", "v-role", "publisher", approved.currentSnapshotHash(), List.of("CONFIG_PUBLISHER"));
+        assertThat(published.status()).isEqualTo("PUBLISHED");
+    }
+
+    @Test
+    void filtersReviewWorkspaceActionsWhenRolesAreProvided() {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "workspace role bundle", "ops", Instant.now(), Instant.now());
+        service.importBundle("demo", "order-scene", "v-workspace-role", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "order query")),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+        service.submitReview("demo", "order-scene", "v-workspace-role", "reviewer");
+        ConfigReviewWorkspaceAppService workspaceService = new ConfigReviewWorkspaceAppService(service, new ConfigAuditAppService(auditLogPort));
+
+        ConfigReviewWorkspace legacyWorkspace = workspaceService.getWorkspace("demo", "order-scene", "v-workspace-role", null);
+        assertThat(legacyWorkspace.availableActions()).contains("APPROVE", "REJECT_REVIEW", "CANCEL_REVIEW");
+
+        ConfigReviewWorkspace operatorWorkspace = workspaceService.getWorkspace(
+                "demo",
+                "order-scene",
+                "v-workspace-role",
+                null,
+                List.of("CONFIG_OPERATOR")
+        );
+        assertThat(operatorWorkspace.availableActions()).doesNotContain("APPROVE", "REJECT_REVIEW", "CANCEL_REVIEW");
+        assertThat(operatorWorkspace.blockedReasons())
+                .contains("APPROVE requires role CONFIG_APPROVER");
+
+        ConfigReviewWorkspace approverWorkspace = workspaceService.getWorkspace(
+                "demo",
+                "order-scene",
+                "v-workspace-role",
+                null,
+                List.of("CONFIG_APPROVER")
+        );
+        assertThat(approverWorkspace.availableActions()).contains("APPROVE", "REJECT_REVIEW", "CANCEL_REVIEW");
+        assertThat(approverWorkspace.blockedReasons())
+                .doesNotContain("APPROVE requires role CONFIG_APPROVER");
+    }
+
+    @Test
+    void returnsReviewingOrApprovedVersionToDraft() {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "review return bundle", "ops", Instant.now(), Instant.now());
+        service.importBundle("demo", "order-scene", "v-reject", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询")),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+        service.importBundle("demo", "order-scene", "v-cancel-approved", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_CANCEL", "intentName", "订单取消")),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+
+        service.submitReview("demo", "order-scene", "v-reject", "reviewer");
+        ConfigVersionInfo rejected = service.rejectReview("demo", "order-scene", "v-reject", "reviewer", "need more slots");
+
+        assertThat(rejected.status()).isEqualTo("DRAFT");
+
+        service.submitReview("demo", "order-scene", "v-cancel-approved", "reviewer");
+        service.approve("demo", "order-scene", "v-cancel-approved", "approver");
+        ConfigVersionInfo cancelled = service.cancelReview("demo", "order-scene", "v-cancel-approved", "approver", "scope changed");
+
+        assertThat(cancelled.status()).isEqualTo("DRAFT");
+        assertThat(auditLogPort.actions).contains("CONFIG_REVIEW_REJECTED", "CONFIG_REVIEW_CANCELLED");
+    }
+
+    @Test
+    void blocksPublishWhenApprovedSnapshotChanged() {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "snapshot bundle", "ops", Instant.now(), Instant.now());
+        service.importBundle("demo", "order-scene", "v-snapshot", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询")),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+        service.submitReview("demo", "order-scene", "v-snapshot", "reviewer");
+        ConfigVersionInfo approved = service.approve("demo", "order-scene", "v-snapshot", "approver");
+
+        assertThat(approved.approvedSnapshotHash()).isNotBlank();
+        assertThat(approved.approvedBy()).isEqualTo("approver");
+        assertThat(approved.approvedAt()).isNotNull();
+        assertThat(approved.currentSnapshotHash()).isEqualTo(approved.approvedSnapshotHash());
+
+        port.upsert("demo", "order-scene", "v-snapshot", ConfigObjectType.INTENT, Map.of(
+                "intentCode", "ORDER_QUERY",
+                "intentName", "订单查询已漂移"
+        ));
+
+        assertThatThrownBy(() -> service.publish("demo", "order-scene", "v-snapshot", "publisher"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("approved config snapshot has changed");
+    }
+
+    @Test
+    void blocksPublishWhenExpectedSnapshotHashDoesNotMatchCurrentSnapshot() {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "expected hash bundle", "ops", Instant.now(), Instant.now());
+        service.importBundle("demo", "order-scene", "v-expected", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询")),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+        service.submitReview("demo", "order-scene", "v-expected", "reviewer");
+        ConfigVersionInfo approved = service.approve("demo", "order-scene", "v-expected", "approver");
+
+        assertThatThrownBy(() -> service.publish("demo", "order-scene", "v-expected", "publisher", "stale-hash"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("expected snapshot hash does not match current config snapshot");
+
+        ConfigVersionInfo published = service.publish("demo", "order-scene", "v-expected", "publisher", approved.currentSnapshotHash());
+        assertThat(published.status()).isEqualTo("PUBLISHED");
+    }
+
+    @Test
     void validatesCrossObjectReferencesBeforePublish() {
         ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "broken bundle", "ops", Instant.now(), Instant.now());
         ConfigBundle bundle = new ConfigBundle(
@@ -334,6 +621,26 @@ class ConfigVersionAppServiceTest {
         }
 
         @Override
+        public void updateStatus(String tenantId, String sceneId, String version, String status, String actor) {
+            ConfigBundle bundle = bundles.get(key(tenantId, sceneId, version));
+            ConfigVersionInfo current = bundle.version();
+            bundles.put(key(tenantId, sceneId, version), new ConfigBundle(
+                    new ConfigVersionInfo(current.tenantId(), current.sceneId(), current.version(), status, current.description(), current.createdBy(), current.createdAt(), current.publishedAt(), current.approvedSnapshotHash(), current.currentSnapshotHash()),
+                    bundle.intents(), bundle.slots(), bundle.synonyms(), bundle.strategies(), bundle.routes(), bundle.downstreamActions()
+            ));
+        }
+
+        @Override
+        public void updateApprovedSnapshotHash(String tenantId, String sceneId, String version, String snapshotHash, String actor) {
+            ConfigBundle bundle = bundles.get(key(tenantId, sceneId, version));
+            ConfigVersionInfo current = bundle.version();
+            bundles.put(key(tenantId, sceneId, version), new ConfigBundle(
+                    new ConfigVersionInfo(current.tenantId(), current.sceneId(), current.version(), current.status(), current.description(), current.createdBy(), current.createdAt(), current.publishedAt(), actor, Instant.now(), snapshotHash, current.currentSnapshotHash()),
+                    bundle.intents(), bundle.slots(), bundle.synonyms(), bundle.strategies(), bundle.routes(), bundle.downstreamActions()
+            ));
+        }
+
+        @Override
         public void publish(String tenantId, String sceneId, String version, String actor) {
             bundles.replaceAll((candidateKey, bundle) -> {
                 ConfigVersionInfo current = bundle.version();
@@ -346,7 +653,7 @@ class ConfigVersionAppServiceTest {
                 } else if ("PUBLISHED".equals(current.status())) {
                     status = "ARCHIVED";
                 }
-                return withInfo(bundle, new ConfigVersionInfo(current.tenantId(), current.sceneId(), current.version(), status, current.description(), current.createdBy(), current.createdAt(), version.equals(current.version()) ? Instant.now() : current.publishedAt()));
+                return withInfo(bundle, new ConfigVersionInfo(current.tenantId(), current.sceneId(), current.version(), status, current.description(), current.createdBy(), current.createdAt(), version.equals(current.version()) ? Instant.now() : current.publishedAt(), current.approvedBy(), current.approvedAt(), current.approvedSnapshotHash(), current.currentSnapshotHash()));
             });
         }
 

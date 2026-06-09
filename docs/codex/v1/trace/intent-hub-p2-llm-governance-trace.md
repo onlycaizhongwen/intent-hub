@@ -69,6 +69,7 @@ intent-hub:
 配套脚本：
 
 - `scripts/dashscope-smoke.ps1`：自动创建并发布沙箱 scene，写入 `provider=spring-ai-alibaba` 的 `llmPolicy`，发送一条规则/模型不命中的识别请求，并检查识别路径是否包含 `LlmRecognizePolicy`。
+- `scripts/preflight-external-integration.ps1`：在真实 DashScope smoke 前检查 `DASHSCOPE_API_KEY` 等 Secret 引用是否存在；脚本只输出引用状态，不输出密钥值。
 
 scene 级策略读取：
 
@@ -134,17 +135,22 @@ mvn test
 - `LLM_FALLBACK` 会进入最小指标口径，支持通过 `GET /api/v1/admin/metrics` 和 Prometheus 文本观察 LLM 失败关闭次数；`intent_hub_llm_budget_attempts_total` 与 `intent_hub_llm_budget_consumed_total` 记录 LLM 外呼预算消费尝试；`intent_hub_llm_budget_reconciliations_total` 记录后台补偿校正的 stale reserved 预占数量；`GET /api/v1/admin/metrics/alerts` 可基于 LLM fallback 和预算补偿指标返回基础告警快照；`ops/README.md` 提供运维样例总入口，`ops/production-readiness-checklist.md` 提供生产化落地检查清单，`ops/pilot-rollout-plan.md` 提供试点接入计划，`ops/pilot-execution-record-template.md` 提供试点执行记录模板，`ops/alert-drill-scenarios.md` 提供告警演练场景，`scripts/check-observability-local.ps1` 提供本地观测栈预检脚本，`scripts/validate-observability-compose.ps1` 提供本地观测栈配置校验脚本，`ops/prometheus/intent-hub-scrape-config.yml` 提供 Prometheus scrape 配置片段样例，`ops/prometheus/intent-hub-alert-rules.yml` 提供 Prometheus 规则样例，`ops/alertmanager/alertmanager-route-sample.yml` 提供 Alertmanager 路由样例，`ops/grafana/intent-hub-dashboard.json` 提供 Grafana 看板样例，`ops/slo/README.md` 提供 SLO 与错误预算样例，`ops/local-observability/README.md` 提供本地观测栈试跑样例，`ops/runbooks/intent-hub-alert-runbook.md` 提供告警处理手册。
 - `llm_budget_usage` 按 `tenant_id + scene_id + usage_date + provider + model` 记录 LLM 外呼尝试次数和消费单位；`TongyiLlmAdapter` 会在外呼前查询当日用量，达到全局预算与 scene 预算较小值时直接返回空候选。
 - DashScope 沙箱 profile 与冒烟脚本已准备完成，凭证只从 `DASHSCOPE_API_KEY` 环境变量读取，不写入仓库。
+- P2-6 已给 `TongyiLlmAdapter` 接入统一 `SecretRefResolver` 边界，当前用于后续 Provider 凭证治理预留；默认实现是 system property/env 优先，并已预留文件挂载 resolver 与 managed-config resolver。managed-config 可承接 Nacos/Apollo/Spring Config 等平台完成解密后的运行时配置映射。现有 DashScope profile 行为不变，凭证仍不进入业务配置包、数据库、trace 或仓库。
+- P2-6 已新增 `scripts/preflight-external-integration.ps1`，可在执行真实 DashScope smoke 前用 `-RequireDashScope` 检查凭证引用存在性；该脚本不调用 LLM、不消耗预算，也不代表真实外呼已经通过。
 
 ## 当前限制
 
 - 当前 `TongyiLlmAdapter` 已预接入 Spring AI Alibaba `ChatClient`，并保留 HTTP 契约 fallback；没有 `ChatClient.Builder` 或 provider 不是 `spring-ai-alibaba` 时不会强依赖真实 DashScope。
 - 尚未使用真实 DashScope 沙箱密钥完成外部冒烟；当前只完成 profile、脚本和验证步骤准备。
+- 尚未接入 Vault SDK 或动态刷新型 Nacos adapter；当前 Secret resolver 支持本地 env/system property、文件挂载形态与 managed-config 映射，满足 P2-6 最小抽象、K8s Secret/Vault Agent 文件形态和托管配置注入预留，但不代表生产级密钥权限、轮换和审计已落地。
 - `timeoutMs` 已进入策略和治理配置，并已绑定到底层 RestClient connect/read timeout。
 - 当前已完成 LLM 外呼预算消费最小计数、持久化审计、外呼前日预算原子预占门禁、同步失败释放、默认关闭的 stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook 和管理端 confirmed/reserved/pending 查询；真实多实例 PostgreSQL 压测、分布式保护和生产化 Prometheus/Grafana 告警仍待补。
 
 ## 后续建议
 
 - 接入真实 DashScope 沙箱密钥，做小流量冒烟并记录 trace、指标和 bad case。
+- 为 `SecretRefResolver` 增加 Vault SDK 或平台级动态刷新 adapter，并补 token 轮换、缓存失效、权限审计和失败关闭告警。
+- 将 DashScope 真实 smoke 固定为“先 preflight，再 `scripts/dashscope-smoke.ps1`”，防止凭证缺失时直接进入外呼排查。
 - 补充 DashScope 限流告警和失败分类。
 - 将 LLM 调用次数、失败次数、fallback decision、预算消耗和补偿校正数量进一步接入 Prometheus/Grafana 告警、分布式保护和真实多实例压测。
 

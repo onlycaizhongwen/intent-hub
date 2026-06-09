@@ -62,6 +62,12 @@
 | 敏感信息 | trace、bad case、告警内容不泄漏手机号、身份证、订单敏感字段 | 代码已做部分脱敏 | 待定 |
 | 审计 | 配置发布、告警静默、receiver 变更有审计记录 | 部分支持 | 待定 |
 | 防腐层边界 | Runbook 不要求 Intent Hub 直连业务库修复数据 | 已明确 | 待定 |
+| Secret resolver | 模型服务和 LLM 凭证统一通过 Secret 引用解析，不在配置/DB/trace/仓库保存明文 | 已有 env/system property 默认实现 | 待定 |
+| Secret 后端 | Vault、K8s Secret 或 Nacos 加密配置等生产级后端完成接入与权限控制 | 已预留文件挂载后端和 managed-config 映射；生产级权限、轮换、审计未落地 | 待定 |
+| Secret 轮换 | token 轮换后客户端缓存可刷新或重建，旧 token 不长期驻留 | 模型服务 scene 客户端已按 token 指纹感知轮换并重建；本地文件挂载轮换 smoke 已通过；真实 Secret 后端轮换演练未落地 | 待定 |
+| 外部联调预检 | `scripts/preflight-external-integration.ps1` 可在真实 smoke 前检查 Intent Hub、模型服务健康和 Secret 引用存在性，且不打印密钥值 | 已有本地预检脚本 | 待定 |
+| 外部联调记录 | 真实模型服务与 DashScope/LLM smoke 按模板记录 Secret 引用、preflight、鉴权、trace、预算、指标和安全复核证据 | 已提供 `ops/external-integration-smoke-record-template.md`，真实记录未落地 | 待定 |
+| 外部鉴权 smoke | 带鉴权模型服务和 DashScope 沙箱均完成最小外部调用证据 | 本地带鉴权模型服务 smoke 已完成；真实远端模型服务与 DashScope 未落地 | 待定 |
 
 ## 7. 演练与验收
 
@@ -82,6 +88,8 @@
 - Grafana dashboard 能展示真实环境数据。
 - SLO、阈值、receiver 和升级策略完成业务、研发、运维三方确认。
 - metrics endpoint、receiver secret、dashboard 权限和 TLS/网络策略完成安全确认。
+- 模型服务和 LLM 凭证通过生产级 Secret 后端解析，并完成一次轮换或等效演练。
+- 真实模型服务和 DashScope/LLM 冒烟记录完整留存，且记录中不包含明文密钥。
 - Runbook 完成一次值班演练，并根据演练结果更新。
 
 ## 当前结论

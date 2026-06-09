@@ -235,6 +235,9 @@ class JdbcSceneConfigRepositoryTest {
                     scene_id varchar(64) not null,
                     version varchar(64) not null,
                     status varchar(32) not null,
+                    approved_snapshot_hash varchar(128),
+                    approved_by varchar(128),
+                    approved_at timestamp,
                     published_at timestamp,
                     unique (tenant_id, scene_id, version)
                 )

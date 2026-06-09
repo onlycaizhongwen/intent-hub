@@ -70,6 +70,54 @@ public class InMemoryConfigGovernanceRepository implements ConfigVersionPort, Co
     }
 
     @Override
+    public void updateStatus(String tenantId, String sceneId, String version, String status, String actor) {
+        String key = key(tenantId, sceneId, version);
+        ConfigBundle bundle = bundles.get(key);
+        if (bundle == null) {
+            throw new IllegalArgumentException("config version not found");
+        }
+        ConfigVersionInfo current = bundle.version();
+        bundles.put(key, withVersion(bundle, new ConfigVersionInfo(
+                current.tenantId(),
+                current.sceneId(),
+                current.version(),
+                status,
+                current.description(),
+                current.createdBy(),
+                current.createdAt(),
+                current.publishedAt(),
+                current.approvedBy(),
+                current.approvedAt(),
+                current.approvedSnapshotHash(),
+                current.currentSnapshotHash()
+        )));
+    }
+
+    @Override
+    public void updateApprovedSnapshotHash(String tenantId, String sceneId, String version, String snapshotHash, String actor) {
+        String key = key(tenantId, sceneId, version);
+        ConfigBundle bundle = bundles.get(key);
+        if (bundle == null) {
+            throw new IllegalArgumentException("config version not found");
+        }
+        ConfigVersionInfo current = bundle.version();
+        bundles.put(key, withVersion(bundle, new ConfigVersionInfo(
+                current.tenantId(),
+                current.sceneId(),
+                current.version(),
+                current.status(),
+                current.description(),
+                current.createdBy(),
+                current.createdAt(),
+                current.publishedAt(),
+                actor,
+                Instant.now(),
+                snapshotHash,
+                current.currentSnapshotHash()
+        )));
+    }
+
+    @Override
     public void publish(String tenantId, String sceneId, String version, String actor) {
         bundles.replaceAll((candidateKey, bundle) -> {
             ConfigVersionInfo current = bundle.version();
@@ -90,7 +138,11 @@ public class InMemoryConfigGovernanceRepository implements ConfigVersionPort, Co
                     current.description(),
                     current.createdBy(),
                     current.createdAt(),
-                    version.equals(current.version()) ? Instant.now() : current.publishedAt()
+                    version.equals(current.version()) ? Instant.now() : current.publishedAt(),
+                    current.approvedBy(),
+                    current.approvedAt(),
+                    current.approvedSnapshotHash(),
+                    current.currentSnapshotHash()
             ));
         });
     }

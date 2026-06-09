@@ -46,7 +46,8 @@ public class JdbcConfigVersionRepository implements ConfigVersionPort {
     public Optional<ConfigVersionInfo> find(String tenantId, String sceneId, String version) {
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject("""
-                            select tenant_id, scene_id, version, status, description, created_by, created_at, published_at
+                            select tenant_id, scene_id, version, status, description, created_by, created_at, published_at,
+                                   approved_by, approved_at, approved_snapshot_hash
                             from config_version
                             where tenant_id = ? and scene_id = ? and version = ?
                             """,
@@ -88,6 +89,36 @@ public class JdbcConfigVersionRepository implements ConfigVersionPort {
     }
 
     @Override
+    public void updateStatus(String tenantId, String sceneId, String version, String status, String actor) {
+        jdbcTemplate.update("""
+                        update config_version
+                        set status = ?
+                        where tenant_id = ? and scene_id = ? and version = ?
+                        """,
+                status,
+                tenantId,
+                sceneId,
+                version
+        );
+    }
+
+    @Override
+    public void updateApprovedSnapshotHash(String tenantId, String sceneId, String version, String snapshotHash, String actor) {
+        jdbcTemplate.update("""
+                        update config_version
+                        set approved_snapshot_hash = ?, approved_by = ?, approved_at = ?
+                        where tenant_id = ? and scene_id = ? and version = ?
+                        """,
+                snapshotHash,
+                actor,
+                Timestamp.from(Instant.now()),
+                tenantId,
+                sceneId,
+                version
+        );
+    }
+
+    @Override
     public void publish(String tenantId, String sceneId, String version, String actor) {
         jdbcTemplate.update("""
                         update config_version
@@ -117,6 +148,7 @@ public class JdbcConfigVersionRepository implements ConfigVersionPort {
 
     private ConfigVersionInfo mapVersion(ResultSet rs, int rowNum) throws SQLException {
         Timestamp publishedAt = rs.getTimestamp("published_at");
+        Timestamp approvedAt = rs.getTimestamp("approved_at");
         return new ConfigVersionInfo(
                 rs.getString("tenant_id"),
                 rs.getString("scene_id"),
@@ -125,7 +157,11 @@ public class JdbcConfigVersionRepository implements ConfigVersionPort {
                 rs.getString("description"),
                 rs.getString("created_by"),
                 rs.getTimestamp("created_at").toInstant(),
-                publishedAt == null ? null : publishedAt.toInstant()
+                publishedAt == null ? null : publishedAt.toInstant(),
+                rs.getString("approved_by"),
+                approvedAt == null ? null : approvedAt.toInstant(),
+                rs.getString("approved_snapshot_hash"),
+                null
         );
     }
 

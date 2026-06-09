@@ -68,7 +68,9 @@ intent-hub:
 - `enabled=false`：该 scene 跳过模型服务识别，识别路径记录 `MODEL_POLICY:DISABLED`。
 - `minConfidence`：模型候选低于该阈值时丢弃，识别路径记录 `MODEL_POLICY:LOW_CONFIDENCE`。
 - `endpoint`、`timeoutMs`：已进入配置治理和 Flyway Schema，并已参与运行时动态模型服务路由。
-- `authTokenRef`：只保存环境变量或系统属性引用名，运行时解析 token 后注入 `Authorization: Bearer ...`，不把明文 token 写入 DB、文档或代码仓库；引用存在但 token 无法解析时记录 `MODEL_FALLBACK:AUTH_MISSING_TOKEN` 并失败关闭，不发无鉴权请求。
+- `authTokenRef`：只保存 Secret 引用名，运行时解析 token 后注入 `Authorization: Bearer ...`，不把明文 token 写入 DB、文档或代码仓库；引用存在但 token 无法解析时记录 `MODEL_FALLBACK:AUTH_MISSING_TOKEN` 并失败关闭，不发无鉴权请求。
+- scene 级模型客户端缓存不再以明文 token 作为 key，而是使用 `authTokenRef + token fingerprint`。同一 endpoint/timeout/ref 的 token 解析值变化时会清理旧客户端并重建，避免轮换后长期复用旧鉴权头，也避免缓存 key 暴露明文 token。
+- P2-6 已新增统一 `SecretRefResolver` 边界，当前实现按 system property/env、文件挂载、managed-config 的顺序解析；文件挂载可支持 K8s Secret/Vault Agent 一类的本地文件形态，managed-config 可承接 Nacos/Apollo/Spring Config 等平台完成解密后的运行时配置映射。模型服务 adapter 已迁移到该 resolver，不再直接读取 `System.getProperty` / `System.getenv`。后续如接 Vault SDK 只需扩展 resolver 实现。
 
 FastAPI 风格契约：
 
@@ -83,6 +85,7 @@ FastAPI 示例部署化入口：
 - `scripts/validate-model-service-container.ps1`
 - `scripts/smoke-model-service-e2e.ps1`
 - `scripts/smoke-model-policy-jdbc.ps1`
+- `scripts/preflight-external-integration.ps1`
 
 FastAPI 示例扩展字段：
 
@@ -136,14 +139,21 @@ mvn test
 - `RecognizeAppServiceTest` 覆盖模型服务 token 引用缺失时失败关闭，并验证路径包含 `MODEL_FALLBACK:AUTH_MISSING_TOKEN` 且写入 bad case。
 - `JdbcSceneConfigRepositoryTest` 覆盖从已发布 `nlu_strategy.model_policy` 读取模型开关、endpoint、timeout、最低置信度和 `authTokenRef`。
 - `ConfigVersionAppServiceTest` 覆盖 Admin 策略对象 upsert 时保留 `modelPolicy` 和 `authTokenRef`，防止应用层规范化吞掉模型策略。
-- `ModelClientAdapterTest` 覆盖 no-op adapter、inactive HTTP adapter、MockRestServiceServer 成功返回、模型服务健康详情、JDK 本地 HTTP server POST/JSON 解析冒烟、scene endpoint/timeout 动态路由、客户端缓存复用、Bearer 鉴权头注入，以及 token 引用缺失时不调用远端模型服务。
+- `ModelClientAdapterTest` 覆盖 no-op adapter、inactive HTTP adapter、MockRestServiceServer 成功返回、模型服务健康详情、JDK 本地 HTTP server POST/JSON 解析冒烟、scene endpoint/timeout 动态路由、客户端缓存复用、Bearer 鉴权头注入、token 轮换后重建客户端且缓存数量保持稳定，以及 token 引用缺失时不调用远端模型服务。
+- `EnvironmentSecretRefResolverTest` 覆盖默认 Secret 引用解析，确认系统属性优先、缺失或空引用返回空，不暴露 secret 值。
+- `FileSecretRefResolverTest` 覆盖文件挂载 Secret 读取、空文件忽略和路径穿越拒绝。
+- `ManagedConfigSecretRefResolverTest` 覆盖托管配置 Secret 映射启停、引用解析、空值和缺失引用忽略。
+- `CompositeSecretRefResolverTest` 覆盖多 Secret 后端按配置顺序解析和全部缺失返回空。
 - `AdminHealthControllerTest` 覆盖 `GET /api/v1/admin/health` 返回模型服务健康状态、模型版本和阈值。
 - `IntentHubBeanConfigurationTest` 覆盖 `RestClient.Builder` Bean，防止真实 jar 启动时 HTTP adapter 依赖缺失。
 - 既有 P1、P2-1、P2-2、P2-3 测试仍全部通过。
 - `scripts/validate-model-service-container.ps1` 校验 Dockerfile、Docker Compose、端口映射、健康检查和 `docker compose config`，不启动容器。
-- `scripts/smoke-model-service-e2e.ps1` 自动打包 Intent Hub jar、启动模型服务容器、验证直连模型识别、启动 Intent Hub、验证 `model_service.healthy=true`、`model_service.modelVersion` 和 `ModelRecognitionPolicy` 识别路径，并在结束后清理进程与容器。
+- `scripts/smoke-model-service-e2e.ps1` 自动打包 Intent Hub jar、启动模型服务容器、验证直连模型识别、启动 Intent Hub、验证 `model_service.healthy=true`、`model_service.modelVersion` 和 `ModelRecognitionPolicy` 识别路径，并在结束后清理进程与容器。增加 `-WithAuth` 后会同步启动临时 PostgreSQL 16，发布带 `modelPolicy.authTokenRef` 的专用 scene，验证无 token 直连模型会被 401 拒绝、Intent Hub 通过 Secret 引用注入 Bearer token 后返回 `ORDER_CANCEL/ASYNC_ACCEPTED`。
+- `scripts/smoke-secret-rotation.ps1` 自动启动临时 PostgreSQL 16、文件挂载 Secret、FastAPI 模型服务容器和 Intent Hub `local-jdbc`；先用初始 token 完成直连和 Intent Hub 识别，再改写挂载文件为新 token，验证旧 token 直连被 401 拒绝、新 token 直连通过，且 Intent Hub 第二次识别仍通过 `ModelRecognitionPolicy`。
 - `scripts/smoke-model-policy-jdbc.ps1` 自动启动临时 PostgreSQL 16 空库，使用 `local-jdbc` profile 验证 Flyway V1/V2/V3、`nlu_strategy.model_policy` 字段、Admin `modelPolicy` 写入/查询、发布配置读取和 `MODEL_POLICY:DISABLED` 识别路径。
+- `scripts/preflight-external-integration.ps1` 在真实外部 smoke 前检查 Intent Hub health、模型服务 health 和模型服务 `authTokenRef` 引用存在性；脚本只输出引用是否存在与来源类型，不打印 token 明文。
 - FastAPI 示例覆盖 `ORDER_CANCEL`、`ORDER_QUERY`、`REFUND_APPLY`、`LOGISTICS_QUERY`、`INVOICE_APPLY` 多意图样本，且 smoke 脚本会断言 `modelVersion`，防止误用旧镜像或旧服务。
+- FastAPI 示例支持可选 `MODEL_SERVICE_AUTH_TOKEN`，仅对 `/recognize` 要求 Bearer 鉴权；`/health` 保持无鉴权，方便容器健康检查和联调前预检。
 
 ## 当前限制
 
@@ -155,12 +165,13 @@ mvn test
 - 全局 `timeoutMs` 已通过 `SimpleClientHttpRequestFactory` 绑定到底层 HTTP connect/read timeout。
 - scene 级 `model_policy.enabled/minConfidence/endpoint/timeoutMs/authTokenRef` 已纳入 `tenant + scene + version` 配置治理；运行时 HTTP adapter 已按 scene 动态切换 endpoint/timeout，并按 endpoint + timeout 复用客户端。
 - 已修复 Admin 应用层策略规范化遗漏 `modelPolicy` 的问题；此前 repository 已支持 `model_policy`，但 HTTP Admin 真链路会把该字段落成 `{}`，现已通过单测和真实 JDBC smoke 锁定。
-- `authTokenRef` 已完成 token 引用解析、出站 Bearer header 注入和引用缺失失败关闭；真实生产仍需 Secret/Vault、K8s Secret、TLS、轮换和审计策略。
+- `authTokenRef` 已完成统一 resolver 解析、出站 Bearer header 注入、引用缺失失败关闭和轮换感知客户端刷新；当前可通过 `intent-hub.secret.file-root` 读取外部挂载 Secret 文件，也可通过 `intent-hub.secret.managed-config.refs.*` 承接外部托管配置注入。2026-06-09 已通过 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-model-service-e2e.ps1 -WithAuth` 完成本地带鉴权模型服务 smoke，通过 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-secret-rotation.ps1` 完成文件挂载 Secret 轮换 smoke。真实生产仍需 Vault/K8s Secret/Nacos 权限模型、TLS、轮换审计和真实远端模型服务 smoke。
 
 ## 后续建议
 
 - 将模型健康详情继续纳入发布前 smoke 和观测面板，用于识别旧镜像、旧模型或错误阈值配置。
-- 将模型服务 `authTokenRef` 接入 Secret/Vault 或 K8s Secret 管理，补齐租户级密钥轮换、TLS、鉴权审计和失败关闭告警。
-- 将 `scripts/smoke-model-service-e2e.ps1` 纳入后续 CI 或发布前检查，作为模型 adapter 与容器配置变更后的回归入口。
+- 将 `SecretRefResolver` 从当前 env/system property + 文件挂载 + managed-config 后端继续扩展到 Vault SDK 或平台级动态刷新实现，补齐租户级密钥轮换、TLS、鉴权审计、缓存失效和失败关闭告警。
+- 在带鉴权真实模型服务 smoke 前先执行 `scripts/preflight-external-integration.ps1 -RequireModelAuth`，确认健康入口和 `authTokenRef` 可解析；预检通过不等于真实识别链路通过，仍需执行端到端 smoke。
+- 将 `scripts/smoke-model-service-e2e.ps1` 和 `scripts/smoke-model-service-e2e.ps1 -WithAuth` 纳入后续 CI 或发布前检查，作为模型 adapter、Secret resolver、Admin 发布配置读取和容器配置变更后的回归入口。
 - 将 `scripts/smoke-model-policy-jdbc.ps1` 纳入发布前检查，作为 Flyway 增量迁移和 Admin 配置治理链路的回归入口。
 - 后续 GPU/高并发部署再切 Triton，不影响当前 adapter 端口。

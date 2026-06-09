@@ -5,6 +5,11 @@ import com.intenthub.application.config.ConfigBundle;
 import com.intenthub.application.config.ConfigAuditAppService;
 import com.intenthub.application.config.ConfigObjectAppService;
 import com.intenthub.application.config.ConfigObjectType;
+import com.intenthub.application.config.ConfigDiffResult;
+import com.intenthub.application.config.ConfigDryRunReport;
+import com.intenthub.application.config.ConfigGitOpsExport;
+import com.intenthub.application.config.ConfigReviewWorkspace;
+import com.intenthub.application.config.ConfigReviewWorkspaceAppService;
 import com.intenthub.application.config.ConfigValidationResult;
 import com.intenthub.application.config.ConfigVersionAppService;
 import com.intenthub.application.config.ConfigVersionInfo;
@@ -27,15 +32,18 @@ public class AdminConfigController {
     private final ConfigVersionAppService configVersionAppService;
     private final ConfigObjectAppService configObjectAppService;
     private final ConfigAuditAppService configAuditAppService;
+    private final ConfigReviewWorkspaceAppService configReviewWorkspaceAppService;
 
     public AdminConfigController(
             ConfigVersionAppService configVersionAppService,
             ConfigObjectAppService configObjectAppService,
-            ConfigAuditAppService configAuditAppService
+            ConfigAuditAppService configAuditAppService,
+            ConfigReviewWorkspaceAppService configReviewWorkspaceAppService
     ) {
         this.configVersionAppService = configVersionAppService;
         this.configObjectAppService = configObjectAppService;
         this.configAuditAppService = configAuditAppService;
+        this.configReviewWorkspaceAppService = configReviewWorkspaceAppService;
     }
 
     @PostMapping("/versions")
@@ -67,6 +75,75 @@ public class AdminConfigController {
         return configVersionAppService.validate(tenantId, sceneId, version);
     }
 
+    @GetMapping("/versions/{version}/diff")
+    public ConfigDiffResult diff(
+            @RequestParam String tenantId,
+            @RequestParam String sceneId,
+            @RequestParam String fromVersion,
+            @PathVariable String version
+    ) {
+        return configVersionAppService.diff(tenantId, sceneId, fromVersion, version);
+    }
+
+    @PostMapping("/versions/{version}/dry-run")
+    public ConfigDryRunReport dryRunPublish(
+            @RequestParam String tenantId,
+            @RequestParam String sceneId,
+            @PathVariable String version,
+            @RequestParam(required = false) String baseVersion
+    ) {
+        return configVersionAppService.dryRunPublish(tenantId, sceneId, version, baseVersion);
+    }
+
+    @PostMapping("/versions/{version}/submit-review")
+    public ConfigVersionInfo submitReview(
+            @RequestParam String tenantId,
+            @RequestParam String sceneId,
+            @PathVariable String version,
+            @RequestBody(required = false) ConfigVersionActionRequest request
+    ) {
+        String actor = request == null ? "system" : request.normalizedActor();
+        return configVersionAppService.submitReview(tenantId, sceneId, version, actor);
+    }
+
+    @PostMapping("/versions/{version}/approve")
+    public ConfigVersionInfo approve(
+            @RequestParam String tenantId,
+            @RequestParam String sceneId,
+            @PathVariable String version,
+            @RequestBody(required = false) ConfigVersionActionRequest request
+    ) {
+        String actor = AdminRequestContext.actor(request);
+        List<String> roles = AdminRequestContext.roles(request);
+        return configVersionAppService.approve(tenantId, sceneId, version, actor, roles);
+    }
+
+    @PostMapping("/versions/{version}/reject-review")
+    public ConfigVersionInfo rejectReview(
+            @RequestParam String tenantId,
+            @RequestParam String sceneId,
+            @PathVariable String version,
+            @RequestBody(required = false) ConfigVersionActionRequest request
+    ) {
+        String actor = AdminRequestContext.actor(request);
+        String reason = request == null ? "not provided" : request.normalizedReason();
+        List<String> roles = AdminRequestContext.roles(request);
+        return configVersionAppService.rejectReview(tenantId, sceneId, version, actor, reason, roles);
+    }
+
+    @PostMapping("/versions/{version}/cancel-review")
+    public ConfigVersionInfo cancelReview(
+            @RequestParam String tenantId,
+            @RequestParam String sceneId,
+            @PathVariable String version,
+            @RequestBody(required = false) ConfigVersionActionRequest request
+    ) {
+        String actor = AdminRequestContext.actor(request);
+        String reason = request == null ? "not provided" : request.normalizedReason();
+        List<String> roles = AdminRequestContext.roles(request);
+        return configVersionAppService.cancelReview(tenantId, sceneId, version, actor, reason, roles);
+    }
+
     @PostMapping("/versions/{version}/publish")
     public ConfigVersionInfo publish(
             @RequestParam String tenantId,
@@ -74,8 +151,10 @@ public class AdminConfigController {
             @PathVariable String version,
             @RequestBody(required = false) ConfigVersionActionRequest request
     ) {
-        String actor = request == null ? "system" : request.normalizedActor();
-        return configVersionAppService.publish(tenantId, sceneId, version, actor);
+        String actor = AdminRequestContext.actor(request);
+        String expectedSnapshotHash = request == null ? null : request.normalizedExpectedSnapshotHash();
+        List<String> roles = AdminRequestContext.roles(request);
+        return configVersionAppService.publish(tenantId, sceneId, version, actor, expectedSnapshotHash, roles);
     }
 
     @PostMapping("/versions/{version}/rollback")
@@ -107,6 +186,34 @@ public class AdminConfigController {
             @RequestParam(required = false) Integer limit
     ) {
         return configAuditAppService.listVersionAudits(tenantId, sceneId, version, limit);
+    }
+
+    @GetMapping("/versions/{version}/gitops")
+    public ConfigGitOpsExport exportGitOps(
+            @RequestParam String tenantId,
+            @RequestParam String sceneId,
+            @PathVariable String version,
+            @RequestParam(required = false) String baseVersion,
+            @RequestParam(defaultValue = "system") String actor
+    ) {
+        return configVersionAppService.exportGitOps(tenantId, sceneId, version, baseVersion, actor);
+    }
+
+    @GetMapping("/versions/{version}/review-workspace")
+    public ConfigReviewWorkspace reviewWorkspace(
+            @RequestParam String tenantId,
+            @RequestParam String sceneId,
+            @PathVariable String version,
+            @RequestParam(required = false) String baseVersion,
+            @RequestParam(required = false) List<String> roles
+    ) {
+        return configReviewWorkspaceAppService.getWorkspace(
+                tenantId,
+                sceneId,
+                version,
+                baseVersion,
+                AdminRequestContext.roles(roles)
+        );
     }
 
     @PostMapping("/versions/import")

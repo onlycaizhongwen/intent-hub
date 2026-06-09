@@ -6,11 +6,17 @@ import com.intenthub.domain.recognition.policy.ModelClientPort;
 import com.intenthub.domain.recognition.policy.ModelServiceHealth;
 import com.intenthub.domain.recognition.policy.ModelServiceAuthenticationException;
 import com.intenthub.infrastructure.http.ExternalRestClients;
+import com.intenthub.infrastructure.security.EnvironmentSecretRefResolver;
+import com.intenthub.infrastructure.security.SecretRefResolver;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClient;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,20 +25,30 @@ public class HttpModelClientAdapter implements ModelClientPort {
     private final RestClient restClient;
     private final RestClient.Builder restClientBuilder;
     private final ModelServiceProperties properties;
+    private final SecretRefResolver secretRefResolver;
     private final Map<ClientKey, RestClient> routedClients = new ConcurrentHashMap<>();
 
     public HttpModelClientAdapter(RestClient.Builder restClientBuilder, ModelServiceProperties properties) {
-        this(ExternalRestClients.build(restClientBuilder, properties.baseUrl(), properties.timeoutMs()), restClientBuilder, properties);
+        this(restClientBuilder, properties, new EnvironmentSecretRefResolver());
+    }
+
+    public HttpModelClientAdapter(RestClient.Builder restClientBuilder, ModelServiceProperties properties, SecretRefResolver secretRefResolver) {
+        this(ExternalRestClients.build(restClientBuilder, properties.baseUrl(), properties.timeoutMs()), restClientBuilder, properties, secretRefResolver);
     }
 
     HttpModelClientAdapter(RestClient restClient, ModelServiceProperties properties) {
-        this(restClient, null, properties);
+        this(restClient, null, properties, new EnvironmentSecretRefResolver());
     }
 
     HttpModelClientAdapter(RestClient restClient, RestClient.Builder restClientBuilder, ModelServiceProperties properties) {
+        this(restClient, restClientBuilder, properties, new EnvironmentSecretRefResolver());
+    }
+
+    HttpModelClientAdapter(RestClient restClient, RestClient.Builder restClientBuilder, ModelServiceProperties properties, SecretRefResolver secretRefResolver) {
         this.restClient = restClient;
         this.restClientBuilder = restClientBuilder;
         this.properties = properties;
+        this.secretRefResolver = secretRefResolver == null ? new EnvironmentSecretRefResolver() : secretRefResolver;
     }
 
     @Override
@@ -91,9 +107,10 @@ public class HttpModelClientAdapter implements ModelClientPort {
         if (policy == null || restClientBuilder == null || !overridesGlobalClient(policy)) {
             return restClient;
         }
-        ClientKey key = new ClientKey(endpoint(policy), timeoutMs(policy), authTokenOrThrow(policy));
-        return routedClients.computeIfAbsent(key, current ->
-                buildRoutedClient(current));
+        ClientRoute route = clientRoute(policy);
+        evictRotatedClients(route.key());
+        return routedClients.computeIfAbsent(route.key(), current ->
+                buildRoutedClient(route));
     }
 
     int cachedClientCount() {
@@ -104,12 +121,16 @@ public class HttpModelClientAdapter implements ModelClientPort {
         return !policy.endpoint().isBlank() || policy.timeoutMs() > 0 || !policy.authTokenRef().isBlank();
     }
 
-    private RestClient buildRoutedClient(ClientKey key) {
+    private void evictRotatedClients(ClientKey current) {
+        routedClients.keySet().removeIf(existing -> existing.sameRoute(current) && !existing.authTokenFingerprint().equals(current.authTokenFingerprint()));
+    }
+
+    private RestClient buildRoutedClient(ClientRoute route) {
         RestClient.Builder builder = restClientBuilder.clone();
-        if (!key.authToken().isBlank()) {
-            builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + key.authToken());
+        if (!route.authToken().isBlank()) {
+            builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + route.authToken());
         }
-        return ExternalRestClients.build(builder, key.endpoint(), key.timeoutMs());
+        return ExternalRestClients.build(builder, route.key().endpoint(), route.key().timeoutMs());
     }
 
     private String endpoint(ModelPolicy policy) {
@@ -130,22 +151,43 @@ public class HttpModelClientAdapter implements ModelClientPort {
         if (policy == null || policy.authTokenRef().isBlank()) {
             return "";
         }
-        String systemPropertyValue = System.getProperty(policy.authTokenRef());
-        if (systemPropertyValue != null && !systemPropertyValue.isBlank()) {
-            return systemPropertyValue;
-        }
-        String environmentValue = System.getenv(policy.authTokenRef());
-        return environmentValue == null ? "" : environmentValue;
+        return secretRefResolver.resolve(policy.authTokenRef()).orElse("");
     }
 
-    private String authTokenOrThrow(ModelPolicy policy) {
+    private ClientRoute clientRoute(ModelPolicy policy) {
         String token = authToken(policy);
         if (!policy.authTokenRef().isBlank() && token.isBlank()) {
             throw new ModelServiceAuthenticationException("MODEL_FALLBACK:AUTH_MISSING_TOKEN");
         }
-        return token;
+        ClientKey key = new ClientKey(
+                endpoint(policy),
+                timeoutMs(policy),
+                policy.authTokenRef().trim(),
+                tokenFingerprint(token)
+        );
+        return new ClientRoute(key, token);
     }
 
-    private record ClientKey(String endpoint, int timeoutMs, String authToken) {
+    private String tokenFingerprint(String token) {
+        if (token == null || token.isBlank()) {
+            return "";
+        }
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 digest is unavailable", ex);
+        }
+    }
+
+    private record ClientRoute(ClientKey key, String authToken) {
+    }
+
+    private record ClientKey(String endpoint, int timeoutMs, String authTokenRef, String authTokenFingerprint) {
+        private boolean sameRoute(ClientKey other) {
+            return endpoint.equals(other.endpoint)
+                    && timeoutMs == other.timeoutMs
+                    && authTokenRef.equals(other.authTokenRef);
+        }
     }
 }

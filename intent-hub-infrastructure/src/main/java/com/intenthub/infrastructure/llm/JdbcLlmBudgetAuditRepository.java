@@ -38,25 +38,10 @@ public class JdbcLlmBudgetAuditRepository implements LlmBudgetAuditPort {
         String normalizedProvider = normalize(provider);
         String normalizedModel = normalize(model);
         LocalDate usageDate = LocalDate.now(ZoneOffset.UTC);
-        int updated = jdbcTemplate.update("""
-                        update llm_budget_usage
-                           set attempt_count = attempt_count + 1,
-                               consumed_units = consumed_units + ?,
-                               updated_at = now()
-                         where tenant_id = ?
-                           and scene_id = ?
-                           and usage_date = ?
-                           and provider = ?
-                           and model = ?
-                        """,
-                boundedUnits,
-                normalizedTenant,
-                normalizedScene,
-                Date.valueOf(usageDate),
-                normalizedProvider,
-                normalizedModel
-        );
-        if (updated == 0) {
+        if (updateAttempt(normalizedTenant, normalizedScene, usageDate, normalizedProvider, normalizedModel, boundedUnits)) {
+            return;
+        }
+        try {
             jdbcTemplate.update("""
                             insert into llm_budget_usage (
                                 tenant_id, scene_id, usage_date, provider, model,
@@ -70,6 +55,8 @@ public class JdbcLlmBudgetAuditRepository implements LlmBudgetAuditPort {
                     normalizedModel,
                     boundedUnits
             );
+        } catch (DuplicateKeyException ex) {
+            updateAttempt(normalizedTenant, normalizedScene, usageDate, normalizedProvider, normalizedModel, boundedUnits);
         }
     }
 
@@ -267,6 +254,27 @@ public class JdbcLlmBudgetAuditRepository implements LlmBudgetAuditPort {
                 BUDGET_MODEL
         );
         return count != null && count > 0;
+    }
+
+    private boolean updateAttempt(String tenantId, String sceneId, LocalDate usageDate, String provider, String model, double units) {
+        return jdbcTemplate.update("""
+                        update llm_budget_usage
+                           set attempt_count = attempt_count + 1,
+                               consumed_units = consumed_units + ?,
+                               updated_at = now()
+                         where tenant_id = ?
+                           and scene_id = ?
+                           and usage_date = ?
+                           and provider = ?
+                           and model = ?
+                        """,
+                units,
+                tenantId,
+                sceneId,
+                Date.valueOf(usageDate),
+                provider,
+                model
+        ) == 1;
     }
 
     private String normalize(String value) {

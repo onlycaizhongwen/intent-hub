@@ -8,6 +8,8 @@ import com.intenthub.domain.config.LlmPolicy;
 import com.intenthub.domain.recognition.RecognitionCandidate;
 import com.intenthub.domain.recognition.policy.LlmClientPort;
 import com.intenthub.infrastructure.http.ExternalRestClients;
+import com.intenthub.infrastructure.security.EnvironmentSecretRefResolver;
+import com.intenthub.infrastructure.security.SecretRefResolver;
 import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
@@ -24,9 +26,10 @@ public class TongyiLlmAdapter implements LlmClientPort {
     private final LlmGovernanceProperties properties;
     private final IntentMetricsPort metricsPort;
     private final LlmBudgetAuditPort budgetAuditPort;
+    private final SecretRefResolver secretRefResolver;
 
     public TongyiLlmAdapter(RestClient.Builder restClientBuilder, LlmGovernanceProperties properties, IntentMetricsPort metricsPort) {
-        this(restClientBuilder, null, properties, metricsPort, new NoopLlmBudgetAuditPort());
+        this(restClientBuilder, null, properties, metricsPort, new NoopLlmBudgetAuditPort(), new EnvironmentSecretRefResolver());
     }
 
     public TongyiLlmAdapter(
@@ -36,33 +39,57 @@ public class TongyiLlmAdapter implements LlmClientPort {
             IntentMetricsPort metricsPort,
             LlmBudgetAuditPort budgetAuditPort
     ) {
+        this(restClientBuilder, chatClientBuilder, properties, metricsPort, budgetAuditPort, new EnvironmentSecretRefResolver());
+    }
+
+    public TongyiLlmAdapter(
+            RestClient.Builder restClientBuilder,
+            Object chatClientBuilder,
+            LlmGovernanceProperties properties,
+            IntentMetricsPort metricsPort,
+            LlmBudgetAuditPort budgetAuditPort,
+            SecretRefResolver secretRefResolver
+    ) {
         this(
                 ExternalRestClients.build(restClientBuilder, properties.baseUrl(), properties.timeoutMs()),
                 buildChatClient(chatClientBuilder),
                 properties,
                 metricsPort,
-                budgetAuditPort
+                budgetAuditPort,
+                secretRefResolver
         );
     }
 
     TongyiLlmAdapter(RestClient restClient, LlmGovernanceProperties properties) {
-        this(restClient, null, properties, new NoopIntentMetricsPort(), new NoopLlmBudgetAuditPort());
+        this(restClient, null, properties, new NoopIntentMetricsPort(), new NoopLlmBudgetAuditPort(), new EnvironmentSecretRefResolver());
     }
 
     TongyiLlmAdapter(RestClient restClient, LlmGovernanceProperties properties, IntentMetricsPort metricsPort) {
-        this(restClient, null, properties, metricsPort, new NoopLlmBudgetAuditPort());
+        this(restClient, null, properties, metricsPort, new NoopLlmBudgetAuditPort(), new EnvironmentSecretRefResolver());
     }
 
     TongyiLlmAdapter(RestClient restClient, Object chatClient, LlmGovernanceProperties properties, IntentMetricsPort metricsPort) {
-        this(restClient, chatClient, properties, metricsPort, new NoopLlmBudgetAuditPort());
+        this(restClient, chatClient, properties, metricsPort, new NoopLlmBudgetAuditPort(), new EnvironmentSecretRefResolver());
     }
 
     TongyiLlmAdapter(RestClient restClient, Object chatClient, LlmGovernanceProperties properties, IntentMetricsPort metricsPort, LlmBudgetAuditPort budgetAuditPort) {
+        this(restClient, chatClient, properties, metricsPort, budgetAuditPort, new EnvironmentSecretRefResolver());
+    }
+
+    TongyiLlmAdapter(
+            RestClient restClient,
+            Object chatClient,
+            LlmGovernanceProperties properties,
+            IntentMetricsPort metricsPort,
+            LlmBudgetAuditPort budgetAuditPort,
+            SecretRefResolver secretRefResolver
+    ) {
         this.restClient = restClient;
         this.chatClient = chatClient;
         this.properties = properties;
         this.metricsPort = metricsPort == null ? new NoopIntentMetricsPort() : metricsPort;
         this.budgetAuditPort = budgetAuditPort == null ? new NoopLlmBudgetAuditPort() : budgetAuditPort;
+        this.secretRefResolver = secretRefResolver == null ? new EnvironmentSecretRefResolver() : secretRefResolver;
     }
 
     @Override
@@ -103,6 +130,10 @@ public class TongyiLlmAdapter implements LlmClientPort {
     private boolean reserveBudget(String tenantId, String sceneId, LlmPolicy policy) {
         double effectiveBudget = Math.min(properties.dailyBudget(), policy.dailyBudget());
         return budgetAuditPort.tryReserveDailyBudget(tenantId, sceneId, policy.provider(), policy.model(), 1.0, effectiveBudget);
+    }
+
+    Optional<String> resolveSecretRef(String ref) {
+        return secretRefResolver.resolve(ref);
     }
 
     private LlmRecognitionResponse recognizeByProvider(String text, String sceneId, LlmPolicy policy) {

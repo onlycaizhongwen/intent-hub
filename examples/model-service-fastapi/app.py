@@ -1,12 +1,15 @@
+import os
 import re
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 
 MODEL_VERSION = "fastapi-example-2026-06-08"
 DEFAULT_THRESHOLD = 0.70
+AUTH_TOKEN = os.getenv("MODEL_SERVICE_AUTH_TOKEN", "").strip()
+AUTH_TOKEN_FILE = os.getenv("MODEL_SERVICE_AUTH_TOKEN_FILE", "").strip()
 
 app = FastAPI(title="Intent Hub Model Service Example", version="0.2.0")
 
@@ -35,7 +38,8 @@ def health() -> dict[str, str | float]:
 
 
 @app.post("/recognize", response_model=RecognizeResponse)
-def recognize(request: RecognizeRequest) -> RecognizeResponse:
+def recognize(request: RecognizeRequest, authorization: str | None = Header(default=None)) -> RecognizeResponse:
+    require_authorization(authorization)
     text = request.text.strip()
     normalized = text.lower()
 
@@ -50,6 +54,27 @@ def recognize(request: RecognizeRequest) -> RecognizeResponse:
     if not candidates:
         return RecognizeResponse(explanation="fastapi example did not match")
     return max(candidates, key=lambda candidate: candidate.confidence or 0.0)
+
+
+def require_authorization(authorization: str | None) -> None:
+    auth_token = current_auth_token()
+    if not auth_token:
+        return
+    expected = f"Bearer {auth_token}"
+    if authorization != expected:
+        raise HTTPException(status_code=401, detail="missing or invalid model service token")
+
+
+def current_auth_token() -> str:
+    if AUTH_TOKEN:
+        return AUTH_TOKEN
+    if not AUTH_TOKEN_FILE:
+        return ""
+    try:
+        with open(AUTH_TOKEN_FILE, encoding="utf-8") as token_file:
+            return token_file.read().strip()
+    except OSError:
+        return ""
 
 
 def match_order_cancel(text: str, normalized: str) -> RecognizeResponse | None:

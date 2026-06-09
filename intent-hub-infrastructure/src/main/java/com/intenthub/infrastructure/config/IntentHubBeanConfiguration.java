@@ -9,6 +9,7 @@ import com.intenthub.application.config.AuditLogPort;
 import com.intenthub.application.config.ConfigAuditAppService;
 import com.intenthub.application.config.ConfigObjectAppService;
 import com.intenthub.application.config.ConfigObjectPort;
+import com.intenthub.application.config.ConfigReviewWorkspaceAppService;
 import com.intenthub.application.config.ConfigVersionAppService;
 import com.intenthub.application.config.ConfigVersionPort;
 import com.intenthub.application.llm.LlmBudgetAuditPort;
@@ -28,14 +29,29 @@ import com.intenthub.infrastructure.llm.TongyiLlmAdapter;
 import com.intenthub.infrastructure.model.HttpModelClientAdapter;
 import com.intenthub.infrastructure.model.ModelServiceProperties;
 import com.intenthub.infrastructure.model.NoopModelClientAdapter;
+import com.intenthub.infrastructure.security.CompositeSecretRefResolver;
+import com.intenthub.infrastructure.security.EnvironmentSecretRefResolver;
+import com.intenthub.infrastructure.security.FileSecretRefResolver;
+import com.intenthub.infrastructure.security.ManagedConfigSecretProperties;
+import com.intenthub.infrastructure.security.ManagedConfigSecretRefResolver;
+import com.intenthub.infrastructure.security.SecretRefResolver;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.beans.factory.ListableBeanFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
 @Configuration
-@EnableConfigurationProperties({ModelServiceProperties.class, LlmGovernanceProperties.class, LlmBudgetReconciliationProperties.class})
+@EnableConfigurationProperties({
+        ModelServiceProperties.class,
+        LlmGovernanceProperties.class,
+        LlmBudgetReconciliationProperties.class,
+        ManagedConfigSecretProperties.class
+})
 public class IntentHubBeanConfiguration {
     @Bean
     RecognizeAppService recognizeAppService(
@@ -81,6 +97,14 @@ public class IntentHubBeanConfiguration {
     }
 
     @Bean
+    ConfigReviewWorkspaceAppService configReviewWorkspaceAppService(
+            ConfigVersionAppService configVersionAppService,
+            ConfigAuditAppService configAuditAppService
+    ) {
+        return new ConfigReviewWorkspaceAppService(configVersionAppService, configAuditAppService);
+    }
+
+    @Bean
     ObservabilityAppService observabilityAppService(ObservabilityQueryPort observabilityQueryPort) {
         return new ObservabilityAppService(observabilityQueryPort);
     }
@@ -111,11 +135,25 @@ public class IntentHubBeanConfiguration {
     }
 
     @Bean
-    ModelClientPort modelClientPort(RestClient.Builder restClientBuilder, ModelServiceProperties properties) {
+    SecretRefResolver secretRefResolver(
+            @Value("${intent-hub.secret.file-root:}") String fileRoot,
+            ManagedConfigSecretProperties managedConfigSecretProperties
+    ) {
+        List<SecretRefResolver> resolvers = new ArrayList<>();
+        resolvers.add(new EnvironmentSecretRefResolver());
+        if (fileRoot != null && !fileRoot.isBlank()) {
+            resolvers.add(new FileSecretRefResolver(Path.of(fileRoot.trim())));
+        }
+        resolvers.add(new ManagedConfigSecretRefResolver(managedConfigSecretProperties));
+        return new CompositeSecretRefResolver(resolvers);
+    }
+
+    @Bean
+    ModelClientPort modelClientPort(RestClient.Builder restClientBuilder, ModelServiceProperties properties, SecretRefResolver secretRefResolver) {
         if (!properties.enabled()) {
             return new NoopModelClientAdapter();
         }
-        return new HttpModelClientAdapter(restClientBuilder, properties);
+        return new HttpModelClientAdapter(restClientBuilder, properties, secretRefResolver);
     }
 
     @Bean
@@ -124,9 +162,10 @@ public class IntentHubBeanConfiguration {
             ListableBeanFactory beanFactory,
             LlmGovernanceProperties properties,
             IntentMetricsPort metricsPort,
-            LlmBudgetAuditPort budgetAuditPort
+            LlmBudgetAuditPort budgetAuditPort,
+            SecretRefResolver secretRefResolver
     ) {
-        return new TongyiLlmAdapter(restClientBuilder, springAiChatClientBuilder(beanFactory), properties, metricsPort, budgetAuditPort);
+        return new TongyiLlmAdapter(restClientBuilder, springAiChatClientBuilder(beanFactory), properties, metricsPort, budgetAuditPort, secretRefResolver);
     }
 
     private Object springAiChatClientBuilder(ListableBeanFactory beanFactory) {

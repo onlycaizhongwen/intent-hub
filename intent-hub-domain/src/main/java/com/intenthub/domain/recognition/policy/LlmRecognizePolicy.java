@@ -30,6 +30,7 @@ public class LlmRecognizePolicy implements RecognitionPolicy {
             }
             return candidate;
         } catch (RuntimeException ex) {
+            task.markPath("LLM_ERROR:" + ex.getClass().getSimpleName() + ":" + rootCauseName(ex));
             task.markPath("LLM_FALLBACK:" + task.sceneConfig().llmPolicy().fallbackDecision());
             return Optional.empty();
         }
@@ -39,5 +40,13 @@ public class LlmRecognizePolicy implements RecognitionPolicy {
         return task.sceneConfig().llmPolicy().enabled()
                 && task.sceneConfig().llmPolicy().dailyBudget() > 0.0
                 && task.sceneConfig().llmPolicy().timeoutMs() > 0;
+    }
+
+    private String rootCauseName(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
+        return current.getClass().getSimpleName();
     }
 }

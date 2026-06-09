@@ -305,6 +305,7 @@ class RecognizeAppServiceTest {
                 "PRE_ROUTE:order-scene:v-llm",
                 "RuleRecognitionPolicy",
                 "LlmRecognizePolicy",
+                "LLM_ERROR:IllegalStateException:IllegalStateException",
                 "LLM_FALLBACK:REJECTED",
                 "POST_ROUTE:NONE"
         );

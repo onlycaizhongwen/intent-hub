@@ -11,6 +11,10 @@ public interface ConfigVersionPort {
 
     void importBundle(String tenantId, String sceneId, String version, ConfigBundle bundle, String actor);
 
+    void updateStatus(String tenantId, String sceneId, String version, String status, String actor);
+
+    void updateApprovedSnapshotHash(String tenantId, String sceneId, String version, String snapshotHash, String actor);
+
     void publish(String tenantId, String sceneId, String version, String actor);
 
     void rollback(String tenantId, String sceneId, String targetVersion, String actor);

@@ -197,7 +197,8 @@ class ConfigVersionAppServiceTest {
                         "enabled", false,
                         "endpoint", "https://model.example.test",
                         "timeoutMs", 1800,
-                        "minConfidence", 0.72
+                        "minConfidence", 0.72,
+                        "authTokenRef", "INTENT_HUB_MODEL_TOKEN"
                 )
         ), "admin");
 
@@ -206,7 +207,8 @@ class ConfigVersionAppServiceTest {
                 "enabled", false,
                 "endpoint", "https://model.example.test",
                 "timeoutMs", 1800,
-                "minConfidence", 0.72
+                "minConfidence", 0.72,
+                "authTokenRef", "INTENT_HUB_MODEL_TOKEN"
         ));
     }
 

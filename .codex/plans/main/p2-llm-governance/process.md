@@ -284,7 +284,7 @@
 
 - 本轮目标：把模型服务参与识别的开关和最低置信度从纯全局配置推进到 `tenant + scene + version` 的配置治理里，先解决“该 scene 是否允许模型候选进入识别链路”。
 - 已完成：新增 `ModelPolicy`，`SceneConfig` 持有 `modelPolicy`；`ModelRecognitionPolicy` 支持 `MODEL_POLICY:DISABLED` 与 `MODEL_POLICY:LOW_CONFIDENCE`；`JdbcSceneConfigRepository` 从已发布 `nlu_strategy.model_policy` 读取 `enabled/endpoint/timeoutMs/minConfidence`；新增 Flyway `V3__p2_model_policy.sql`；Admin 策略对象 upsert 已写入 `model_policy`。
-- 边界：当前运行时只消费 `enabled/minConfidence` 控制模型候选；`endpoint/timeoutMs` 已进入配置存储但尚未动态切换 HTTP adapter，后续需要补连接池隔离、鉴权和按 scene 路由策略。
+- 边界：当前运行时已消费 `enabled/minConfidence/endpoint/timeoutMs` 控制模型候选和模型服务请求目标；后续仍需要补生产级连接池隔离、租户鉴权、K8s 服务发现和真实多实例压测。
 
 ## 2026-06-08 补充记录：模型策略 JDBC 迁移与 Admin 真链路冒烟
 
@@ -292,4 +292,4 @@
 - 问题发现：`JdbcConfigObjectRepository` 已支持写入 `model_policy`，但 `ConfigObjectAppService` 规范化 `STRATEGY` payload 时遗漏 `modelPolicy`，导致 HTTP Admin upsert 真链路会把模型策略写成 `{}`。
 - 已完成：`ConfigObjectAppService` 保留 `modelPolicy`；`ConfigVersionAppServiceTest` 增加防回归用例；新增 `scripts/smoke-model-policy-jdbc.ps1`，默认使用宿主机 `15432` 启动临时 PostgreSQL 16 容器并覆盖 `spring.datasource.url`。
 - 验证证据：`mvn -pl intent-hub-application -am test` 通过，相关模块 14 个测试；`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-model-policy-jdbc.ps1` 通过，覆盖 Flyway V1/V2/V3、`nlu_strategy.model_policy` 字段、Admin list、DB JSON 持久化、发布配置和 `MODEL_POLICY:DISABLED` 识别路径。
-- 边界：本轮仍未实现按 scene 动态切换模型 endpoint/timeout；该能力需要连接池隔离、租户鉴权和失败关闭设计后再进入运行时。
+- 边界：本轮已完成真实 PostgreSQL/Flyway 与 Admin `modelPolicy` 写入/查询链路；按 scene 动态切换模型 endpoint/timeout 已在后续补齐，生产级连接池隔离、租户鉴权和多实例压测仍待补。

@@ -13,6 +13,7 @@ import com.intenthub.domain.recognition.IntentResult;
 import com.intenthub.domain.recognition.RecognitionCandidate;
 import com.intenthub.domain.recognition.policy.LlmClientPort;
 import com.intenthub.domain.recognition.policy.ModelClientPort;
+import com.intenthub.domain.recognition.policy.ModelServiceAuthenticationException;
 import com.intenthub.application.metrics.IntentMetricsPort;
 import com.intenthub.application.metrics.MetricsSnapshot;
 import org.junit.jupiter.api.BeforeEach;
@@ -178,6 +179,42 @@ class RecognizeAppServiceTest {
     }
 
     @Test
+    void failsClosedWithAuthMarkerWhenModelServiceTokenReferenceIsMissing() {
+        service = new RecognizeAppService(
+                new TestSceneConfigPort(),
+                tracePort,
+                badCasePort,
+                idempotencyPort,
+                new DisabledLlmClient(),
+                metricsPort,
+                new ModelClientPort() {
+                    @Override
+                    public Optional<RecognitionCandidate> recognize(String text, String sceneId) {
+                        return Optional.empty();
+                    }
+
+                    @Override
+                    public Optional<RecognitionCandidate> recognize(String text, String sceneId, ModelPolicy policy) {
+                        throw new ModelServiceAuthenticationException("MODEL_FALLBACK:AUTH_MISSING_TOKEN");
+                    }
+                }
+        );
+
+        IntentResult result = service.recognize(envelope("REQ-P2-MODEL-AUTH-001", "模型服务缺少鉴权 token"));
+
+        assertThat(result.intentCode()).isEqualTo("UNKNOWN");
+        assertThat(result.decision()).isEqualTo(Decision.REJECTED);
+        assertThat(result.recognitionPath()).containsExactly(
+                "PRE_ROUTE:order-scene:v1-p1",
+                "RuleRecognitionPolicy",
+                "MODEL_FALLBACK:AUTH_MISSING_TOKEN",
+                "POST_ROUTE:NONE"
+        );
+        assertThat(tracePort.results).containsExactly(result);
+        assertThat(badCasePort.results).containsExactly(result);
+    }
+
+    @Test
     void skipsModelWhenSceneModelPolicyIsDisabled() {
         service = new RecognizeAppService(
                 envelope -> sceneWithModelPolicy(envelope, ModelPolicy.disabled()),
@@ -223,6 +260,27 @@ class RecognizeAppServiceTest {
                 "MODEL_POLICY:LOW_CONFIDENCE",
                 "POST_ROUTE:NONE"
         );
+    }
+
+    @Test
+    void passesSceneModelPolicyToModelClient() {
+        ModelPolicy policy = new ModelPolicy(true, "http://scene-model.example.test", 1234, 0.70);
+        RecordingModelClient modelClient = new RecordingModelClient(new RecognitionCandidate("ORDER_QUERY", 0.80, Map.of(), "scene model hit"));
+        service = new RecognizeAppService(
+                envelope -> sceneWithModelPolicy(envelope, policy),
+                tracePort,
+                badCasePort,
+                idempotencyPort,
+                new DisabledLlmClient(),
+                metricsPort,
+                modelClient
+        );
+
+        IntentResult result = service.recognize(envelope("REQ-P2-MODEL-POLICY-003", "model only text"));
+
+        assertThat(result.intentCode()).isEqualTo("ORDER_QUERY");
+        assertThat(modelClient.lastPolicy).isEqualTo(policy);
+        assertThat(modelClient.lastSceneId).isEqualTo("order-scene");
     }
 
     @Test
@@ -417,6 +475,28 @@ class RecognizeAppServiceTest {
         @Override
         public Optional<RecognitionCandidate> recognize(String text, String sceneId) {
             return Optional.empty();
+        }
+    }
+
+    private static final class RecordingModelClient implements ModelClientPort {
+        private final RecognitionCandidate candidate;
+        private String lastSceneId;
+        private ModelPolicy lastPolicy;
+
+        private RecordingModelClient(RecognitionCandidate candidate) {
+            this.candidate = candidate;
+        }
+
+        @Override
+        public Optional<RecognitionCandidate> recognize(String text, String sceneId) {
+            return Optional.of(candidate);
+        }
+
+        @Override
+        public Optional<RecognitionCandidate> recognize(String text, String sceneId, ModelPolicy policy) {
+            lastSceneId = sceneId;
+            lastPolicy = policy;
+            return Optional.of(candidate);
         }
     }
 }

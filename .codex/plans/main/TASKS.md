@@ -44,7 +44,7 @@
 
 ## P2-4 真实模型服务适配
 - 状态：已提交并推送
-- 摘要：接入 FastAPI 风格模型服务最小 adapter，默认关闭/no-op；模型候选位于规则之后、LLM 之前；`mvn test` 已通过，共 29 个测试。
+- 摘要：接入 FastAPI 风格模型服务最小 adapter，默认关闭/no-op；模型候选位于规则之后、LLM 之前；已补 scene 级 endpoint/timeout 动态路由；`mvn test` 已通过。
 - 过程文件：`.codex/plans/main/p2-model-service-adapter/process.md`
 - 恢复提示：P2-4 已完成并推送，可从 P2-5 或后续 P2.x 继续。
 

@@ -15,4 +15,8 @@ public record ModelServiceProperties(
     public boolean active() {
         return enabled && baseUrl != null && !baseUrl.isBlank();
     }
+
+    public boolean enabled() {
+        return enabled;
+    }
 }

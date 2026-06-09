@@ -112,7 +112,7 @@ public class IntentHubBeanConfiguration {
 
     @Bean
     ModelClientPort modelClientPort(RestClient.Builder restClientBuilder, ModelServiceProperties properties) {
-        if (!properties.active()) {
+        if (!properties.enabled()) {
             return new NoopModelClientAdapter();
         }
         return new HttpModelClientAdapter(restClientBuilder, properties);

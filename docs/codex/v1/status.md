@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、管理端 confirmed/reserved/pending 查询、模型策略 JDBC 冒烟、配置版本审计查询、配置对象删除与批量导入、配置字段基础校验、发布前跨对象引用校验、`scene_routing_rule.match_condition` 最小后置路由条件解析、显式 `actionSchema.intentCode` 动作归属读取已完成
+- 当前阶段：P2-5 LLM 受控兜底最小闭环已完成，P2 试点扩展进行中；模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、管理端 confirmed/reserved/pending 查询、模型策略 JDBC 冒烟、scene 级模型 endpoint/timeout 动态路由、场景模型客户端缓存复用、模型服务 token 引用鉴权与缺失失败关闭、配置版本审计查询、配置对象删除与批量导入、配置字段基础校验、发布前跨对象引用校验、`scene_routing_rule.match_condition` 最小后置路由条件解析、显式 `actionSchema.intentCode` 动作归属读取已完成
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -109,7 +109,7 @@
 - 2026-06-08：补充 `scripts/smoke-model-service-e2e.ps1`，将模型服务容器 + Intent Hub jar 端到端联调固化为一键 smoke，已验证自动打包、启动、识别断言和清理流程。
 - 2026-06-08：扩展 FastAPI 模型服务示例，补充 `modelVersion`、`threshold` 与退款、物流、发票等多意图样本；Java adapter 核心消费字段保持不变，端到端 smoke 已增加模型版本断言。
 - 2026-06-08：增强模型服务健康详情，`GET /api/v1/admin/health` 可透出 `model_service.modelVersion` 与 `threshold`；该信息仅用于观测和 smoke 断言，不进入识别候选或下游业务动作。
-- 2026-06-08：补齐 scene 级 `model_policy` 最小治理闭环，已支持从已发布 `nlu_strategy.model_policy` 读取模型参与开关、endpoint、timeout 与最低置信度；当前运行时已按 `enabled/minConfidence` 控制模型候选，endpoint/timeout 动态路由留作后续增强。
+- 2026-06-08：补齐 scene 级 `model_policy` 最小治理闭环，已支持从已发布 `nlu_strategy.model_policy` 读取模型参与开关、endpoint、timeout 与最低置信度；运行时已按 `enabled/minConfidence` 控制模型候选，并支持按 scene 策略动态覆盖模型服务 endpoint/timeout。
 - 2026-06-08：修复 Admin 策略对象规范化遗漏 `modelPolicy` 的问题，避免 HTTP Admin upsert 时写入 `{}`；新增 `scripts/smoke-model-policy-jdbc.ps1`，已通过真实 PostgreSQL 16 空库验证 Flyway V1/V2/V3、`nlu_strategy.model_policy` 字段、Admin `modelPolicy` 写入/查询、发布配置读取和 `MODEL_POLICY:DISABLED` 识别路径。
 - 2026-06-08：补齐 P95/P99 长尾耗时指标与告警，`MetricsSnapshot`、Prometheus 文本、`/api/v1/admin/metrics/alerts`、Prometheus 规则、Grafana 看板和 Runbook 均已同步；相关模块测试通过，共 66 个测试。
 - 2026-06-08：补齐配置版本审计查询闭环，新增 `AuditLogEntry`、`ConfigAuditAppService` 与 `GET /api/v1/admin/config/versions/{version}/audits`；memory/JDBC 审计仓储均支持按 `tenantId + sceneId + version` 倒序查询，JDBC 覆盖 `audit_log.detail` JSON 解析。相关模块测试通过，共 68 个测试。
@@ -118,3 +118,7 @@
 - 2026-06-08：补齐发布前跨对象引用校验，`ConfigVersionAppService.validate` 已检查 slot 所属 intent、POST route 下游动作、downstream action 反推 intent 的最小引用完整性，`publish` 复用 validate 结果阻断破损配置包。应用层相关测试通过，共 18 个测试。
 - 2026-06-08：补齐 `scene_routing_rule.match_condition` 最小后置路由条件解析，新增 `PostRouteRule` 并让 `SceneConfig.actionFor(RecognitionCandidate)` 按候选意图、最低置信度和槽位等值条件选择 downstream action；JDBC 已按 `priority asc, id asc` 读取 POST 规则，支持 `intentCode`/`intent_code`、`minConfidence`/`min_confidence`、`slots`/`slotEquals`/`slotConditions`，并保留未命中时按 intent 默认动作回退。相关模块测试通过，共 75 个测试。
 - 2026-06-08：补齐下游动作显式 intent 归属读取，Admin 下游动作对象支持顶层 `intentCode` 写入 `actionSchema.intentCode`，发布前校验优先使用显式 intent 引用，JDBC 已发布配置读取优先按 `downstream_action.action_schema.intentCode` 建立 intent -> action 映射；旧配置继续保留按 `ACTION_CODE` 后缀推断的兼容路径。应用层与基础设施层测试通过，共 60 个测试。
+
+- 2026-06-08：补齐 scene 级模型 endpoint/timeout 动态路由，`ModelRecognitionPolicy` 已将 `ModelPolicy` 传给模型端口，`HttpModelClientAdapter` 可优先使用 `modelPolicy.endpoint/timeoutMs` 构建请求客户端，并按 endpoint + timeout 缓存复用场景客户端；全局 `enabled=false` 仍保持 no-op，未配置 scene endpoint 时继续使用全局 base-url。应用层、基础设施层与接口层关联测试通过，共 83 个测试。
+- 2026-06-08：补齐模型服务 token 引用鉴权，`modelPolicy.authTokenRef` 只保存环境变量或系统属性引用名，运行时解析后向 scene 模型服务请求注入 Bearer 鉴权头；不在 DB、文档或仓库保存明文 token。应用层与基础设施层测试通过，共 65 个测试。
+- 2026-06-08：补齐模型服务 token 引用缺失失败关闭，`authTokenRef` 已配置但系统属性/环境变量无法解析时不再发无鉴权请求，识别路径记录 `MODEL_FALLBACK:AUTH_MISSING_TOKEN` 并进入 bad case/模型 fallback 指标口径。应用层与基础设施层测试通过，共 67 个测试。

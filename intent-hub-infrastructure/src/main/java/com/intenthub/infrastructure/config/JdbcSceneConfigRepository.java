@@ -202,7 +202,8 @@ public class JdbcSceneConfigRepository implements SceneConfigPort {
                 bool(policy, "enabled", true),
                 string(policy, "endpoint", string(policy, "baseUrl", string(policy, "base_url", ""))),
                 integer(policy, "timeoutMs", integer(policy, "timeout_ms", 0)),
-                decimal(policy, "minConfidence", decimal(policy, "min_confidence", fallbackThreshold.toPlainString()).toPlainString()).doubleValue()
+                decimal(policy, "minConfidence", decimal(policy, "min_confidence", fallbackThreshold.toPlainString()).toPlainString()).doubleValue(),
+                string(policy, "authTokenRef", string(policy, "auth_token_ref", ""))
         );
     }
 

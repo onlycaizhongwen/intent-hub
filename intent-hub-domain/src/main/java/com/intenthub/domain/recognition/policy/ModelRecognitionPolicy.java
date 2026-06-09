@@ -19,13 +19,20 @@ public class ModelRecognitionPolicy implements RecognitionPolicy {
             return Optional.empty();
         }
         try {
-            Optional<RecognitionCandidate> candidate = modelClientPort.recognize(task.envelope().text(), task.sceneConfig().sceneId());
+            Optional<RecognitionCandidate> candidate = modelClientPort.recognize(
+                    task.envelope().text(),
+                    task.sceneConfig().sceneId(),
+                    task.sceneConfig().modelPolicy()
+            );
             if (candidate.isPresent() && candidate.get().confidence() < task.sceneConfig().modelPolicy().minConfidence()) {
                 task.markPath("MODEL_POLICY:LOW_CONFIDENCE");
                 return Optional.empty();
             }
             candidate.ifPresent(ignored -> task.markPath("ModelRecognitionPolicy"));
             return candidate;
+        } catch (ModelServiceAuthenticationException ex) {
+            task.markPath(ex.pathMarker());
+            return Optional.empty();
         } catch (RuntimeException ex) {
             task.markPath("MODEL_FALLBACK:CLOSED");
             return Optional.empty();

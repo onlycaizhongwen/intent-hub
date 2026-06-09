@@ -89,7 +89,8 @@ class JdbcSceneConfigRepositoryTest {
                         "enabled", true,
                         "endpoint", "https://model.example.test",
                         "timeoutMs", 1800,
-                        "minConfidence", 0.72
+                        "minConfidence", 0.72,
+                        "authTokenRef", "INTENT_HUB_MODEL_TOKEN"
                 ))
         );
 
@@ -105,6 +106,7 @@ class JdbcSceneConfigRepositoryTest {
         assertThat(config.modelPolicy().endpoint()).isEqualTo("https://model.example.test");
         assertThat(config.modelPolicy().timeoutMs()).isEqualTo(1800);
         assertThat(config.modelPolicy().minConfidence()).isEqualTo(0.72);
+        assertThat(config.modelPolicy().authTokenRef()).isEqualTo("INTENT_HUB_MODEL_TOKEN");
     }
 
     @Test

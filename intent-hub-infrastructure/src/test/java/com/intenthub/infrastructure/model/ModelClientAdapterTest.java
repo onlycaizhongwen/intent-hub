@@ -1,5 +1,6 @@
 package com.intenthub.infrastructure.model;
 
+import com.intenthub.domain.config.ModelPolicy;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
@@ -11,8 +12,10 @@ import org.springframework.web.client.RestClient;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -75,6 +78,89 @@ class ModelClientAdapterTest {
     }
 
     @Test
+    void httpAdapterUsesSceneEndpointWhenModelPolicyOverridesGlobalBaseUrl() throws IOException {
+        withLocalModelServer("""
+                {"intentCode":"ORDER_QUERY","confidence":0.83,"slots":{},"explanation":"scene model hit"}
+                """, baseUrl -> {
+            ModelServiceProperties properties = new ModelServiceProperties(true, "https://global-model.example.test", 2000);
+            HttpModelClientAdapter adapter = new HttpModelClientAdapter(RestClient.builder(), properties);
+
+            assertThat(adapter.recognize("text", "scene", new ModelPolicy(true, baseUrl, 1500, 0.70)))
+                    .hasValueSatisfying(candidate -> {
+                        assertThat(candidate.intentCode()).isEqualTo("ORDER_QUERY");
+                        assertThat(candidate.confidence()).isEqualTo(0.83);
+                        assertThat(candidate.explanation()).isEqualTo("scene model hit");
+                    });
+        });
+    }
+
+    @Test
+    void httpAdapterCanUseSceneEndpointWithoutGlobalBaseUrl() throws IOException {
+        withLocalModelServer("""
+                {"intentCode":"ORDER_CANCEL","confidence":0.84,"slots":{},"explanation":"scene only hit"}
+                """, baseUrl -> {
+            ModelServiceProperties properties = new ModelServiceProperties(true, "", 2000);
+            HttpModelClientAdapter adapter = new HttpModelClientAdapter(RestClient.builder(), properties);
+
+            assertThat(adapter.recognize("text", "scene", new ModelPolicy(true, baseUrl, 1500, 0.70)))
+                    .hasValueSatisfying(candidate -> {
+                        assertThat(candidate.intentCode()).isEqualTo("ORDER_CANCEL");
+                        assertThat(candidate.confidence()).isEqualTo(0.84);
+                    });
+        });
+    }
+
+    @Test
+    void httpAdapterReusesSceneEndpointClientByEndpointAndTimeout() throws IOException {
+        withLocalModelServer("""
+                {"intentCode":"ORDER_QUERY","confidence":0.85,"slots":{},"explanation":"cached scene hit"}
+                """, baseUrl -> {
+            ModelServiceProperties properties = new ModelServiceProperties(true, "", 2000);
+            HttpModelClientAdapter adapter = new HttpModelClientAdapter(RestClient.builder(), properties);
+            ModelPolicy policy = new ModelPolicy(true, baseUrl, 1500, 0.70);
+
+            adapter.recognize("first", "scene", policy);
+            adapter.recognize("second", "scene", policy);
+
+            assertThat(adapter.cachedClientCount()).isEqualTo(1);
+        });
+    }
+
+    @Test
+    void httpAdapterSendsBearerTokenFromSceneModelPolicyTokenRef() throws IOException {
+        System.setProperty("INTENT_HUB_MODEL_TOKEN_TEST", "scene-secret");
+        try {
+            withLocalModelServer("""
+                    {"intentCode":"ORDER_QUERY","confidence":0.85,"slots":{},"explanation":"authorized scene hit"}
+                    """, exchange -> assertThat(exchange.getRequestHeaders().getFirst("Authorization")).isEqualTo("Bearer scene-secret"), baseUrl -> {
+                ModelServiceProperties properties = new ModelServiceProperties(true, "", 2000);
+                HttpModelClientAdapter adapter = new HttpModelClientAdapter(RestClient.builder(), properties);
+
+                assertThat(adapter.recognize("text", "scene", new ModelPolicy(true, baseUrl, 1500, 0.70, "INTENT_HUB_MODEL_TOKEN_TEST")))
+                        .hasValueSatisfying(candidate -> assertThat(candidate.intentCode()).isEqualTo("ORDER_QUERY"));
+            });
+        } finally {
+            System.clearProperty("INTENT_HUB_MODEL_TOKEN_TEST");
+        }
+    }
+
+    @Test
+    void httpAdapterFailsClosedWithoutCallingRemoteWhenTokenRefCannotBeResolved() throws IOException {
+        AtomicInteger requests = new AtomicInteger();
+        withLocalModelServer("""
+                {"intentCode":"ORDER_QUERY","confidence":0.85,"slots":{},"explanation":"should not be called"}
+                """, exchange -> requests.incrementAndGet(), baseUrl -> {
+            ModelServiceProperties properties = new ModelServiceProperties(true, "", 2000);
+            HttpModelClientAdapter adapter = new HttpModelClientAdapter(RestClient.builder(), properties);
+
+            assertThatThrownBy(() -> adapter.recognize("text", "scene", new ModelPolicy(true, baseUrl, 1500, 0.70, "INTENT_HUB_MODEL_TOKEN_MISSING_TEST")))
+                    .isInstanceOf(com.intenthub.domain.recognition.policy.ModelServiceAuthenticationException.class)
+                    .hasMessage("MODEL_FALLBACK:AUTH_MISSING_TOKEN");
+            assertThat(requests).hasValue(0);
+        });
+    }
+
+    @Test
     void httpAdapterWorksAgainstLocalHttpServerSmoke() throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/recognize", exchange -> {
@@ -109,5 +195,35 @@ class ModelClientAdapterTest {
         exchange.sendResponseHeaders(200, bytes.length);
         exchange.getResponseBody().write(bytes);
         exchange.close();
+    }
+
+    private void withLocalModelServer(String responseJson, LocalModelServerAssertion assertion) throws IOException {
+        withLocalModelServer(responseJson, exchange -> {
+        }, assertion);
+    }
+
+    private void withLocalModelServer(String responseJson, LocalModelServerExchangeAssertion exchangeAssertion, LocalModelServerAssertion assertion) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/recognize", exchange -> {
+            assertThat(exchange.getRequestMethod()).isEqualTo("POST");
+            exchangeAssertion.verify(exchange);
+            respond(exchange, responseJson);
+        });
+        server.start();
+        try {
+            assertion.verify("http://localhost:" + server.getAddress().getPort());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @FunctionalInterface
+    private interface LocalModelServerAssertion {
+        void verify(String baseUrl);
+    }
+
+    @FunctionalInterface
+    private interface LocalModelServerExchangeAssertion {
+        void verify(HttpExchange exchange);
     }
 }

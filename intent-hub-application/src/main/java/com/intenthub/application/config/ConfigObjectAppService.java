@@ -261,6 +261,13 @@ public class ConfigObjectAppService {
         if (policy.containsKey("maxRetries")) {
             policy.put("maxRetries", policyIntegerRange(policy, key, "maxRetries", 0, MAX_LLM_RETRIES));
         }
+        if (policy.containsKey("authTokenRef")) {
+            Object value = policy.get("authTokenRef");
+            if (value == null || value.toString().isBlank()) {
+                throw new IllegalArgumentException(key + ".authTokenRef is required when present");
+            }
+            policy.put("authTokenRef", value.toString());
+        }
     }
 
     private int policyIntegerRange(Map<String, Object> policy, String policyKey, String field, int min, int max) {

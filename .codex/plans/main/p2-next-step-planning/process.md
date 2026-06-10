@@ -4,9 +4,9 @@
 
 - 任务需求：规划 P2-5 之后的下一步，形成可执行顺序并固化到正式计划文档。
 - 关键决策：优先进入 P2-6 密钥治理与外部联调准入，再推进 P2-7 多实例一致性与压测、P2-8 观测告警真实试点、P2-9 配置发布治理增强。
-- 当前阶段：P2-6 已启动，Secret 解析端口与默认 env/system property resolver 已完成，模型服务 adapter 已迁移到统一 resolver，LLM adapter 已预留同一 resolver，外部联调前预检脚本已补齐，文件挂载 Secret resolver 已预留，managed-config Secret resolver 已补齐，模型服务客户端缓存已支持 Secret 轮换感知，本地带鉴权模型服务 smoke 与文件挂载轮换 smoke 已完成，外部联调冒烟记录模板已固化。
+- 当前阶段：P2-27 Admin JWT 认证失败审计与指标最小闭环已完成；P2-6 至 P2-8 已形成本地阶段证据，P2-9 至 P2-27 已完成配置发布治理、审批、GitOps 导出、工作台聚合、审批元数据、scoped role、对象编辑、只读分层、权限拒绝审计、权限拒绝指标告警、默认关闭的 Admin JWT 认证入口和 JWT 认证失败可观测闭环。
 - 已完成产物：`docs/codex/v1/plans/intent-hub-p2-next-step-plan.md`、`SecretRefResolver`、`EnvironmentSecretRefResolver`、`CompositeSecretRefResolver`、`FileSecretRefResolver`、`ManagedConfigSecretRefResolver`、`ManagedConfigSecretProperties`、模型服务/LLM resolver 接入、模型服务 token fingerprint 客户端缓存、`scripts/preflight-external-integration.ps1`（含 env 与文件挂载 Secret 预检）、`scripts/smoke-model-service-e2e.ps1 -WithAuth`、`scripts/smoke-secret-rotation.ps1`、`ops/external-integration-smoke-record-template.md`、FastAPI 可选鉴权与文件 token 示例、测试、status/trace/production checklist/TASKS 回写。
-- 剩余工作：P2-6 继续实现 Vault SDK/动态刷新型 Nacos adapter、真实远端模型服务 smoke 和 DashScope 沙箱 smoke。
+- 剩余工作：继续 P2-28 候选项，包括真实 Prometheus/Alertmanager 规则、对象类型级权限、结构化 review history、完整 IAM/OIDC/JWKS 接入，或回到 P2-6 真实远端模型服务 smoke / DashScope 沙箱 smoke。
 - 重要发现：模型服务和 LLM 外部调用能力已具备，当前最大生产化缺口是 Secret 安全解析、真实外部联调证据、多实例一致性和真实观测试点。
 
 ## 步骤列表
@@ -26,10 +26,15 @@
 - [v] 新增 managed-config Secret resolver，支持从外部托管配置注入的引用映射读取 Secret。
 - [v] 补齐模型服务 scene 客户端 Secret 轮换感知，避免缓存 key 保存明文 token，并在 token 变化时重建客户端。
 - [v] 新增并执行本地文件挂载 Secret 轮换 smoke。
+- [v] 完成 P2-21 tenant/scene scoped role、P2-22 配置对象编辑权限、P2-23 配置只读权限分层。
+- [v] 完成 P2-24 权限失败安全审计，权限拒绝时记录 `CONFIG_PERMISSION_DENIED` 且 HTTP 403 契约不变。
+- [v] 完成 P2-25 权限拒绝指标告警，`CONFIG_PERMISSION_DENIED` 审计事件同步进入 metrics/prometheus/alerts。
+- [v] 完成 P2-26 Admin JWT Filter，默认关闭，开启后校验 HS256 Bearer JWT 并把 actor/roles 写入 Admin 请求上下文。
+- [v] 完成 P2-27 Admin JWT 认证失败审计与指标，认证失败写入 `ADMIN_JWT_AUTH_FAILED` 审计并进入 metrics/prometheus/alerts。
 - [~] 继续 P2-6 外部联调准入。
   - 当前产物：统一 Secret resolver 最小闭环、文件挂载 Secret resolver、managed-config Secret resolver、模型服务 token fingerprint 客户端缓存、外部联调 preflight 脚本、本地带鉴权模型服务 smoke 证据、本地文件挂载轮换 smoke 证据、外部联调冒烟记录模板。
-  - 下一步：新增 Vault SDK/动态刷新型 Nacos adapter，或在凭证可用时执行真实远端模型服务 smoke / DashScope 沙箱 smoke。
-  - 涉及文件：`scripts/`、`intent-hub-infrastructure/src/main/java/com/intenthub/infrastructure/security/`、`ops/production-readiness-checklist.md`、`ops/external-integration-smoke-record-template.md`。
+  - 下一步：新增 Vault SDK/动态刷新型 Nacos adapter，或在凭证可用时执行真实远端模型服务 smoke / DashScope 沙箱 smoke；如果继续配置治理线，则进入 Spring Security/JWT Filter、真实 Prometheus/Alertmanager 规则、对象类型级权限或结构化 review history。
+  - 涉及文件：`scripts/`、`intent-hub-infrastructure/src/main/java/com/intenthub/infrastructure/security/`、`intent-hub-application/src/main/java/com/intenthub/application/config/`、`intent-hub-interfaces/src/main/java/com/intenthub/interfaces/admin/`、`ops/production-readiness-checklist.md`、`ops/external-integration-smoke-record-template.md`。
 
 ## 研究发现
 
@@ -208,3 +213,77 @@
 - 关键设计：接口层优先读取 `X-IntentHub-Actor` 与 `X-IntentHub-Roles`，缺失时回退请求体/query，保持现有脚本和内部直接调用兼容。
 - 重要边界：当前不是完整 IAM/JWT 集成，尚未校验 header 来源可信度；roles 仍是全局角色，未绑定 tenant/scene。
 - 下一步：可补 tenant/scene 级权限、Spring Security/JWT Filter、更多领域异常统一响应，或进入结构化 review comment/history。
+
+## 2026-06-09 P2-21 断点记录
+
+- 当前阶段：P2-21 tenant/scene 级配置权限最小闭环已完成。
+- 已完成产物：`ConfigRoleMatcher`、审批/发布动作 scoped role 校验、工作台 scoped role 动作过滤、`docs/codex/v1/trace/intent-hub-p2-scoped-config-role-trace.md`。
+- 验证证据 1：已执行 `mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test`，结果通过。
+- 验证结论 1：应用层 33 个测试、基础设施层 59 个测试、接口层 27 个测试，合计 119 个测试；覆盖错误 scene scoped role 拒绝、`CONFIG_APPROVER:demo:order-scene` 批准、`CONFIG_PUBLISHER:demo:*` 发布、工作台 scoped role 动作可见，以及 header scoped role approve。
+- 关键设计：继续兼容全局 `CONFIG_APPROVER/CONFIG_PUBLISHER`，同时支持 `ROLE:tenant:scene` 和 `*` 通配，先把多租户范围约束引入应用层，不新增 DB schema。
+- 重要边界：当前尚未接入 Spring Security/JWT/IAM 策略源；配置对象编辑、导出、审计查询等动作仍未纳入 scoped role。
+- 下一步：可补 Spring Security/JWT Filter、配置对象编辑权限、只读权限分层、权限失败审计或结构化 review history。
+
+## 2026-06-10 P2-22 断点记录
+
+- 当前阶段：P2-22 配置对象编辑权限最小闭环已完成。
+- 已完成产物：`ConfigObjectAppService` 的 `CONFIG_EDITOR` scoped role 门禁、`ConfigObjectRequest` / `ConfigObjectBulkRequest` roles 字段、Admin 对象编辑入口 header/body/query 角色透传、`docs/codex/v1/trace/intent-hub-p2-config-object-edit-permission-trace.md`。
+- 验证证据 1：已执行 `mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test`，结果通过。
+- 验证结论 1：应用层 34 个测试、基础设施层 59 个测试、接口层 29 个测试，合计 122 个测试；覆盖错误 scoped editor role 拒绝、`CONFIG_EDITOR:demo:order-scene` 单条写入、`CONFIG_EDITOR:demo:*` 批量写入、`CONFIG_EDITOR:*:order-scene` 删除、对象编辑 403 响应以及 header scoped role 写入。
+- 关键设计：配置对象编辑与审批/发布动作复用 `ConfigRoleMatcher`，外部 Admin API 缺省 roles 按无权限处理；应用层 roles 为 `null` 时保留内部兼容。
+- 重要边界：当前尚未接入 Spring Security/JWT/IAM 策略源；配置导出、diff/dry-run、审计查询等只读动作尚未拆分只读权限；权限失败尚未形成安全审计事件。
+- 下一步：可补 Spring Security/JWT Filter、`CONFIG_VIEWER` 只读权限、权限失败审计，或按对象类型拆分更细编辑权限。
+
+## 2026-06-10 P2-23 断点记录
+
+- 当前阶段：P2-23 配置只读权限分层最小闭环已完成。
+- 已完成产物：`ConfigPermission`、`CONFIG_VIEWER` scoped role、只读接口 roles 重载、Admin 读接口 header/query roles 透传、`docs/codex/v1/trace/intent-hub-p2-config-viewer-permission-trace.md`。
+- 验证证据 1：已执行 `mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test`，结果通过。
+- 验证结论 1：应用层 36 个测试、基础设施层 59 个测试、接口层 31 个测试，合计 126 个测试；覆盖错误 scoped viewer role 拒绝、viewer 读取版本详情、editor/approver/publisher 继承读权限、配置对象列表和审计查询只读门禁，以及 HTTP 403/200 契约。
+- 关键设计：`CONFIG_VIEWER` 只读不授予编辑/审批/发布；`CONFIG_EDITOR`、`CONFIG_APPROVER`、`CONFIG_PUBLISHER` 继承读权限；应用层 roles 为 `null` 保留内部兼容。
+- 重要边界：当前尚未接入 Spring Security/JWT/IAM 策略源；创建、导入、提交评审、回滚仍未细分权限；权限失败尚未形成安全审计事件。
+- 下一步：可补 Spring Security/JWT Filter、权限失败安全审计、对象类型级权限，或结构化 review history。
+
+## 2026-06-10 P2-24 断点记录
+
+- 当前阶段：P2-24 权限失败安全审计最小闭环已完成。
+- 已完成产物：`ConfigPermission` 权限拒绝审计、`CONFIG_PERMISSION_DENIED` 事件、`ConfigVersionAppService`/`ConfigObjectAppService`/`ConfigAuditAppService`/`ConfigReviewWorkspaceAppService` 审计端口接入、`IntentHubBeanConfiguration` 工作台 Bean 审计端口注入、`docs/codex/v1/trace/intent-hub-p2-permission-denied-audit-trace.md`。
+- 验证证据 1：已执行 `mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test`，结果通过。
+- 验证结论 1：应用层 36 个测试、基础设施层 59 个测试、接口层 31 个测试，合计 126 个测试；覆盖审批/发布/只读/对象编辑权限失败写入 `CONFIG_PERMISSION_DENIED`，以及 HTTP 403 响应契约保持不变。
+- 关键设计：拒绝审计复用既有 `AuditLogPort` 和 `audit_log`，不新增 DB schema；事件 detail 保存 `action`、`requiredRole`、`roleHint`、`roles`，不记录 token 或敏感凭据。
+- 重要边界：当前 actor 暂记为 `unknown`，真实用户身份、source IP、traceId/requestId 仍待 Spring Security/JWT/IAM 接入后补齐；权限拒绝指标告警尚未实现。
+- 下一步：可进入 Spring Security/JWT Filter、权限拒绝指标告警、对象类型级权限或结构化 review history；也可回到 P2-6 真实外部联调准入。
+
+## 2026-06-10 P2-25 断点记录
+
+- 当前阶段：P2-25 权限拒绝指标告警最小闭环已完成。
+- 已完成产物：`IntentMetricsPort.recordPermissionDenied(...)`、`MetricsSnapshot.totalPermissionDenied`、Prometheus `intent_hub_permission_denied_total`、告警 `CONFIG_PERMISSION_DENIED`、memory/JDBC 审计实现指标接入、`docs/codex/v1/trace/intent-hub-p2-permission-denied-metrics-alert-trace.md`。
+- 验证证据 1：已执行 `mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test`，结果通过。
+- 验证结论 1：应用层 36 个测试、基础设施层 61 个测试、接口层 31 个测试，合计 128 个测试；覆盖权限拒绝计数、Prometheus 文本、告警快照，以及 memory/JDBC 审计事件驱动指标递增。
+- 关键设计：以 `CONFIG_PERMISSION_DENIED` 审计事件为指标触发点，避免应用层权限工具直接依赖告警实现；当前指标保持全局聚合，不引入 actor/sourceIp 等高基数标签。
+- 重要边界：当前告警仍是内置快照，不代表真实 Prometheus/Alertmanager/Grafana 已配置；生产阈值、时间窗口和 receiver 仍需真实观测栈验证。
+- 下一步：可进入 Spring Security/JWT Filter、真实 Prometheus/Alertmanager 规则、对象类型级权限或结构化 review history；也可回到 P2-6 真实外部联调准入。
+
+## 2026-06-10 P2-26 断点记录
+
+- 当前阶段：P2-26 Admin JWT Filter 最小闭环已完成。
+- 已完成产物：`AdminJwtProperties`、`AdminJwtVerifier`、`AdminJwtAuthenticationFilter`、`AdminSecurityConfiguration`、`AdminRequestContext` JWT attribute 优先读取、`AdminJwtVerifierTest`、`AdminConfigControllerTest` JWT 场景、`docs/codex/v1/trace/intent-hub-p2-admin-jwt-filter-trace.md`。
+- 验证证据 1：已执行 `mvn -pl intent-hub-interfaces -am '-Dtest=AdminJwtVerifierTest,AdminConfigControllerTest' '-Dsurefire.failIfNoSpecifiedTests=false' test`，结果通过。
+- 验证结论 1：`AdminConfigControllerTest` 18 个测试、`AdminJwtVerifierTest` 4 个测试，合计 22 个测试；覆盖 JWT actor/roles 优先、无效签名 403、有效 HS256 token、secretRef、issuer/audience、过期 token。
+- 验证证据 2：已执行 `mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test`，结果通过。
+- 验证结论 2：应用层 36 个测试、基础设施层 61 个测试、接口层 37 个测试，合计 134 个测试。
+- 关键设计：不引入 Spring Security 依赖，使用 servlet filter + JDK `Mac` 建立最小可信身份入口；默认关闭，开启后只保护 `/api/v1/admin/config/**`；JWT attribute 优先于 header/body/query，旧兼容路径继续保留。
+- 重要边界：当前不是完整 IAM/OIDC 集成，只支持 HS256；认证失败暂未写安全审计；生产应优先使用 `secretRef`，后续如接企业 IAM 应升级为 RS256/JWKS 或标准 Resource Server。
+- 下一步：可补认证失败安全审计、真实 Prometheus/Alertmanager 规则、对象类型级权限、结构化 review history，或回到 P2-6 真实外部联调准入。
+
+## 2026-06-10 P2-27 断点记录
+
+- 当前阶段：P2-27 Admin JWT 认证失败审计与指标最小闭环已完成。
+- 已完成产物：`AdminJwtAuthenticationFilter` 认证失败审计与指标、`IntentMetricsPort.recordAdminJwtAuthFailure(...)`、`MetricsSnapshot.totalAdminJwtAuthFailures`、Prometheus `intent_hub_admin_jwt_auth_failures_total`、告警 `ADMIN_JWT_AUTH_FAILED`、`docs/codex/v1/trace/intent-hub-p2-admin-jwt-auth-failure-audit-trace.md`。
+- 验证证据 1：已执行 `mvn -pl intent-hub-interfaces,intent-hub-infrastructure -am '-Dtest=AdminConfigControllerTest,AdminMetricsControllerTest,InMemoryIntentMetricsRepositoryTest' '-Dsurefire.failIfNoSpecifiedTests=false' test`，结果通过。
+- 验证结论 1：相关测试 21 个通过；覆盖无效 JWT 403、`ADMIN_JWT_AUTH_FAILED` 审计、审计不记录 token、认证失败指标、Prometheus 文本和告警快照。
+- 验证证据 2：已执行 `mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test`，结果通过。
+- 验证结论 2：应用层 36 个测试、基础设施层 61 个测试、接口层 37 个测试，合计 134 个测试。
+- 关键设计：JWT 认证失败与应用层配置授权失败分开计数；认证失败审计只记录 method/path/reason，不记录 Authorization header、token、secret 或 roles claim 原文；指标保持全局聚合，避免高基数标签。
+- 重要边界：当前仍不是完整 IAM/OIDC/JWKS 接入；actor 暂为 `unknown`；真实 Prometheus/Alertmanager 阈值和 receiver 仍待 dev/staging 验证。
+- 下一步：可补真实 Prometheus/Alertmanager 规则、对象类型级权限、结构化 review history、完整 IAM/OIDC/JWKS 接入，或回到 P2-6 真实外部联调准入。

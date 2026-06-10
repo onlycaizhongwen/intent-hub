@@ -216,14 +216,105 @@ class ConfigVersionAppServiceTest {
         assertThatThrownBy(() -> service.approve("demo", "order-scene", "v-role", "operator", List.of("CONFIG_OPERATOR")))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("requires role CONFIG_APPROVER");
+        assertThat(auditLogPort.entries)
+                .anySatisfy(entry -> {
+                    assertThat(entry.action()).isEqualTo("CONFIG_PERMISSION_DENIED");
+                    assertThat(entry.targetType()).isEqualTo("CONFIG_PERMISSION");
+                    assertThat(entry.targetId()).isEqualTo("order-scene");
+                    assertThat(entry.detail()).containsEntry("action", "approve config version");
+                    assertThat(entry.detail()).containsEntry("requiredRole", "CONFIG_APPROVER");
+                    assertThat(entry.detail()).containsEntry("roleHint", "CONFIG_APPROVER or CONFIG_APPROVER:demo:order-scene");
+                    assertThat(entry.detail()).containsEntry("roles", "CONFIG_OPERATOR");
+                });
 
         ConfigVersionInfo approved = service.approve("demo", "order-scene", "v-role", "approver", List.of("CONFIG_APPROVER"));
 
         assertThatThrownBy(() -> service.publish("demo", "order-scene", "v-role", "operator", approved.currentSnapshotHash(), List.of("CONFIG_APPROVER")))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("requires role CONFIG_PUBLISHER");
+        assertThat(auditLogPort.entries)
+                .anySatisfy(entry -> {
+                    assertThat(entry.action()).isEqualTo("CONFIG_PERMISSION_DENIED");
+                    assertThat(entry.detail()).containsEntry("action", "publish config version");
+                    assertThat(entry.detail()).containsEntry("requiredRole", "CONFIG_PUBLISHER");
+                    assertThat(entry.detail()).containsEntry("roleHint", "CONFIG_PUBLISHER or CONFIG_PUBLISHER:demo:order-scene");
+                    assertThat(entry.detail()).containsEntry("roles", "CONFIG_APPROVER");
+                });
 
         ConfigVersionInfo published = service.publish("demo", "order-scene", "v-role", "publisher", approved.currentSnapshotHash(), List.of("CONFIG_PUBLISHER"));
+        assertThat(published.status()).isEqualTo("PUBLISHED");
+    }
+
+    @Test
+    void enforcesScopedViewerRoleForReadOnlyConfigOperationsWhenRolesAreProvided() {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "viewer bundle", "ops", Instant.now(), Instant.now());
+        service.importBundle("demo", "order-scene", "v-viewer-base", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "order query")),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+        service.importBundle("demo", "order-scene", "v-viewer-next", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_CANCEL", "intentName", "order cancel")),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+
+        assertThatThrownBy(() -> service.get("demo", "order-scene", "v-viewer-next", List.of("CONFIG_VIEWER:demo:other-scene")))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("requires role CONFIG_VIEWER or CONFIG_VIEWER:demo:order-scene");
+        assertThat(auditLogPort.entries)
+                .anySatisfy(entry -> {
+                    assertThat(entry.action()).isEqualTo("CONFIG_PERMISSION_DENIED");
+                    assertThat(entry.targetType()).isEqualTo("CONFIG_PERMISSION");
+                    assertThat(entry.detail()).containsEntry("action", "get config version");
+                    assertThat(entry.detail()).containsEntry("requiredRole", "CONFIG_VIEWER");
+                    assertThat(entry.detail()).containsEntry("roleHint", "CONFIG_VIEWER or CONFIG_VIEWER:demo:order-scene");
+                    assertThat(entry.detail()).containsEntry("roles", "CONFIG_VIEWER:demo:other-scene");
+                });
+
+        assertThat(service.get("demo", "order-scene", "v-viewer-next", List.of("CONFIG_VIEWER:demo:order-scene")).version())
+                .isEqualTo("v-viewer-next");
+        assertThat(service.validate("demo", "order-scene", "v-viewer-next", List.of("CONFIG_EDITOR:demo:*")).valid())
+                .isTrue();
+        assertThat(service.diff("demo", "order-scene", "v-viewer-base", "v-viewer-next", List.of("CONFIG_APPROVER:*:order-scene")).entries())
+                .isNotEmpty();
+        assertThat(service.dryRunPublish("demo", "order-scene", "v-viewer-next", "v-viewer-base", List.of("CONFIG_PUBLISHER:demo:order-scene")).gitOpsFiles())
+                .contains("config/demo/order-scene/v-viewer-next/version.json");
+        assertThat(service.exportBundle("demo", "order-scene", "v-viewer-next", "viewer", List.of("CONFIG_VIEWER:demo:*")).intents())
+                .hasSize(1);
+        assertThat(service.exportGitOps("demo", "order-scene", "v-viewer-next", "v-viewer-base", "viewer", List.of("CONFIG_VIEWER:*:*")).files())
+                .contains("config/demo/order-scene/v-viewer-next/intents.json");
+    }
+
+    @Test
+    void acceptsTenantSceneScopedReviewAndPublishRoles() {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "scoped role bundle", "ops", Instant.now(), Instant.now());
+        service.importBundle("demo", "order-scene", "v-scoped-role", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询")),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+        service.submitReview("demo", "order-scene", "v-scoped-role", "reviewer");
+
+        assertThatThrownBy(() -> service.approve("demo", "order-scene", "v-scoped-role", "wrong-scene", List.of("CONFIG_APPROVER:demo:refund-scene")))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("CONFIG_APPROVER:demo:order-scene");
+
+        ConfigVersionInfo approved = service.approve("demo", "order-scene", "v-scoped-role", "scene-approver", List.of("CONFIG_APPROVER:demo:order-scene"));
+        ConfigVersionInfo published = service.publish("demo", "order-scene", "v-scoped-role", "tenant-publisher", approved.currentSnapshotHash(), List.of("CONFIG_PUBLISHER:demo:*"));
+
         assertThat(published.status()).isEqualTo("PUBLISHED");
     }
 
@@ -250,11 +341,11 @@ class ConfigVersionAppServiceTest {
                 "order-scene",
                 "v-workspace-role",
                 null,
-                List.of("CONFIG_OPERATOR")
+                List.of("CONFIG_VIEWER")
         );
         assertThat(operatorWorkspace.availableActions()).doesNotContain("APPROVE", "REJECT_REVIEW", "CANCEL_REVIEW");
         assertThat(operatorWorkspace.blockedReasons())
-                .contains("APPROVE requires role CONFIG_APPROVER");
+                .contains("APPROVE requires role CONFIG_APPROVER or CONFIG_APPROVER:demo:order-scene");
 
         ConfigReviewWorkspace approverWorkspace = workspaceService.getWorkspace(
                 "demo",
@@ -265,7 +356,16 @@ class ConfigVersionAppServiceTest {
         );
         assertThat(approverWorkspace.availableActions()).contains("APPROVE", "REJECT_REVIEW", "CANCEL_REVIEW");
         assertThat(approverWorkspace.blockedReasons())
-                .doesNotContain("APPROVE requires role CONFIG_APPROVER");
+                .doesNotContain("APPROVE requires role CONFIG_APPROVER or CONFIG_APPROVER:demo:order-scene");
+
+        ConfigReviewWorkspace scopedApproverWorkspace = workspaceService.getWorkspace(
+                "demo",
+                "order-scene",
+                "v-workspace-role",
+                null,
+                List.of("CONFIG_APPROVER:demo:order-scene")
+        );
+        assertThat(scopedApproverWorkspace.availableActions()).contains("APPROVE", "REJECT_REVIEW", "CANCEL_REVIEW");
     }
 
     @Test
@@ -473,6 +573,39 @@ class ConfigVersionAppServiceTest {
     }
 
     @Test
+    void enforcesScopedEditorRoleWhenRolesAreProvidedForConfigObjects() {
+        service.createDraft("demo", "order-scene", "v-editor-role", "editor role", "admin");
+        ConfigObjectAppService objectService = new ConfigObjectAppService(port, port, auditLogPort);
+
+        assertThatThrownBy(() -> objectService.upsert("demo", "order-scene", "v-editor-role", ConfigObjectType.INTENT, Map.of(
+                "intentCode", "ORDER_QUERY",
+                "intentName", "order query"
+        ), "operator", List.of("CONFIG_EDITOR:demo:other-scene")))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("requires role CONFIG_EDITOR or CONFIG_EDITOR:demo:order-scene");
+        assertThat(auditLogPort.entries)
+                .anySatisfy(entry -> {
+                    assertThat(entry.action()).isEqualTo("CONFIG_PERMISSION_DENIED");
+                    assertThat(entry.detail()).containsEntry("action", "upsert config object");
+                    assertThat(entry.detail()).containsEntry("requiredRole", "CONFIG_EDITOR");
+                    assertThat(entry.detail()).containsEntry("roleHint", "CONFIG_EDITOR or CONFIG_EDITOR:demo:order-scene");
+                    assertThat(entry.detail()).containsEntry("roles", "CONFIG_EDITOR:demo:other-scene");
+                });
+
+        Map<String, Object> saved = objectService.upsert("demo", "order-scene", "v-editor-role", ConfigObjectType.INTENT, Map.of(
+                "intentCode", "ORDER_QUERY",
+                "intentName", "order query"
+        ), "scene-editor", List.of("CONFIG_EDITOR:demo:order-scene"));
+
+        assertThat(saved).containsEntry("intentCode", "ORDER_QUERY");
+        assertThat(objectService.bulkUpsert("demo", "order-scene", "v-editor-role", ConfigObjectType.INTENT, List.of(
+                Map.of("intentCode", "ORDER_CANCEL", "intentName", "order cancel")
+        ), "tenant-editor", List.of("CONFIG_EDITOR:demo:*"))).hasSize(1);
+        assertThat(objectService.delete("demo", "order-scene", "v-editor-role", ConfigObjectType.INTENT, "ORDER_CANCEL", "tenant-editor", List.of("CONFIG_EDITOR:*:order-scene")))
+                .isTrue();
+    }
+
+    @Test
     void preservesModelPolicyWhenUpsertingStrategy() {
         service.createDraft("demo", "order-scene", "v-model-policy", "model policy", "admin");
         ConfigObjectAppService objectService = new ConfigObjectAppService(port, port, auditLogPort);
@@ -591,6 +724,34 @@ class ConfigVersionAppServiceTest {
         assertThat(auditService.listVersionAudits("demo", "order-scene", "v-audit", 1))
                 .extracting(AuditLogEntry::action)
                 .containsExactly("CONFIG_PUBLISHED");
+    }
+
+    @Test
+    void enforcesScopedViewerRoleForConfigObjectListAndAuditsWhenRolesAreProvided() {
+        service.createDraft("demo", "order-scene", "v-view-list", "view list", "admin");
+        ConfigObjectAppService objectService = new ConfigObjectAppService(port, port, auditLogPort);
+        objectService.upsert("demo", "order-scene", "v-view-list", ConfigObjectType.INTENT, Map.of(
+                "intentCode", "ORDER_QUERY",
+                "intentName", "order query"
+        ), "admin");
+        ConfigAuditAppService auditService = new ConfigAuditAppService(auditLogPort);
+
+        assertThatThrownBy(() -> objectService.list("demo", "order-scene", "v-view-list", ConfigObjectType.INTENT, List.of("CONFIG_VIEWER:demo:other-scene")))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("requires role CONFIG_VIEWER or CONFIG_VIEWER:demo:order-scene");
+        assertThat(auditLogPort.entries)
+                .anySatisfy(entry -> {
+                    assertThat(entry.action()).isEqualTo("CONFIG_PERMISSION_DENIED");
+                    assertThat(entry.detail()).containsEntry("action", "list config object");
+                    assertThat(entry.detail()).containsEntry("requiredRole", "CONFIG_VIEWER");
+                    assertThat(entry.detail()).containsEntry("roleHint", "CONFIG_VIEWER or CONFIG_VIEWER:demo:order-scene");
+                    assertThat(entry.detail()).containsEntry("roles", "CONFIG_VIEWER:demo:other-scene");
+                });
+        assertThat(objectService.list("demo", "order-scene", "v-view-list", ConfigObjectType.INTENT, List.of("CONFIG_VIEWER:demo:order-scene")))
+                .hasSize(1);
+        assertThat(auditService.listVersionAudits("demo", "order-scene", "v-view-list", 10, List.of("CONFIG_EDITOR:demo:order-scene")))
+                .extracting(AuditLogEntry::action)
+                .contains("CONFIG_DRAFT_CREATED");
     }
 
     private static final class InMemoryPort implements ConfigVersionPort, ConfigObjectPort {

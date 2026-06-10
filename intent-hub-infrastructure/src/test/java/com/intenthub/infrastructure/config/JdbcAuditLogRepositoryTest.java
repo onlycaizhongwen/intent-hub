@@ -1,6 +1,10 @@
 package com.intenthub.infrastructure.config;
 
 import com.intenthub.application.config.AuditLogEntry;
+import com.intenthub.application.metrics.IntentMetricsPort;
+import com.intenthub.application.metrics.MetricsSnapshot;
+import com.intenthub.domain.recognition.Envelope;
+import com.intenthub.domain.recognition.IntentResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -8,12 +12,15 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import java.util.List;
 import java.util.Map;
+import java.time.Instant;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class JdbcAuditLogRepositoryTest {
     private JdbcAuditLogRepository repository;
     private JdbcTemplate jdbcTemplate;
+    private RecordingMetricsPort metricsPort;
 
     @BeforeEach
     void setUp() {
@@ -23,7 +30,8 @@ class JdbcAuditLogRepositoryTest {
                 ""
         );
         jdbcTemplate = new JdbcTemplate(dataSource);
-        repository = new JdbcAuditLogRepository(jdbcTemplate);
+        metricsPort = new RecordingMetricsPort();
+        repository = new JdbcAuditLogRepository(jdbcTemplate, metricsPort);
         jdbcTemplate.execute("drop table if exists audit_log");
         jdbcTemplate.execute("""
                 create table audit_log (
@@ -52,5 +60,34 @@ class JdbcAuditLogRepositoryTest {
                 .containsExactly("CONFIG_PUBLISHED", "CONFIG_DRAFT_CREATED");
         assertThat(entries.get(0).detail()).containsEntry("publishedVersion", "v1");
         assertThat(entries.get(0).createdAt()).isNotNull();
+        assertThat(metricsPort.permissionDenied.get()).isZero();
+    }
+
+    @Test
+    void recordsPermissionDeniedMetricsWhenAuditEventIsPermissionDenied() {
+        repository.record("demo", "order-scene", "unknown", "CONFIG_PERMISSION_DENIED", "CONFIG_PERMISSION", "order-scene", Map.of(
+                "action", "approve config version",
+                "requiredRole", "CONFIG_APPROVER"
+        ));
+
+        assertThat(metricsPort.permissionDenied.get()).isEqualTo(1);
+    }
+
+    private static final class RecordingMetricsPort implements IntentMetricsPort {
+        private final AtomicLong permissionDenied = new AtomicLong();
+
+        @Override
+        public void recordRecognition(Envelope envelope, IntentResult result, long latencyMillis) {
+        }
+
+        @Override
+        public void recordPermissionDenied(String tenantId, String sceneId, String action) {
+            permissionDenied.incrementAndGet();
+        }
+
+        @Override
+        public MetricsSnapshot snapshot() {
+            return new MetricsSnapshot(0, 0, 0, 0, 0, 0.0, 0, permissionDenied.get(), 0, 0.0, 0, Map.of(), Map.of(), Map.of(), Instant.EPOCH, Instant.EPOCH);
+        }
     }
 }

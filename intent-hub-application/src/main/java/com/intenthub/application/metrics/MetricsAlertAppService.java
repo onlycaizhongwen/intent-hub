@@ -27,6 +27,10 @@ public class MetricsAlertAppService {
                 "LLM fallback has occurred.", metrics.totalLlmFallbacks());
         addPositiveCounterAlert(alerts, "LLM_BUDGET_RECONCILIATION", AlertSeverity.WARN,
                 "Stale LLM budget reservations were reconciled.", metrics.totalLlmBudgetReconciliations());
+        addPositiveCounterAlert(alerts, "CONFIG_PERMISSION_DENIED", AlertSeverity.WARN,
+                "Config permission denials have occurred.", metrics.totalPermissionDenied());
+        addPositiveCounterAlert(alerts, "ADMIN_JWT_AUTH_FAILED", AlertSeverity.WARN,
+                "Admin JWT authentication failures have occurred.", metrics.totalAdminJwtAuthFailures());
         if (metrics.averageLatencyMillis() >= AVG_LATENCY_WARN_MILLIS) {
             alerts.add(new MetricsAlert("AVG_LATENCY_HIGH", AlertSeverity.WARN,
                     "Average recognition latency is above the warning threshold.",

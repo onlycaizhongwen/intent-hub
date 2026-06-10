@@ -143,3 +143,45 @@
 - 摘要：已新增 `AdminRequestContext`，Admin 配置评审动作和 `review-workspace` 优先读取 `X-IntentHub-Actor` / `X-IntentHub-Roles`，再回退请求体/query roles；为后续网关/IAM 注入身份上下文预留稳定适配点。相关应用层、基础设施层与接口层测试通过。
 - 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
 - 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-request-context-trace.md`；下一步可补 tenant/scene 级权限、Spring Security/JWT Filter、更多领域异常统一错误响应或结构化 review history。
+
+## P2-21 tenant/scene 级配置权限
+- 状态：范围角色最小闭环完成
+- 摘要：已新增 `ConfigRoleMatcher`，配置评审审批/发布动作支持 `ROLE:tenant:scene`、`ROLE:tenant:*`、`ROLE:*:scene` 与全局旧角色兼容；工作台动作过滤与动作接口共用同一 scoped role 语义。相关应用层、基础设施层与接口层测试通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-scoped-config-role-trace.md`；下一步可补 Spring Security/JWT Filter、配置对象编辑权限、只读权限分层或结构化 review history。
+
+## P2-22 配置对象编辑权限
+- 状态：对象编辑权限闭环完成
+- 摘要：已将配置对象 upsert、bulk upsert 和 delete 纳入 `CONFIG_EDITOR` scoped role 校验，复用 `ConfigRoleMatcher` 支持 `ROLE:tenant:scene` 与 `*` 通配；Admin 对象编辑入口支持请求体 roles 与 `X-IntentHub-Roles`，错误角色返回结构化 403。相关应用层、基础设施层与接口层测试通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-config-object-edit-permission-trace.md`；下一步可补 Spring Security/JWT Filter、只读权限分层、权限失败审计或对象类型级权限。
+
+## P2-23 配置只读权限分层
+- 状态：只读权限闭环完成
+- 摘要：已新增 `CONFIG_VIEWER` 只读角色，并让 `CONFIG_EDITOR/CONFIG_APPROVER/CONFIG_PUBLISHER` 继承读权限；配置详情、校验、diff、dry-run、导出、GitOps 审查包、审计查询、配置对象列表和评审工作台均纳入 scoped viewer role 校验。相关应用层、基础设施层与接口层测试通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-config-viewer-permission-trace.md`；下一步可补 Spring Security/JWT Filter、权限失败安全审计、对象类型级权限或结构化 review history。
+
+## P2-24 权限失败安全审计
+- 状态：拒绝审计闭环完成
+- 摘要：已在 `ConfigPermission` 中统一记录 `CONFIG_PERMISSION_DENIED` 审计事件，覆盖只读、编辑、审批、发布和工作台读取权限失败；HTTP 403 响应契约保持不变。相关应用层、基础设施层与接口层测试通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-permission-denied-audit-trace.md`；下一步可补 Spring Security/JWT Filter、权限拒绝指标告警、对象类型级权限或结构化 review history。
+
+## P2-25 权限拒绝指标告警
+- 状态：指标告警闭环完成
+- 摘要：已将 `CONFIG_PERMISSION_DENIED` 审计事件接入指标体系，新增 `totalPermissionDenied`、Prometheus `intent_hub_permission_denied_total` 和 `CONFIG_PERMISSION_DENIED` WARN 告警；memory/JDBC 审计实现均会同步递增指标。相关应用层、基础设施层与接口层测试通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-permission-denied-metrics-alert-trace.md`；下一步可补 Spring Security/JWT Filter、真实 Prometheus/Alertmanager 规则、对象类型级权限或结构化 review history。
+
+## P2-26 Admin JWT Filter
+- 状态：最小 JWT 认证闭环完成
+- 摘要：已新增默认关闭的 Admin Bearer JWT Filter，不引入 Spring Security 依赖；开启后保护 `/api/v1/admin/config/**`，使用 JDK HMAC-SHA256 校验 HS256 token，支持 `secret/secretRef`、`exp/iss/aud` 和 roles claim，并把可信 actor/roles 写入 Admin 请求上下文。相关应用层、基础设施层与接口层测试通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-jwt-filter-trace.md`；下一步可补认证失败安全审计、真实 Prometheus/Alertmanager 规则、对象类型级权限、结构化 review history 或企业 IAM/OIDC/JWKS 接入。
+
+## P2-27 Admin JWT 认证失败审计与指标
+- 状态：认证失败审计指标闭环完成
+- 摘要：已将 Admin JWT 认证失败接入审计、metrics、Prometheus 文本和告警快照；失败事件记录为 `ADMIN_JWT_AUTH_FAILED`，只保存 method/path/reason，不记录 Authorization header 或 token 原文。相关应用层、基础设施层与接口层测试通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-jwt-auth-failure-audit-trace.md`；下一步可补真实 Prometheus/Alertmanager 规则、对象类型级权限、结构化 review history、完整 IAM/OIDC/JWKS 接入或真实外部联调 smoke。

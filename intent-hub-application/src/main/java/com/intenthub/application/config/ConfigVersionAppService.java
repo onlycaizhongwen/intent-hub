@@ -14,9 +14,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class ConfigVersionAppService {
-    private static final String ROLE_APPROVER = "CONFIG_APPROVER";
-    private static final String ROLE_PUBLISHER = "CONFIG_PUBLISHER";
-
     private final ConfigVersionPort configVersionPort;
     private final AuditLogPort auditLogPort;
 
@@ -35,6 +32,11 @@ public class ConfigVersionAppService {
     }
 
     public ConfigVersionInfo get(String tenantId, String sceneId, String version) {
+        return get(tenantId, sceneId, version, null);
+    }
+
+    public ConfigVersionInfo get(String tenantId, String sceneId, String version, List<String> roles) {
+        ConfigPermission.requireViewer(roles, tenantId, sceneId, "get config version", auditLogPort);
         requireIdentity(tenantId, sceneId, version);
         return configVersionPort.find(tenantId, sceneId, version)
                 .map(info -> withCurrentSnapshotHash(info, snapshotHash(tenantId, sceneId, version)))
@@ -42,6 +44,11 @@ public class ConfigVersionAppService {
     }
 
     public ConfigValidationResult validate(String tenantId, String sceneId, String version) {
+        return validate(tenantId, sceneId, version, null);
+    }
+
+    public ConfigValidationResult validate(String tenantId, String sceneId, String version, List<String> roles) {
+        ConfigPermission.requireViewer(roles, tenantId, sceneId, "validate config version", auditLogPort);
         requireIdentity(tenantId, sceneId, version);
         List<String> errors = new ArrayList<>();
         ConfigVersionInfo info = configVersionPort.find(tenantId, sceneId, version).orElse(null);
@@ -56,6 +63,11 @@ public class ConfigVersionAppService {
     }
 
     public ConfigDiffResult diff(String tenantId, String sceneId, String fromVersion, String toVersion) {
+        return diff(tenantId, sceneId, fromVersion, toVersion, null);
+    }
+
+    public ConfigDiffResult diff(String tenantId, String sceneId, String fromVersion, String toVersion, List<String> roles) {
+        ConfigPermission.requireViewer(roles, tenantId, sceneId, "diff config version", auditLogPort);
         requireIdentity(tenantId, sceneId, fromVersion);
         requireIdentity(tenantId, sceneId, toVersion);
         ConfigBundle before = configVersionPort.exportBundle(tenantId, sceneId, fromVersion);
@@ -75,6 +87,11 @@ public class ConfigVersionAppService {
     }
 
     public ConfigDryRunReport dryRunPublish(String tenantId, String sceneId, String version, String baseVersion) {
+        return dryRunPublish(tenantId, sceneId, version, baseVersion, null);
+    }
+
+    public ConfigDryRunReport dryRunPublish(String tenantId, String sceneId, String version, String baseVersion, List<String> roles) {
+        ConfigPermission.requireViewer(roles, tenantId, sceneId, "dry-run config version", auditLogPort);
         ConfigValidationResult validation = validate(tenantId, sceneId, version);
         ConfigDiffResult diff = null;
         if (baseVersion != null && !baseVersion.isBlank()) {
@@ -112,7 +129,7 @@ public class ConfigVersionAppService {
     }
 
     public ConfigVersionInfo approve(String tenantId, String sceneId, String version, String actor, List<String> roles) {
-        requireRole(roles, ROLE_APPROVER, "approve config version");
+        ConfigPermission.requireApprover(roles, tenantId, sceneId, "approve config version", auditLogPort);
         ConfigValidationResult validation = validate(tenantId, sceneId, version);
         if (!validation.valid()) {
             throw new IllegalStateException(String.join("; ", validation.errors()));
@@ -136,7 +153,7 @@ public class ConfigVersionAppService {
     }
 
     public ConfigVersionInfo rejectReview(String tenantId, String sceneId, String version, String actor, String reason, List<String> roles) {
-        requireRole(roles, ROLE_APPROVER, "reject config review");
+        ConfigPermission.requireApprover(roles, tenantId, sceneId, "reject config review", auditLogPort);
         ConfigVersionInfo current = get(tenantId, sceneId, version);
         if (!"REVIEWING".equals(current.status())) {
             throw new IllegalStateException("only REVIEWING config version can be rejected");
@@ -154,7 +171,7 @@ public class ConfigVersionAppService {
     }
 
     public ConfigVersionInfo cancelReview(String tenantId, String sceneId, String version, String actor, String reason, List<String> roles) {
-        requireRole(roles, ROLE_APPROVER, "cancel config review");
+        ConfigPermission.requireApprover(roles, tenantId, sceneId, "cancel config review", auditLogPort);
         ConfigVersionInfo current = get(tenantId, sceneId, version);
         if (!"REVIEWING".equals(current.status()) && !"APPROVED".equals(current.status())) {
             throw new IllegalStateException("only REVIEWING or APPROVED config version can be returned to draft");
@@ -177,7 +194,7 @@ public class ConfigVersionAppService {
     }
 
     public ConfigVersionInfo publish(String tenantId, String sceneId, String version, String actor, String expectedSnapshotHash, List<String> roles) {
-        requireRole(roles, ROLE_PUBLISHER, "publish config version");
+        ConfigPermission.requirePublisher(roles, tenantId, sceneId, "publish config version", auditLogPort);
         ConfigValidationResult validation = validate(tenantId, sceneId, version);
         if (!validation.valid()) {
             throw new IllegalStateException(String.join("; ", validation.errors()));
@@ -210,6 +227,11 @@ public class ConfigVersionAppService {
     }
 
     public ConfigBundle exportBundle(String tenantId, String sceneId, String version, String actor) {
+        return exportBundle(tenantId, sceneId, version, actor, null);
+    }
+
+    public ConfigBundle exportBundle(String tenantId, String sceneId, String version, String actor, List<String> roles) {
+        ConfigPermission.requireViewer(roles, tenantId, sceneId, "export config bundle", auditLogPort);
         requireIdentity(tenantId, sceneId, version);
         ConfigBundle bundle = configVersionPort.exportBundle(tenantId, sceneId, version);
         auditLogPort.record(tenantId, sceneId, actor, "CONFIG_EXPORTED", "CONFIG_VERSION", version, Map.of(
@@ -228,6 +250,11 @@ public class ConfigVersionAppService {
     }
 
     public ConfigGitOpsExport exportGitOps(String tenantId, String sceneId, String version, String baseVersion, String actor) {
+        return exportGitOps(tenantId, sceneId, version, baseVersion, actor, null);
+    }
+
+    public ConfigGitOpsExport exportGitOps(String tenantId, String sceneId, String version, String baseVersion, String actor, List<String> roles) {
+        ConfigPermission.requireViewer(roles, tenantId, sceneId, "export config gitops", auditLogPort);
         requireIdentity(tenantId, sceneId, version);
         ConfigBundle bundle = configVersionPort.exportBundle(tenantId, sceneId, version);
         ConfigValidationResult validation = validate(tenantId, sceneId, version);
@@ -259,16 +286,6 @@ public class ConfigVersionAppService {
 
     private String normalizeReason(String reason) {
         return reason == null || reason.isBlank() ? "not provided" : reason;
-    }
-
-    private void requireRole(List<String> roles, String requiredRole, String action) {
-        if (roles == null) {
-            return;
-        }
-        boolean allowed = roles.stream().anyMatch(requiredRole::equals);
-        if (!allowed) {
-            throw new SecurityException(action + " requires role " + requiredRole);
-        }
     }
 
     private void requireExpectedSnapshotHashMatches(ConfigVersionInfo current, String expectedSnapshotHash) {

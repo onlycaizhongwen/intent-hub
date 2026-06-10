@@ -12,5 +12,11 @@ public interface IntentMetricsPort {
     default void recordLlmBudgetReconciliation(int reconciledReservations) {
     }
 
+    default void recordPermissionDenied(String tenantId, String sceneId, String action) {
+    }
+
+    default void recordAdminJwtAuthFailure(String reason) {
+    }
+
     MetricsSnapshot snapshot();
 }

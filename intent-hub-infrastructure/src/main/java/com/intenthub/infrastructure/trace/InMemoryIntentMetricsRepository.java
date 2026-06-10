@@ -26,6 +26,8 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
     private final AtomicLong totalLlmBudgetAttempts = new AtomicLong();
     private final DoubleAdder totalLlmBudgetConsumed = new DoubleAdder();
     private final AtomicLong totalLlmBudgetReconciliations = new AtomicLong();
+    private final AtomicLong totalPermissionDenied = new AtomicLong();
+    private final AtomicLong totalAdminJwtAuthFailures = new AtomicLong();
     private final AtomicLong totalLatencyMillis = new AtomicLong();
     private final AtomicLong maxLatencyMillis = new AtomicLong();
     private final long[] latencySamples = new long[LATENCY_SAMPLE_WINDOW];
@@ -69,6 +71,8 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
                 totalLlmBudgetAttempts.get(),
                 totalLlmBudgetConsumed.sum(),
                 totalLlmBudgetReconciliations.get(),
+                totalPermissionDenied.get(),
+                totalAdminJwtAuthFailures.get(),
                 latency,
                 requests == 0 ? 0.0 : (double) latency / requests,
                 maxLatencyMillis.get(),
@@ -99,6 +103,18 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
             return;
         }
         totalLlmBudgetReconciliations.addAndGet(reconciledReservations);
+        updatedAt = Instant.now();
+    }
+
+    @Override
+    public void recordPermissionDenied(String tenantId, String sceneId, String action) {
+        totalPermissionDenied.incrementAndGet();
+        updatedAt = Instant.now();
+    }
+
+    @Override
+    public void recordAdminJwtAuthFailure(String reason) {
+        totalAdminJwtAuthFailures.incrementAndGet();
         updatedAt = Instant.now();
     }
 

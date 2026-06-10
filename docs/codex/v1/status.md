@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-17 配置评审权限模型最小闭环已完成；P2-6 密钥治理与外部联调准入、P2-7 多实例一致性与压测、P2-8 观测告警本地试点、P2-9 配置发布治理增强、P2-10 配置审批与 GitOps 导出、P2-11 Admin 配置评审工作台聚合契约、P2-12 配置评审驳回与撤回、P2-13 审批快照哈希、P2-14 审批快照哈希强字段化、P2-15 发布 expectedSnapshotHash 条件校验、P2-16 审批元数据强字段化均已形成阶段证据。模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、本地试点执行记录、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、外部联调前预检脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、管理端 confirmed/reserved/pending 查询、模型策略 JDBC 冒烟、带鉴权模型服务本地 smoke、Secret 轮换 smoke、多实例一致性 smoke、LLM 预算多实例 smoke、LLM 补偿多实例 smoke、基础双实例压测 smoke、P2-8 本地观测告警 smoke、配置版本 diff API、发布前 dry-run 报告、GitOps 文件结构建议、提交评审、批准、驳回、撤回、审批快照哈希、审批快照哈希强字段、发布 expectedSnapshotHash 条件校验、审批人和审批时间强字段、配置评审权限角色门禁、GitOps 审查包导出、Admin 配置评审工作台聚合契约、scene 级模型 endpoint/timeout 动态路由、场景模型客户端缓存复用、模型服务 token 引用鉴权与缺失失败关闭、统一 Secret resolver 默认实现、文件挂载 Secret resolver 预留、managed-config Secret resolver、配置版本审计查询、配置对象删除与批量导入、配置字段基础校验、发布前跨对象引用校验、`scene_routing_rule.match_condition` 最小后置路由条件解析、显式 `actionSchema.intentCode` 动作归属读取已完成。真实 Prometheus/Alertmanager/Grafana dev/staging 接入、真实 GitOps PR 同步、前端 Admin Portal 页面、真实登录态/IAM、标准 JSON canonicalization 与结构化审批历史仍待后续环境与产品流程验证。
+- 当前阶段：P2-27 Admin JWT 认证失败审计与指标最小闭环已完成；P2-6 密钥治理与外部联调准入、P2-7 多实例一致性与压测、P2-8 观测告警本地试点、P2-9 配置发布治理增强、P2-10 配置审批与 GitOps 导出、P2-11 Admin 配置评审工作台聚合契约、P2-12 配置评审驳回与撤回、P2-13 审批快照哈希、P2-14 审批快照哈希强字段化、P2-15 发布 expectedSnapshotHash 条件校验、P2-16 审批元数据强字段化、P2-17 配置评审权限模型、P2-18 工作台按角色过滤、P2-19 统一 403 响应、P2-20 Admin 请求上下文角色来源、P2-21 tenant/scene 级配置权限、P2-22 配置对象编辑权限、P2-23 配置只读权限分层、P2-24 权限失败安全审计、P2-25 权限拒绝指标告警、P2-26 Admin JWT Filter 均已形成阶段证据。模型服务健康检查、本地真实联调、模型服务容器化配置样例、Spring AI Alibaba 预接入、DashScope 沙箱冒烟准备、LLM 预算持久化审计、日预算原子预占门禁、同步失败释放、stale pending 后台补偿、补偿指标、基础告警快照、运维样例总入口、生产化落地检查清单、观测告警试点接入计划、试点执行记录模板、本地试点执行记录、告警演练场景、本地观测栈预检脚本、本地观测栈配置校验脚本、外部联调前预检脚本、Prometheus scrape/告警规则样例、Alertmanager 路由样例、Grafana 看板样例、SLO 样例、本地观测栈样例、告警 Runbook、管理端 confirmed/reserved/pending 查询、模型策略 JDBC 冒烟、带鉴权模型服务本地 smoke、Secret 轮换 smoke、多实例一致性 smoke、LLM 预算多实例 smoke、LLM 补偿多实例 smoke、基础双实例压测 smoke、P2-8 本地观测告警 smoke、配置版本 diff API、发布前 dry-run 报告、GitOps 文件结构建议、提交评审、批准、驳回、撤回、审批快照哈希、审批快照哈希强字段、发布 expectedSnapshotHash 条件校验、审批人和审批时间强字段、配置评审权限角色门禁、tenant/scene scoped role、配置对象编辑权限、配置只读权限分层、权限失败安全审计、权限拒绝指标告警、默认关闭的 Admin JWT Filter、JWT 认证失败审计指标、GitOps 审查包导出、Admin 配置评审工作台聚合契约、scene 级模型 endpoint/timeout 动态路由、场景模型客户端缓存复用、模型服务 token 引用鉴权与缺失失败关闭、统一 Secret resolver 默认实现、文件挂载 Secret resolver 预留、managed-config Secret resolver、配置版本审计查询、配置对象删除与批量导入、配置字段基础校验、发布前跨对象引用校验、`scene_routing_rule.match_condition` 最小后置路由条件解析、显式 `actionSchema.intentCode` 动作归属读取已完成。真实 Prometheus/Alertmanager/Grafana dev/staging 接入、真实 GitOps PR 同步、前端 Admin Portal 页面、完整企业 IAM/OIDC/JWKS、标准 JSON canonicalization、真实观测栈告警规则与结构化审批历史仍待后续环境与产品流程验证。
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -15,7 +15,7 @@
 
 | 主题 | Requirements | Design | Plan | Trace/Review | 整体状态 |
 | --- | --- | --- | --- | --- | --- |
-| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1 有条件通过；P2-1 至 P2-5 已完成，P2-6/P2-7/P2-8 已形成本地阶段闭环，P2-9 至 P2-17 已完成最小配置发布治理、审批状态、GitOps 导出、评审工作台聚合契约、评审回退、审批快照哈希、hash 强字段化、发布 expected hash 条件校验、审批元数据强字段化与最小权限门禁；真实外部联调、真实观测栈试点、真实 GitOps PR 同步、前端页面、真实登录态/IAM 与完整审批流仍待后续验证 |
+| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1 有条件通过；P2-1 至 P2-5 已完成，P2-6/P2-7/P2-8 已形成本地阶段闭环，P2-9 至 P2-27 已完成最小配置发布治理、审批状态、GitOps 导出、评审工作台聚合契约、评审回退、审批快照哈希、hash 强字段化、发布 expected hash 条件校验、审批元数据强字段化、权限门禁、tenant/scene scoped role、配置对象编辑权限、只读权限分层、权限失败安全审计、权限拒绝指标告警、默认关闭的 Admin JWT Filter 与 JWT 认证失败审计指标；真实外部联调、真实观测栈试点、真实 GitOps PR 同步、前端页面、完整企业 IAM/OIDC/JWKS、真实观测栈告警规则与完整审批流仍待后续验证 |
 
 ## 交付物
 
@@ -48,6 +48,12 @@
 - P2-15 发布 expectedSnapshotHash 条件校验审查：`docs/codex/v1/trace/intent-hub-p2-publish-expected-snapshot-hash-trace.md`
 - P2-16 审批元数据强字段化审查：`docs/codex/v1/trace/intent-hub-p2-approval-metadata-field-trace.md`
 - P2-17 配置评审权限模型审查：`docs/codex/v1/trace/intent-hub-p2-config-review-permission-trace.md`
+- P2-22 配置对象编辑权限审查：`docs/codex/v1/trace/intent-hub-p2-config-object-edit-permission-trace.md`
+- P2-23 配置只读权限分层审查：`docs/codex/v1/trace/intent-hub-p2-config-viewer-permission-trace.md`
+- P2-24 权限失败安全审计审查：`docs/codex/v1/trace/intent-hub-p2-permission-denied-audit-trace.md`
+- P2-25 权限拒绝指标告警审查：`docs/codex/v1/trace/intent-hub-p2-permission-denied-metrics-alert-trace.md`
+- P2-26 Admin JWT Filter 审查：`docs/codex/v1/trace/intent-hub-p2-admin-jwt-filter-trace.md`
+- P2-27 Admin JWT 认证失败审计与指标审查：`docs/codex/v1/trace/intent-hub-p2-admin-jwt-auth-failure-audit-trace.md`
 - P2-18 评审工作台按角色过滤动作审查：`docs/codex/v1/trace/intent-hub-p2-review-workspace-role-filter-trace.md`
 - 模型服务 FastAPI 示例：`examples/model-service-fastapi/README.md`
 - 模型服务容器化校验脚本：`scripts/validate-model-service-container.ps1`
@@ -273,3 +279,66 @@
 - 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
 - 验证结论：应用层 32 个测试、基础设施层 59 个测试、接口层 26 个测试，合计 117 个测试；header actor/roles 可覆盖请求体/query，旧兼容路径仍保留。
 - 后续重点：tenant/scene 级权限、Spring Security/JWT Filter、header 可信边界、更多领域异常统一错误响应和结构化 review history。
+
+## 2026-06-09 P2-21 tenant/scene 级配置权限更新
+
+- 当前进展：P2-21 tenant/scene 级配置权限最小闭环已完成，配置评审动作已支持 scoped role。
+- 新增交付物：`ConfigRoleMatcher`、审批/发布动作 tenant/scene 感知校验、工作台 scoped role 动作过滤。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-scoped-config-role-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：应用层 33 个测试、基础设施层 59 个测试、接口层 27 个测试，合计 119 个测试；全局旧角色继续兼容，`ROLE:tenant:scene` 与 `*` 通配角色已覆盖。
+- 后续重点：Spring Security/JWT Filter、配置对象编辑权限、只读权限分层、权限失败审计和结构化 review history。
+
+## 2026-06-10 P2-22 配置对象编辑权限更新
+
+- 当前进展：P2-22 配置对象编辑权限最小闭环已完成，配置对象 upsert、bulk upsert 和 delete 已支持 tenant/scene scoped editor role。
+- 新增交付物：`ConfigObjectAppService` 的 `CONFIG_EDITOR` 门禁、配置对象请求 DTO roles 字段、Admin 对象编辑入口 header/body/query 角色透传、对象编辑 403 测试。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-config-object-edit-permission-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：应用层 34 个测试、基础设施层 59 个测试、接口层 29 个测试，合计 122 个测试；错误 scoped editor role 会被拒绝，`CONFIG_EDITOR:demo:order-scene`、`CONFIG_EDITOR:demo:*`、`CONFIG_EDITOR:*:order-scene` 均按范围生效。
+- 后续重点：Spring Security/JWT Filter、`CONFIG_VIEWER` 只读权限分层、权限失败安全审计、对象类型级编辑权限和结构化 review history。
+
+## 2026-06-10 P2-23 配置只读权限分层更新
+
+- 当前进展：P2-23 配置只读权限分层最小闭环已完成，配置读接口已纳入 `CONFIG_VIEWER` scoped role。
+- 新增交付物：`ConfigPermission`、`CONFIG_VIEWER` 角色、只读服务 roles 重载、Admin 读接口 header/query roles 透传、只读权限 403/200 测试。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-config-viewer-permission-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：应用层 36 个测试、基础设施层 59 个测试、接口层 31 个测试，合计 126 个测试；`CONFIG_VIEWER` 可读不可写，`CONFIG_EDITOR/CONFIG_APPROVER/CONFIG_PUBLISHER` 可继承读权限。
+- 后续重点：Spring Security/JWT Filter、权限失败安全审计、对象类型级权限、结构化 review history 和 Admin Portal 前端。
+
+## 2026-06-10 P2-24 权限失败安全审计更新
+
+- 当前进展：P2-24 权限失败安全审计最小闭环已完成，权限拒绝时会写入 `CONFIG_PERMISSION_DENIED` 审计事件，HTTP 403 响应契约保持不变。
+- 新增交付物：`ConfigPermission` 拒绝审计、只读/编辑/审批/发布/工作台读取权限失败审计端口接入、`ConfigReviewWorkspaceAppService` Bean 审计端口注入。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-permission-denied-audit-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：应用层 36 个测试、基础设施层 59 个测试、接口层 31 个测试，合计 126 个测试；审批/发布/只读/对象编辑权限失败均能写入拒绝审计，接口层仍返回统一 `code=FORBIDDEN`、`status=403`。
+- 后续重点：Spring Security/JWT Filter、权限拒绝指标告警、对象类型级权限、结构化 review history 和真实登录态/IAM 接入。
+
+## 2026-06-10 P2-25 权限拒绝指标告警更新
+
+- 当前进展：P2-25 权限拒绝指标告警最小闭环已完成，`CONFIG_PERMISSION_DENIED` 审计事件已接入 metrics、Prometheus 文本和告警快照。
+- 新增交付物：`IntentMetricsPort.recordPermissionDenied(...)`、`MetricsSnapshot.totalPermissionDenied`、Prometheus `intent_hub_permission_denied_total`、告警 `CONFIG_PERMISSION_DENIED`、memory/JDBC 审计事件指标接入。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-permission-denied-metrics-alert-trace.md`。
+- 验证证据：`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：应用层 36 个测试、基础设施层 61 个测试、接口层 31 个测试，合计 128 个测试；权限拒绝计数、Prometheus 文本、告警快照、memory/JDBC 审计驱动指标均已覆盖。
+- 后续重点：Spring Security/JWT Filter、真实 Prometheus/Alertmanager 规则、对象类型级权限、结构化 review history 和真实登录态/IAM 接入。
+
+## 2026-06-10 P2-26 Admin JWT Filter 更新
+
+- 当前进展：P2-26 Admin JWT Filter 最小闭环已完成，新增默认关闭的 Admin Bearer JWT Filter，开启后保护 `/api/v1/admin/config/**`，并将可信 actor/roles 写入 Admin 请求上下文。
+- 新增交付物：`AdminJwtProperties`、`AdminJwtVerifier`、`AdminJwtAuthenticationFilter`、`AdminSecurityConfiguration`、`AdminRequestContext` JWT attribute 优先读取、JWT 验签与接口层 Filter 测试。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-admin-jwt-filter-trace.md`。
+- 验证证据：`mvn -pl intent-hub-interfaces -am '-Dtest=AdminJwtVerifierTest,AdminConfigControllerTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` 通过；`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：定向测试 22 个通过；三层回归应用层 36 个测试、基础设施层 61 个测试、接口层 37 个测试，合计 134 个测试。覆盖 HS256 验签、secretRef、issuer/audience、过期 token、无效签名 403、JWT actor/roles 优先于 header/body/query。
+- 后续重点：认证失败安全审计、真实 Prometheus/Alertmanager 规则、对象类型级权限、结构化 review history，以及企业 IAM/OIDC/JWKS 或标准 Resource Server 接入。
+
+## 2026-06-10 P2-27 Admin JWT 认证失败审计与指标更新
+
+- 当前进展：P2-27 Admin JWT 认证失败审计与指标最小闭环已完成，JWT 缺失、签名错误、过期等失败可写入安全审计，并进入 metrics、Prometheus 文本和告警快照。
+- 新增交付物：`ADMIN_JWT_AUTH_FAILED` 审计事件、`IntentMetricsPort.recordAdminJwtAuthFailure(...)`、`MetricsSnapshot.totalAdminJwtAuthFailures`、Prometheus `intent_hub_admin_jwt_auth_failures_total`、告警 `ADMIN_JWT_AUTH_FAILED`。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-admin-jwt-auth-failure-audit-trace.md`。
+- 验证证据：`mvn -pl intent-hub-interfaces,intent-hub-infrastructure -am '-Dtest=AdminConfigControllerTest,AdminMetricsControllerTest,InMemoryIntentMetricsRepositoryTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` 通过；`mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test` 通过。
+- 验证结论：定向相关测试 21 个通过；三层回归应用层 36 个测试、基础设施层 61 个测试、接口层 37 个测试，合计 134 个测试。覆盖无效 JWT 403、失败审计、审计不记录 token、认证失败指标、Prometheus 文本和告警快照。
+- 后续重点：真实 Prometheus/Alertmanager 规则、对象类型级权限、结构化 review history、完整 IAM/OIDC/JWKS 接入和真实外部联调 smoke。

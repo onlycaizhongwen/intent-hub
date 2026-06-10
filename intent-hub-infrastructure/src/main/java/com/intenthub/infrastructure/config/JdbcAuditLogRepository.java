@@ -2,6 +2,7 @@ package com.intenthub.infrastructure.config;
 
 import com.intenthub.application.config.AuditLogEntry;
 import com.intenthub.application.config.AuditLogPort;
+import com.intenthub.application.metrics.IntentMetricsPort;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -17,15 +18,22 @@ import java.util.Map;
 @Component
 @ConditionalOnProperty(name = "intent-hub.persistence.mode", havingValue = "jdbc")
 public class JdbcAuditLogRepository implements AuditLogPort {
+    private static final String PERMISSION_DENIED_ACTION = "CONFIG_PERMISSION_DENIED";
+
     private final JdbcTemplate jdbcTemplate;
+    private final IntentMetricsPort metricsPort;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public JdbcAuditLogRepository(JdbcTemplate jdbcTemplate) {
+    public JdbcAuditLogRepository(JdbcTemplate jdbcTemplate, IntentMetricsPort metricsPort) {
         this.jdbcTemplate = jdbcTemplate;
+        this.metricsPort = metricsPort;
     }
 
     @Override
     public void record(String tenantId, String sceneId, String actor, String action, String targetType, String targetId, Map<String, String> detail) {
+        if (PERMISSION_DENIED_ACTION.equals(action)) {
+            metricsPort.recordPermissionDenied(tenantId, sceneId, detail == null ? null : detail.get("action"));
+        }
         jdbcTemplate.update("""
                         insert into audit_log (tenant_id, scene_id, actor, action, target_type, target_id, detail)
                         values (?, ?, ?, ?, ?, ?, cast(? as jsonb))

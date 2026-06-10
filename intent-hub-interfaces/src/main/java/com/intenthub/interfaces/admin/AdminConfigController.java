@@ -61,8 +61,13 @@ public class AdminConfigController {
     public ConfigVersionInfo getVersion(
             @RequestParam String tenantId,
             @RequestParam String sceneId,
-            @PathVariable String version
+            @PathVariable String version,
+            @RequestParam(required = false) List<String> roles
     ) {
+        return configVersionAppService.get(tenantId, sceneId, version, AdminRequestContext.roles(roles));
+    }
+
+    public ConfigVersionInfo getVersion(String tenantId, String sceneId, String version) {
         return configVersionAppService.get(tenantId, sceneId, version);
     }
 
@@ -70,8 +75,13 @@ public class AdminConfigController {
     public ConfigValidationResult validate(
             @RequestParam String tenantId,
             @RequestParam String sceneId,
-            @PathVariable String version
+            @PathVariable String version,
+            @RequestParam(required = false) List<String> roles
     ) {
+        return configVersionAppService.validate(tenantId, sceneId, version, AdminRequestContext.roles(roles));
+    }
+
+    public ConfigValidationResult validate(String tenantId, String sceneId, String version) {
         return configVersionAppService.validate(tenantId, sceneId, version);
     }
 
@@ -80,8 +90,13 @@ public class AdminConfigController {
             @RequestParam String tenantId,
             @RequestParam String sceneId,
             @RequestParam String fromVersion,
-            @PathVariable String version
+            @PathVariable String version,
+            @RequestParam(required = false) List<String> roles
     ) {
+        return configVersionAppService.diff(tenantId, sceneId, fromVersion, version, AdminRequestContext.roles(roles));
+    }
+
+    public ConfigDiffResult diff(String tenantId, String sceneId, String fromVersion, String version) {
         return configVersionAppService.diff(tenantId, sceneId, fromVersion, version);
     }
 
@@ -90,8 +105,13 @@ public class AdminConfigController {
             @RequestParam String tenantId,
             @RequestParam String sceneId,
             @PathVariable String version,
-            @RequestParam(required = false) String baseVersion
+            @RequestParam(required = false) String baseVersion,
+            @RequestParam(required = false) List<String> roles
     ) {
+        return configVersionAppService.dryRunPublish(tenantId, sceneId, version, baseVersion, AdminRequestContext.roles(roles));
+    }
+
+    public ConfigDryRunReport dryRunPublish(String tenantId, String sceneId, String version, String baseVersion) {
         return configVersionAppService.dryRunPublish(tenantId, sceneId, version, baseVersion);
     }
 
@@ -173,8 +193,13 @@ public class AdminConfigController {
             @RequestParam String tenantId,
             @RequestParam String sceneId,
             @PathVariable String version,
-            @RequestParam(defaultValue = "system") String actor
+            @RequestParam(defaultValue = "system") String actor,
+            @RequestParam(required = false) List<String> roles
     ) {
+        return configVersionAppService.exportBundle(tenantId, sceneId, version, AdminRequestContext.actor(actor), AdminRequestContext.roles(roles));
+    }
+
+    public ConfigBundle exportBundle(String tenantId, String sceneId, String version, String actor) {
         return configVersionAppService.exportBundle(tenantId, sceneId, version, actor);
     }
 
@@ -183,8 +208,13 @@ public class AdminConfigController {
             @RequestParam String tenantId,
             @RequestParam String sceneId,
             @PathVariable String version,
-            @RequestParam(required = false) Integer limit
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) List<String> roles
     ) {
+        return configAuditAppService.listVersionAudits(tenantId, sceneId, version, limit, AdminRequestContext.roles(roles));
+    }
+
+    public List<AuditLogEntry> listVersionAudits(String tenantId, String sceneId, String version, Integer limit) {
         return configAuditAppService.listVersionAudits(tenantId, sceneId, version, limit);
     }
 
@@ -194,8 +224,13 @@ public class AdminConfigController {
             @RequestParam String sceneId,
             @PathVariable String version,
             @RequestParam(required = false) String baseVersion,
-            @RequestParam(defaultValue = "system") String actor
+            @RequestParam(defaultValue = "system") String actor,
+            @RequestParam(required = false) List<String> roles
     ) {
+        return configVersionAppService.exportGitOps(tenantId, sceneId, version, baseVersion, AdminRequestContext.actor(actor), AdminRequestContext.roles(roles));
+    }
+
+    public ConfigGitOpsExport exportGitOps(String tenantId, String sceneId, String version, String baseVersion, String actor) {
         return configVersionAppService.exportGitOps(tenantId, sceneId, version, baseVersion, actor);
     }
 
@@ -236,13 +271,16 @@ public class AdminConfigController {
             @RequestBody ConfigObjectRequest request
     ) {
         ConfigObjectRequest normalized = request == null ? new ConfigObjectRequest("system", Map.of()) : request;
+        String actor = AdminRequestContext.actor(normalized.normalizedActor());
+        List<String> roles = AdminRequestContext.roles(normalized.normalizedRoles());
         return configObjectAppService.upsert(
                 tenantId,
                 sceneId,
                 version,
                 ConfigObjectType.fromPath(objectType),
                 normalized.payload(),
-                normalized.normalizedActor()
+                actor,
+                roles
         );
     }
 
@@ -255,13 +293,16 @@ public class AdminConfigController {
             @RequestBody ConfigObjectBulkRequest request
     ) {
         ConfigObjectBulkRequest normalized = request == null ? new ConfigObjectBulkRequest("system", List.of()) : request;
+        String actor = AdminRequestContext.actor(normalized.normalizedActor());
+        List<String> roles = AdminRequestContext.roles(normalized.normalizedRoles());
         return configObjectAppService.bulkUpsert(
                 tenantId,
                 sceneId,
                 version,
                 ConfigObjectType.fromPath(objectType),
                 normalized.payloads(),
-                normalized.normalizedActor()
+                actor,
+                roles
         );
     }
 
@@ -270,8 +311,19 @@ public class AdminConfigController {
             @RequestParam String tenantId,
             @RequestParam String sceneId,
             @PathVariable String version,
-            @PathVariable String objectType
+            @PathVariable String objectType,
+            @RequestParam(required = false) List<String> roles
     ) {
+        return configObjectAppService.list(
+                tenantId,
+                sceneId,
+                version,
+                ConfigObjectType.fromPath(objectType),
+                AdminRequestContext.roles(roles)
+        );
+    }
+
+    public List<Map<String, Object>> listConfigObjects(String tenantId, String sceneId, String version, String objectType) {
         return configObjectAppService.list(
                 tenantId,
                 sceneId,
@@ -287,7 +339,8 @@ public class AdminConfigController {
             @PathVariable String version,
             @PathVariable String objectType,
             @PathVariable String objectId,
-            @RequestParam(defaultValue = "system") String actor
+            @RequestParam(defaultValue = "system") String actor,
+            @RequestParam(required = false) List<String> roles
     ) {
         boolean deleted = configObjectAppService.delete(
                 tenantId,
@@ -295,7 +348,8 @@ public class AdminConfigController {
                 version,
                 ConfigObjectType.fromPath(objectType),
                 objectId,
-                actor
+                AdminRequestContext.actor(actor),
+                AdminRequestContext.roles(roles)
         );
         return Map.of("deleted", deleted);
     }

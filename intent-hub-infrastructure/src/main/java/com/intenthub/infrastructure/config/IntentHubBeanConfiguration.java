@@ -99,9 +99,10 @@ public class IntentHubBeanConfiguration {
     @Bean
     ConfigReviewWorkspaceAppService configReviewWorkspaceAppService(
             ConfigVersionAppService configVersionAppService,
-            ConfigAuditAppService configAuditAppService
+            ConfigAuditAppService configAuditAppService,
+            AuditLogPort auditLogPort
     ) {
-        return new ConfigReviewWorkspaceAppService(configVersionAppService, configAuditAppService);
+        return new ConfigReviewWorkspaceAppService(configVersionAppService, configAuditAppService, auditLogPort);
     }
 
     @Bean

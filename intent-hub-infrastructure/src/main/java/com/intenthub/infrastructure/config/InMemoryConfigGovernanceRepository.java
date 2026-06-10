@@ -7,6 +7,7 @@ import com.intenthub.application.config.ConfigObjectPort;
 import com.intenthub.application.config.ConfigObjectType;
 import com.intenthub.application.config.ConfigVersionInfo;
 import com.intenthub.application.config.ConfigVersionPort;
+import com.intenthub.application.metrics.IntentMetricsPort;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -20,9 +21,16 @@ import java.util.Optional;
 @Component
 @ConditionalOnProperty(name = "intent-hub.persistence.mode", havingValue = "memory", matchIfMissing = true)
 public class InMemoryConfigGovernanceRepository implements ConfigVersionPort, ConfigObjectPort, AuditLogPort {
+    private static final String PERMISSION_DENIED_ACTION = "CONFIG_PERMISSION_DENIED";
+
     private final Map<String, ConfigBundle> bundles = new LinkedHashMap<>();
     private final List<AuditLogEntry> auditLogs = new ArrayList<>();
+    private final IntentMetricsPort metricsPort;
     private long auditSequence = 0L;
+
+    public InMemoryConfigGovernanceRepository(IntentMetricsPort metricsPort) {
+        this.metricsPort = metricsPort;
+    }
 
     @Override
     public ConfigVersionInfo createDraft(String tenantId, String sceneId, String version, String description, String actor) {
@@ -154,6 +162,9 @@ public class InMemoryConfigGovernanceRepository implements ConfigVersionPort, Co
 
     @Override
     public void record(String tenantId, String sceneId, String actor, String action, String targetType, String targetId, Map<String, String> detail) {
+        if (PERMISSION_DENIED_ACTION.equals(action)) {
+            metricsPort.recordPermissionDenied(tenantId, sceneId, detail == null ? null : detail.get("action"));
+        }
         auditLogs.add(new AuditLogEntry(
                 ++auditSequence,
                 tenantId,

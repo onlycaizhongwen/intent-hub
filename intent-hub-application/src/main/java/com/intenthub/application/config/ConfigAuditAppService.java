@@ -13,6 +13,11 @@ public class ConfigAuditAppService {
     }
 
     public List<AuditLogEntry> listVersionAudits(String tenantId, String sceneId, String version, Integer limit) {
+        return listVersionAudits(tenantId, sceneId, version, limit, null);
+    }
+
+    public List<AuditLogEntry> listVersionAudits(String tenantId, String sceneId, String version, Integer limit, List<String> roles) {
+        ConfigPermission.requireViewer(roles, tenantId, sceneId, "list config version audits", auditLogPort);
         requireIdentity(tenantId, sceneId, version);
         int normalizedLimit = normalizeLimit(limit);
         return auditLogPort.list(tenantId, sceneId, "CONFIG_VERSION", version, normalizedLimit);

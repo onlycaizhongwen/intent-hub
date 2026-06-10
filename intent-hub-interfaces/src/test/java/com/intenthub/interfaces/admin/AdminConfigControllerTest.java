@@ -10,17 +10,27 @@ import com.intenthub.application.config.ConfigObjectType;
 import com.intenthub.application.config.ConfigVersionAppService;
 import com.intenthub.application.config.ConfigVersionInfo;
 import com.intenthub.application.config.ConfigVersionPort;
+import com.intenthub.application.metrics.IntentMetricsPort;
+import com.intenthub.application.metrics.MetricsSnapshot;
 import com.intenthub.interfaces.error.GlobalExceptionHandler;
+import com.intenthub.interfaces.security.AdminJwtAuthenticationFilter;
+import com.intenthub.interfaces.security.AdminJwtProperties;
+import com.intenthub.interfaces.security.AdminJwtVerifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -31,18 +41,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class AdminConfigControllerTest {
     private AdminConfigController controller;
+    private NoopAuditLogPort auditLogPort;
 
     @BeforeEach
     void setUp() {
         InMemoryPort port = new InMemoryPort();
-        NoopAuditLogPort auditLogPort = new NoopAuditLogPort();
+        auditLogPort = new NoopAuditLogPort();
         controller = new AdminConfigController(
                 new ConfigVersionAppService(port, auditLogPort),
                 new ConfigObjectAppService(port, port, auditLogPort),
                 new ConfigAuditAppService(auditLogPort),
                 new com.intenthub.application.config.ConfigReviewWorkspaceAppService(
                         new ConfigVersionAppService(port, auditLogPort),
-                        new ConfigAuditAppService(auditLogPort)
+                        new ConfigAuditAppService(auditLogPort),
+                        auditLogPort
                 )
         );
     }
@@ -199,7 +211,15 @@ class AdminConfigControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"))
                 .andExpect(jsonPath("$.status").value(403))
-                .andExpect(jsonPath("$.message").value("approve config version requires role CONFIG_APPROVER"));
+                .andExpect(jsonPath("$.message").value("approve config version requires role CONFIG_APPROVER or CONFIG_APPROVER:demo:order-scene"));
+        assertThat(auditLogPort.entries)
+                .anySatisfy(entry -> {
+                    assertThat(entry.action()).isEqualTo("CONFIG_PERMISSION_DENIED");
+                    assertThat(entry.targetType()).isEqualTo("CONFIG_PERMISSION");
+                    assertThat(entry.detail()).containsEntry("action", "approve config version");
+                    assertThat(entry.detail()).containsEntry("requiredRole", "CONFIG_APPROVER");
+                    assertThat(entry.detail()).containsEntry("roles", "CONFIG_OPERATOR");
+                });
     }
 
     @Test
@@ -234,6 +254,113 @@ class AdminConfigControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("APPROVED"))
                 .andExpect(jsonPath("$.approvedBy").value("iam-approver"));
+    }
+
+    @Test
+    void acceptsScopedRolesFromAdminRequestContextHeaders() throws Exception {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "source", "PUBLISHED", "from file", "ops", Instant.now(), Instant.now());
+        controller.importBundle(new ConfigImportRequest("demo", "order-scene", "v-header-scoped-approve", "admin", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "order query")),
+                null,
+                null,
+                null,
+                null,
+                null
+        )));
+        controller.submitReview("demo", "order-scene", "v-header-scoped-approve", new ConfigVersionActionRequest("reviewer"));
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mockMvc.perform(post("/api/v1/admin/config/versions/v-header-scoped-approve/approve")
+                        .param("tenantId", "demo")
+                        .param("sceneId", "order-scene")
+                        .header("X-IntentHub-Actor", "scene-approver")
+                        .header("X-IntentHub-Roles", "CONFIG_APPROVER:demo:order-scene")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "actor": "body-operator",
+                                  "roles": ["CONFIG_OPERATOR"]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"))
+                .andExpect(jsonPath("$.approvedBy").value("scene-approver"));
+    }
+
+    @Test
+    void usesAdminJwtFilterActorAndRolesWhenEnabled() throws Exception {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "source", "PUBLISHED", "from file", "ops", Instant.now(), Instant.now());
+        controller.importBundle(new ConfigImportRequest("demo", "order-scene", "v-jwt-approve", "admin", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "order query")),
+                null,
+                null,
+                null,
+                null,
+                null
+        )));
+        controller.submitReview("demo", "order-scene", "v-jwt-approve", new ConfigVersionActionRequest("reviewer"));
+        String secret = "admin-jwt-secret";
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .addFilters(adminJwtFilter(secret))
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mockMvc.perform(post("/api/v1/admin/config/versions/v-jwt-approve/approve")
+                        .param("tenantId", "demo")
+                        .param("sceneId", "order-scene")
+                        .header("Authorization", "Bearer " + jwt(secret, """
+                                {"sub":"jwt-approver","roles":["CONFIG_APPROVER:demo:order-scene"],"exp":%d}
+                                """.formatted(Instant.now().plusSeconds(60).getEpochSecond())))
+                        .header("X-IntentHub-Actor", "header-actor")
+                        .header("X-IntentHub-Roles", "CONFIG_OPERATOR")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "actor": "body-operator",
+                                  "roles": ["CONFIG_OPERATOR"]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"))
+                .andExpect(jsonPath("$.approvedBy").value("jwt-approver"));
+    }
+
+    @Test
+    void returnsForbiddenWhenAdminJwtIsInvalid() throws Exception {
+        controller.createDraft(new ConfigDraftRequest("demo", "order-scene", "v-jwt-invalid", "base", "admin"));
+        CountingMetricsPort metricsPort = new CountingMetricsPort();
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .addFilters(adminJwtFilter("admin-jwt-secret", auditLogPort, metricsPort))
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mockMvc.perform(get("/api/v1/admin/config/versions/v-jwt-invalid")
+                        .param("tenantId", "demo")
+                        .param("sceneId", "order-scene")
+                        .header("Authorization", "Bearer " + jwt("wrong-secret", """
+                                {"sub":"jwt-viewer","roles":["CONFIG_VIEWER:demo:order-scene"],"exp":%d}
+                                """.formatted(Instant.now().plusSeconds(60).getEpochSecond()))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("invalid admin jwt signature"));
+        assertThat(metricsPort.snapshot().totalAdminJwtAuthFailures()).isEqualTo(1);
+        assertThat(auditLogPort.entries)
+                .anySatisfy(entry -> {
+                    assertThat(entry.action()).isEqualTo("ADMIN_JWT_AUTH_FAILED");
+                    assertThat(entry.targetType()).isEqualTo("ADMIN_JWT");
+                    assertThat(entry.tenantId()).isEqualTo("demo");
+                    assertThat(entry.sceneId()).isEqualTo("order-scene");
+                    assertThat(entry.detail()).containsEntry("method", "GET");
+                    assertThat(entry.detail()).containsEntry("path", "/api/v1/admin/config/versions/v-jwt-invalid");
+                    assertThat(entry.detail()).containsEntry("reason", "invalid admin jwt signature");
+                    assertThat(entry.detail()).doesNotContainKey("authorization");
+                    assertThat(entry.detail()).doesNotContainKey("token");
+                });
     }
 
     @Test
@@ -315,11 +442,11 @@ class AdminConfigControllerTest {
                 null
         )));
 
-        assertThat(controller.reviewWorkspace("demo", "order-scene", "v-next", "v-base", null).availableActions())
+        assertThat(controller.reviewWorkspace("demo", "order-scene", "v-next", "v-base", List.of("CONFIG_VIEWER")).availableActions())
                 .contains("VIEW_DIFF", "DRY_RUN", "EXPORT_GITOPS", "SUBMIT_REVIEW")
                 .doesNotContain("PUBLISH_COMPAT");
-        assertThat(controller.reviewWorkspace("demo", "order-scene", "v-next", "v-base", null).blockedReasons())
-                .contains("PUBLISH_COMPAT requires role CONFIG_PUBLISHER");
+        assertThat(controller.reviewWorkspace("demo", "order-scene", "v-next", "v-base", List.of("CONFIG_VIEWER")).blockedReasons())
+                .contains("PUBLISH_COMPAT requires role CONFIG_PUBLISHER or CONFIG_PUBLISHER:demo:order-scene");
         assertThat(controller.reviewWorkspace("demo", "order-scene", "v-next", "v-base", List.of("CONFIG_PUBLISHER")).availableActions())
                 .contains("PUBLISH_COMPAT");
 
@@ -332,10 +459,10 @@ class AdminConfigControllerTest {
         assertThat(controller.reviewWorkspace("demo", "order-scene", "v-next", "v-base", List.of("CONFIG_APPROVER")).blockedReasons())
                 .contains("REVIEWING config version must be approved before publish");
 
-        assertThat(controller.reviewWorkspace("demo", "order-scene", "v-next", "v-base", null).availableActions())
+        assertThat(controller.reviewWorkspace("demo", "order-scene", "v-next", "v-base", List.of("CONFIG_VIEWER")).availableActions())
                 .doesNotContain("APPROVE", "REJECT_REVIEW", "CANCEL_REVIEW");
-        assertThat(controller.reviewWorkspace("demo", "order-scene", "v-next", "v-base", null).blockedReasons())
-                .contains("APPROVE requires role CONFIG_APPROVER");
+        assertThat(controller.reviewWorkspace("demo", "order-scene", "v-next", "v-base", List.of("CONFIG_VIEWER")).blockedReasons())
+                .contains("APPROVE requires role CONFIG_APPROVER or CONFIG_APPROVER:demo:order-scene");
 
         controller.approve("demo", "order-scene", "v-next", new ConfigVersionActionRequest("approver", null, null, List.of("CONFIG_APPROVER")));
 
@@ -358,7 +485,7 @@ class AdminConfigControllerTest {
     void managesConfigObjectsThroughControllerContract() {
         controller.createDraft(new ConfigDraftRequest("demo", "order-scene", "v1", "base", "admin"));
 
-        Map<String, Object> saved = controller.upsertConfigObject("demo", "order-scene", "v1", "intents", new ConfigObjectRequest("admin", Map.of(
+        Map<String, Object> saved = controller.upsertConfigObject("demo", "order-scene", "v1", "intents", new ConfigObjectRequest("admin", List.of("CONFIG_EDITOR"), Map.of(
                 "intentCode", "ORDER_QUERY",
                 "intentName", "订单查询"
         )));
@@ -372,17 +499,162 @@ class AdminConfigControllerTest {
     void bulkUpsertsAndDeletesConfigObjectsThroughControllerContract() {
         controller.createDraft(new ConfigDraftRequest("demo", "order-scene", "v-bulk", "base", "admin"));
 
-        List<Map<String, Object>> saved = controller.bulkUpsertConfigObjects("demo", "order-scene", "v-bulk", "intents", new ConfigObjectBulkRequest("admin", List.of(
+        List<Map<String, Object>> saved = controller.bulkUpsertConfigObjects("demo", "order-scene", "v-bulk", "intents", new ConfigObjectBulkRequest("admin", List.of("CONFIG_EDITOR:demo:*"), List.of(
                 Map.of("intentCode", "ORDER_QUERY", "intentName", "订单查询"),
                 Map.of("intentCode", "ORDER_CANCEL", "intentName", "订单取消")
         )));
 
         assertThat(saved).hasSize(2);
         assertThat(controller.listConfigObjects("demo", "order-scene", "v-bulk", "intents")).hasSize(2);
-        assertThat(controller.deleteConfigObject("demo", "order-scene", "v-bulk", "intents", "ORDER_QUERY", "admin"))
+        assertThat(controller.deleteConfigObject("demo", "order-scene", "v-bulk", "intents", "ORDER_QUERY", "admin", List.of("CONFIG_EDITOR:demo:order-scene")))
                 .containsEntry("deleted", true);
         assertThat(controller.listConfigObjects("demo", "order-scene", "v-bulk", "intents")).extracting(item -> item.get("intentCode"))
                 .containsExactly("ORDER_CANCEL");
+    }
+
+    @Test
+    void mapsConfigObjectEditPermissionFailureToForbiddenHttpResponse() throws Exception {
+        controller.createDraft(new ConfigDraftRequest("demo", "order-scene", "v-object-forbidden", "base", "admin"));
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mockMvc.perform(post("/api/v1/admin/config/versions/v-object-forbidden/intents")
+                        .param("tenantId", "demo")
+                        .param("sceneId", "order-scene")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "actor": "operator",
+                                  "roles": ["CONFIG_EDITOR:demo:other-scene"],
+                                  "payload": {
+                                    "intentCode": "ORDER_QUERY",
+                                    "intentName": "order query"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("upsert config object requires role CONFIG_EDITOR or CONFIG_EDITOR:demo:order-scene"));
+        assertThat(auditLogPort.entries)
+                .anySatisfy(entry -> {
+                    assertThat(entry.action()).isEqualTo("CONFIG_PERMISSION_DENIED");
+                    assertThat(entry.targetType()).isEqualTo("CONFIG_PERMISSION");
+                    assertThat(entry.detail()).containsEntry("action", "upsert config object");
+                    assertThat(entry.detail()).containsEntry("requiredRole", "CONFIG_EDITOR");
+                    assertThat(entry.detail()).containsEntry("roles", "CONFIG_EDITOR:demo:other-scene");
+                });
+    }
+
+    @Test
+    void acceptsScopedEditorRoleFromAdminRequestContextHeaders() throws Exception {
+        controller.createDraft(new ConfigDraftRequest("demo", "order-scene", "v-object-header", "base", "admin"));
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mockMvc.perform(post("/api/v1/admin/config/versions/v-object-header/intents")
+                        .param("tenantId", "demo")
+                        .param("sceneId", "order-scene")
+                        .header("X-IntentHub-Actor", "header-editor")
+                        .header("X-IntentHub-Roles", "CONFIG_EDITOR:demo:order-scene")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "actor": "body-editor",
+                                  "roles": ["CONFIG_OPERATOR"],
+                                  "payload": {
+                                    "intentCode": "ORDER_QUERY",
+                                    "intentName": "order query"
+                                  }
+                                }
+                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.intentCode").value("ORDER_QUERY"));
+    }
+
+    @Test
+    void mapsReadOnlyPermissionFailureToForbiddenHttpResponse() throws Exception {
+        controller.createDraft(new ConfigDraftRequest("demo", "order-scene", "v-read-forbidden", "base", "admin"));
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mockMvc.perform(get("/api/v1/admin/config/versions/v-read-forbidden")
+                        .param("tenantId", "demo")
+                        .param("sceneId", "order-scene")
+                        .header("X-IntentHub-Roles", "CONFIG_VIEWER:demo:other-scene"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("get config version requires role CONFIG_VIEWER or CONFIG_VIEWER:demo:order-scene"));
+        assertThat(auditLogPort.entries)
+                .anySatisfy(entry -> {
+                    assertThat(entry.action()).isEqualTo("CONFIG_PERMISSION_DENIED");
+                    assertThat(entry.targetType()).isEqualTo("CONFIG_PERMISSION");
+                    assertThat(entry.detail()).containsEntry("action", "get config version");
+                    assertThat(entry.detail()).containsEntry("requiredRole", "CONFIG_VIEWER");
+                    assertThat(entry.detail()).containsEntry("roles", "CONFIG_VIEWER:demo:other-scene");
+                });
+    }
+
+    @Test
+    void acceptsScopedViewerRoleFromAdminRequestContextHeaders() throws Exception {
+        controller.createDraft(new ConfigDraftRequest("demo", "order-scene", "v-read-header", "base", "admin"));
+        controller.upsertConfigObject("demo", "order-scene", "v-read-header", "intents", new ConfigObjectRequest("admin", List.of("CONFIG_EDITOR"), Map.of(
+                "intentCode", "ORDER_QUERY",
+                "intentName", "order query"
+        )));
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mockMvc.perform(get("/api/v1/admin/config/versions/v-read-header")
+                        .param("tenantId", "demo")
+                        .param("sceneId", "order-scene")
+                        .header("X-IntentHub-Roles", "CONFIG_VIEWER:demo:order-scene"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value("v-read-header"));
+
+        mockMvc.perform(get("/api/v1/admin/config/versions/v-read-header/intents")
+                        .param("tenantId", "demo")
+                        .param("sceneId", "order-scene")
+                        .header("X-IntentHub-Roles", "CONFIG_APPROVER:demo:order-scene"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].intentCode").value("ORDER_QUERY"));
+    }
+
+    private static AdminJwtAuthenticationFilter adminJwtFilter(String secret) {
+        return adminJwtFilter(secret, null, null);
+    }
+
+    private static AdminJwtAuthenticationFilter adminJwtFilter(String secret, AuditLogPort auditLogPort, IntentMetricsPort metricsPort) {
+        AdminJwtProperties properties = new AdminJwtProperties();
+        properties.setEnabled(true);
+        properties.setSecret(secret);
+        return new AdminJwtAuthenticationFilter(properties, new AdminJwtVerifier(properties, ref -> Optional.empty()), auditLogPort, metricsPort);
+    }
+
+    private static String jwt(String secret, String payloadJson) {
+        String header = base64Url("{\"alg\":\"HS256\",\"typ\":\"JWT\"}");
+        String payload = base64Url(payloadJson);
+        String signingInput = header + "." + payload;
+        return signingInput + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(hmac(signingInput, secret));
+    }
+
+    private static String base64Url(String value) {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static byte[] hmac(String value, String secret) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return mac.doFinal(value.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 
     private static final class InMemoryPort implements ConfigVersionPort, ConfigObjectPort {
@@ -541,6 +813,46 @@ class AdminConfigControllerTest {
                     .sorted((left, right) -> Long.compare(right.id(), left.id()))
                     .limit(limit)
                     .toList();
+        }
+    }
+
+    private static final class CountingMetricsPort implements IntentMetricsPort {
+        private final AtomicLong jwtFailures = new AtomicLong();
+
+        @Override
+        public void recordRecognition(com.intenthub.domain.recognition.Envelope envelope,
+                                      com.intenthub.domain.recognition.IntentResult result,
+                                      long latencyMillis) {
+        }
+
+        @Override
+        public void recordAdminJwtAuthFailure(String reason) {
+            jwtFailures.incrementAndGet();
+        }
+
+        @Override
+        public MetricsSnapshot snapshot() {
+            return new MetricsSnapshot(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0.0,
+                    0,
+                    0,
+                    jwtFailures.get(),
+                    0,
+                    0.0,
+                    0,
+                    0.0,
+                    0.0,
+                    Map.of(),
+                    Map.of(),
+                    Map.of(),
+                    Instant.EPOCH,
+                    Instant.EPOCH
+            );
         }
     }
 }

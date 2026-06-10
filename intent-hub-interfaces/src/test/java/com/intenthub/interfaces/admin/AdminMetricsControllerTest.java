@@ -31,6 +31,8 @@ class AdminMetricsControllerTest {
         assertThat(snapshot.totalLlmBudgetAttempts()).isEqualTo(2);
         assertThat(snapshot.totalLlmBudgetConsumed()).isEqualTo(2.0);
         assertThat(snapshot.totalLlmBudgetReconciliations()).isEqualTo(4);
+        assertThat(snapshot.totalPermissionDenied()).isEqualTo(2);
+        assertThat(snapshot.totalAdminJwtAuthFailures()).isEqualTo(1);
         assertThat(snapshot.p95LatencyMillis()).isEqualTo(1600.0);
         assertThat(snapshot.p99LatencyMillis()).isEqualTo(3100.0);
         assertThat(snapshot.decisions()).containsEntry("SUCCESS", 2L);
@@ -51,6 +53,8 @@ class AdminMetricsControllerTest {
         assertThat(text).contains("intent_hub_llm_budget_attempts_total 2");
         assertThat(text).contains("intent_hub_llm_budget_consumed_total 2.0");
         assertThat(text).contains("intent_hub_llm_budget_reconciliations_total 4");
+        assertThat(text).contains("intent_hub_permission_denied_total 2");
+        assertThat(text).contains("intent_hub_admin_jwt_auth_failures_total 1");
         assertThat(text).contains("intent_hub_latency_millis_p95 1600.0");
         assertThat(text).contains("intent_hub_latency_millis_p99 3100.0");
         assertThat(text).contains("intent_hub_decisions_total{decision=\"SUCCESS\"} 2");
@@ -69,7 +73,8 @@ class AdminMetricsControllerTest {
         assertThat(snapshot.status()).isEqualTo("CRITICAL");
         assertThat(snapshot.alerts()).extracting("code")
                 .contains("BAD_CASE_RATE_HIGH", "MODEL_FALLBACK", "LLM_FALLBACK",
-                        "LLM_BUDGET_RECONCILIATION", "P95_LATENCY_HIGH", "P99_LATENCY_HIGH");
+                        "LLM_BUDGET_RECONCILIATION", "CONFIG_PERMISSION_DENIED",
+                        "ADMIN_JWT_AUTH_FAILED", "P95_LATENCY_HIGH", "P99_LATENCY_HIGH");
     }
 
     private static final class FixedMetricsPort implements IntentMetricsPort {
@@ -87,6 +92,8 @@ class AdminMetricsControllerTest {
                     2,
                     2.0,
                     4,
+                    2,
+                    1,
                     27,
                     9.0,
                     15,

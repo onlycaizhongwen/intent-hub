@@ -9,7 +9,7 @@
 1. [Prometheus 抓取配置](prometheus/intent-hub-scrape-config.yml)
    先确认 Intent Hub 暴露 `GET /api/v1/admin/metrics/prometheus`，Prometheus 能抓取到 `intent_hub_requests_total` 等指标。
 2. [Prometheus 告警规则](prometheus/intent-hub-alert-rules.yml)
-   在 scrape 可用后加载规则，覆盖 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、平均耗时和最大耗时。
+   在 scrape 可用后加载规则，覆盖 bad case 率、模型 fallback、LLM fallback、LLM 预算补偿、权限拒绝、Admin JWT 认证失败、平均耗时和最大耗时。
 3. [Alertmanager 路由样例](alertmanager/alertmanager-route-sample.yml)
    将 Prometheus 告警按 `critical` 和 `warning` 分流到真实值班通道。
 4. [Grafana 看板样例](grafana/intent-hub-dashboard.json)
@@ -41,6 +41,7 @@
 
 - 已提供 Admin Metrics JSON、Prometheus 文本出口和基础告警快照。
 - 已提供 Prometheus scrape、告警规则、Alertmanager route、Grafana dashboard、SLO、本地观测栈和 Runbook 样例。
+- Prometheus 告警规则已覆盖 `intent_hub_permission_denied_total`、`intent_hub_admin_jwt_auth_failures_total`、`intent_hub_admin_jwks_fetch_failures_total` 和 `intent_hub_admin_jwks_stale_hits_total`，并通过 `category=security` 支持 Alertmanager 安全通道路由。
 - 已提供生产化落地检查清单，用于确认样例进入真实环境前的必改项。
 - 已提供试点接入计划，用于在低风险环境获取真实观测与告警演练证据。
 - 已提供试点执行记录模板，用于沉淀真实试点证据和复盘结论。

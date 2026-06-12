@@ -369,6 +369,42 @@ class ConfigVersionAppServiceTest {
     }
 
     @Test
+    void exposesStructuredReviewHistoryInWorkspace() {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "history bundle", "ops", Instant.now(), Instant.now());
+        service.importBundle("demo", "order-scene", "v-history", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "order query")),
+                null,
+                null,
+                null,
+                null,
+                null
+        ), "admin");
+        service.submitReview("demo", "order-scene", "v-history", "reviewer");
+        service.approve("demo", "order-scene", "v-history", "approver", List.of("CONFIG_APPROVER"));
+        service.publish("demo", "order-scene", "v-history", "publisher", null, List.of("CONFIG_PUBLISHER"));
+
+        ConfigReviewWorkspaceAppService workspaceService = new ConfigReviewWorkspaceAppService(service, new ConfigAuditAppService(auditLogPort));
+        ConfigReviewWorkspace workspace = workspaceService.getWorkspace("demo", "order-scene", "v-history", null, List.of("CONFIG_VIEWER"));
+
+        assertThat(workspace.reviewHistory())
+                .extracting(ConfigReviewHistoryEntry::stage)
+                .contains("PUBLISHED", "APPROVED", "REVIEW_SUBMITTED");
+        assertThat(workspace.reviewHistory())
+                .anySatisfy(entry -> {
+                    assertThat(entry.stage()).isEqualTo("APPROVED");
+                    assertThat(entry.actor()).isEqualTo("approver");
+                    assertThat(entry.status()).isEqualTo("APPROVED");
+                    assertThat(entry.snapshotHash()).isNotBlank();
+                })
+                .anySatisfy(entry -> {
+                    assertThat(entry.stage()).isEqualTo("PUBLISHED");
+                    assertThat(entry.actor()).isEqualTo("publisher");
+                    assertThat(entry.status()).isEqualTo("PUBLISHED");
+                });
+    }
+
+    @Test
     void returnsReviewingOrApprovedVersionToDraft() {
         ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "external", "PUBLISHED", "review return bundle", "ops", Instant.now(), Instant.now());
         service.importBundle("demo", "order-scene", "v-reject", new ConfigBundle(
@@ -588,7 +624,9 @@ class ConfigVersionAppServiceTest {
                     assertThat(entry.action()).isEqualTo("CONFIG_PERMISSION_DENIED");
                     assertThat(entry.detail()).containsEntry("action", "upsert config object");
                     assertThat(entry.detail()).containsEntry("requiredRole", "CONFIG_EDITOR");
-                    assertThat(entry.detail()).containsEntry("roleHint", "CONFIG_EDITOR or CONFIG_EDITOR:demo:order-scene");
+                    assertThat(entry.detail()).containsEntry("alternativeRole", "CONFIG_INTENT_EDITOR");
+                    assertThat(entry.detail()).containsEntry("roleHint", "CONFIG_EDITOR or CONFIG_EDITOR:demo:order-scene or CONFIG_INTENT_EDITOR or CONFIG_INTENT_EDITOR:demo:order-scene");
+                    assertThat(entry.detail()).containsEntry("objectType", "INTENT");
                     assertThat(entry.detail()).containsEntry("roles", "CONFIG_EDITOR:demo:other-scene");
                 });
 
@@ -602,6 +640,45 @@ class ConfigVersionAppServiceTest {
                 Map.of("intentCode", "ORDER_CANCEL", "intentName", "order cancel")
         ), "tenant-editor", List.of("CONFIG_EDITOR:demo:*"))).hasSize(1);
         assertThat(objectService.delete("demo", "order-scene", "v-editor-role", ConfigObjectType.INTENT, "ORDER_CANCEL", "tenant-editor", List.of("CONFIG_EDITOR:*:order-scene")))
+                .isTrue();
+    }
+
+    @Test
+    void supportsObjectTypeEditorRolesForConfigObjects() {
+        service.createDraft("demo", "order-scene", "v-object-type-role", "object type role", "admin");
+        ConfigObjectAppService objectService = new ConfigObjectAppService(port, port, auditLogPort);
+
+        Map<String, Object> savedIntent = objectService.upsert("demo", "order-scene", "v-object-type-role", ConfigObjectType.INTENT, Map.of(
+                "intentCode", "ORDER_QUERY",
+                "intentName", "order query"
+        ), "intent-editor", List.of("CONFIG_INTENT_EDITOR:demo:order-scene"));
+        assertThat(savedIntent).containsEntry("intentCode", "ORDER_QUERY");
+
+        assertThat(objectService.upsert("demo", "order-scene", "v-object-type-role", ConfigObjectType.ROUTE, Map.of(
+                "routeStage", "POST",
+                "routeTarget", "ORDER_QUERY",
+                "priority", 10
+        ), "route-editor", List.of("CONFIG_ROUTE_EDITOR:demo:*"))).containsEntry("routeStage", "POST");
+
+        assertThatThrownBy(() -> objectService.upsert("demo", "order-scene", "v-object-type-role", ConfigObjectType.DOWNSTREAM_ACTION, Map.of(
+                "actionCode", "notify-order",
+                "actionType", "MQ",
+                "target", "order.events"
+        ), "route-editor", List.of("CONFIG_ROUTE_EDITOR:demo:order-scene")))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("requires role CONFIG_EDITOR or CONFIG_EDITOR:demo:order-scene or CONFIG_ACTION_EDITOR or CONFIG_ACTION_EDITOR:demo:order-scene");
+
+        assertThat(auditLogPort.entries)
+                .anySatisfy(entry -> {
+                    assertThat(entry.action()).isEqualTo("CONFIG_PERMISSION_DENIED");
+                    assertThat(entry.detail()).containsEntry("action", "upsert config object");
+                    assertThat(entry.detail()).containsEntry("requiredRole", "CONFIG_EDITOR");
+                    assertThat(entry.detail()).containsEntry("alternativeRole", "CONFIG_ACTION_EDITOR");
+                    assertThat(entry.detail()).containsEntry("objectType", "DOWNSTREAM_ACTION");
+                    assertThat(entry.detail()).containsEntry("roles", "CONFIG_ROUTE_EDITOR:demo:order-scene");
+                });
+
+        assertThat(objectService.delete("demo", "order-scene", "v-object-type-role", ConfigObjectType.INTENT, "ORDER_QUERY", "legacy-editor", List.of("CONFIG_EDITOR:demo:order-scene")))
                 .isTrue();
     }
 

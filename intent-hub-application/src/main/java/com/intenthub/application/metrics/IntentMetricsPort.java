@@ -18,5 +18,17 @@ public interface IntentMetricsPort {
     default void recordAdminJwtAuthFailure(String reason) {
     }
 
+    default void recordAdminJwksFetch() {
+    }
+
+    default void recordAdminJwksFetchFailure() {
+    }
+
+    default void recordAdminJwksCacheHit() {
+    }
+
+    default void recordAdminJwksStaleHit() {
+    }
+
     MetricsSnapshot snapshot();
 }

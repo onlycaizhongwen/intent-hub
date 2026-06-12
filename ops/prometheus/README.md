@@ -22,6 +22,21 @@
 
 将 `intent-hub-alert-rules.yml` 按 Prometheus rule file 方式加载，并参考 `../alertmanager/README.md` 补齐真实 route、receiver 和静默策略。
 
+安全类告警已经单独标记 `category=security`：
+
+- `IntentHubConfigPermissionDenied`：基于 `increase(intent_hub_permission_denied_total[5m]) > 0`，对应审计事件 `CONFIG_PERMISSION_DENIED`。
+- `IntentHubAdminJwtAuthFailed`：基于 `increase(intent_hub_admin_jwt_auth_failures_total[5m]) > 0`，对应审计事件 `ADMIN_JWT_AUTH_FAILED`。
+
+这两个规则使用 5 分钟增量窗口，避免累计指标大于 0 后长期保持 firing。生产环境可按 Admin 入口基线、租户等级和 IAM 发布窗口调高阈值或延长 `for`。
+
 ## 边界
 
 这些文件是运维样例，不是生产完整配置。生产环境仍需补齐服务发现、TLS/鉴权、Alertmanager route、receiver、Grafana dashboard provisioning、SLO 和多实例聚合策略。
+## JWKS 安全告警补充
+
+Admin JWT 的 JWKS 路径已补充两条 Prometheus 规则，均标记 `category=security`，可复用安全告警路由：
+
+- `IntentHubAdminJwksFetchFailed`：基于 `increase(intent_hub_admin_jwks_fetch_failures_total[5m]) > 0`，用于发现 IAM/OIDC JWKS endpoint、DNS、TLS、代理或 `jwksFetchTimeoutMs` 异常。
+- `IntentHubAdminJwksStaleHit`：基于 `increase(intent_hub_admin_jwks_stale_hits_total[5m]) > 0`，用于发现 JWKS 刷新失败后进入 stale grace 旧缓存兜底。
+
+这两条规则不携带 issuer、kid、url、tenant 或 actor 等高基数字段。生产环境接入时应结合真实 IAM 发布窗口、JWKS TTL、stale grace 时长和值班策略调整 `for`、阈值和通知升级策略。

@@ -10,6 +10,11 @@ public class AdminJwtProperties {
     private boolean enabled = false;
     private String secret;
     private String secretRef;
+    private String jwksJson;
+    private String jwksUrl;
+    private long jwksCacheTtlSeconds = 300;
+    private long jwksStaleGraceSeconds = 300;
+    private long jwksFetchTimeoutMs = 2000;
     private String actorClaim = "sub";
     private String rolesClaim = "roles";
     private String issuer;
@@ -38,6 +43,46 @@ public class AdminJwtProperties {
 
     public void setSecretRef(String secretRef) {
         this.secretRef = secretRef;
+    }
+
+    public String getJwksJson() {
+        return jwksJson;
+    }
+
+    public void setJwksJson(String jwksJson) {
+        this.jwksJson = jwksJson;
+    }
+
+    public String getJwksUrl() {
+        return jwksUrl;
+    }
+
+    public void setJwksUrl(String jwksUrl) {
+        this.jwksUrl = jwksUrl;
+    }
+
+    public long getJwksCacheTtlSeconds() {
+        return jwksCacheTtlSeconds;
+    }
+
+    public void setJwksCacheTtlSeconds(long jwksCacheTtlSeconds) {
+        this.jwksCacheTtlSeconds = jwksCacheTtlSeconds;
+    }
+
+    public long getJwksStaleGraceSeconds() {
+        return jwksStaleGraceSeconds;
+    }
+
+    public void setJwksStaleGraceSeconds(long jwksStaleGraceSeconds) {
+        this.jwksStaleGraceSeconds = jwksStaleGraceSeconds;
+    }
+
+    public long getJwksFetchTimeoutMs() {
+        return jwksFetchTimeoutMs;
+    }
+
+    public void setJwksFetchTimeoutMs(long jwksFetchTimeoutMs) {
+        this.jwksFetchTimeoutMs = jwksFetchTimeoutMs;
     }
 
     public String getActorClaim() {

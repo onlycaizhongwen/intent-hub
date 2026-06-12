@@ -34,6 +34,41 @@ Assert-File $grafanaDashboardProvisioning "grafana dashboard provisioning"
 Assert-File $alertRules "Prometheus alert rules"
 Assert-File $grafanaDashboard "Grafana dashboard json"
 
+if (Test-Path $alertRules) {
+    $alertRulesText = Get-Content -Raw -Encoding UTF8 $alertRules
+    $expectedAlerts = @(
+        "IntentHubBadCaseRateHigh",
+        "IntentHubModelFallbackDetected",
+        "IntentHubLlmFallbackDetected",
+        "IntentHubLlmBudgetReconciliationDetected",
+        "IntentHubConfigPermissionDenied",
+        "IntentHubAdminJwtAuthFailed",
+        "IntentHubAdminJwksFetchFailed",
+        "IntentHubAdminJwksStaleHit",
+        "IntentHubAverageLatencyHigh",
+        "IntentHubP95LatencyHigh",
+        "IntentHubP99LatencyCritical",
+        "IntentHubMaxLatencyCritical"
+    )
+    foreach ($alert in $expectedAlerts) {
+        if ($alertRulesText.Contains($alert)) {
+            Write-Host "[OK] alert rule $alert"
+        } else {
+            Write-Host "[FAIL] alert rule $alert missing"
+            $failed = $true
+        }
+    }
+    if ($alertRulesText -match "increase\(intent_hub_permission_denied_total\[5m\]\) > 0" `
+            -and $alertRulesText -match "increase\(intent_hub_admin_jwt_auth_failures_total\[5m\]\) > 0" `
+            -and $alertRulesText -match "increase\(intent_hub_admin_jwks_fetch_failures_total\[5m\]\) > 0" `
+            -and $alertRulesText -match "increase\(intent_hub_admin_jwks_stale_hits_total\[5m\]\) > 0") {
+        Write-Host "[OK] security alert rules use 5m increase windows"
+    } else {
+        Write-Host "[FAIL] security alert rules missing 5m increase windows"
+        $failed = $true
+    }
+}
+
 if (Test-Path $composeFile) {
     $composeText = Get-Content -Raw -Encoding UTF8 $composeFile
     $expectedRefs = @(

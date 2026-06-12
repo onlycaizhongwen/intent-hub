@@ -128,6 +128,72 @@ intent_hub_llm_budget_reconciliations_total > 0
 3. 对照 provider 调用日志和 adapter 异常。
 4. 复核后台补偿配置是否默认关闭或周期过长。
 
+## IntentHubConfigPermissionDenied
+
+触发条件：
+
+```promql
+increase(intent_hub_permission_denied_total[5m]) > 0
+```
+
+影响判断：
+
+- 是否集中在某个 tenant、scene 或配置对象操作。
+- 是否发生在新角色策略、Admin Portal、网关/IAM 变更之后。
+- 是否只是预期内越权拦截，还是合法用户被错误拒绝。
+
+止血动作：
+
+- 如果合法用户被拒绝，先回滚最近的角色映射或 scoped role 配置。
+- 如果疑似越权访问，临时收紧 Admin 入口来源、暂停相关 actor 或网关凭证。
+- 保持防腐层边界：只处理 Intent Hub 配置权限和动作指令，不直接修改业务库或业务数据。
+
+定位步骤：
+
+1. 查询审计事件 `CONFIG_PERMISSION_DENIED`，确认 actor、tenantId、sceneId、action 和 reason。
+2. 对照请求来源，确认角色是否满足 `CONFIG_VIEWER/CONFIG_EDITOR/CONFIG_APPROVER/CONFIG_PUBLISHER[:tenant:scene]`。
+3. 检查 `review-workspace` 返回的 `blockedReasons`，确认是否为预期权限阻断。
+4. 若由网关/IAM 注入角色，检查 `X-IntentHub-Actor`、JWT claims 或上游角色映射是否被错误变更。
+
+禁止动作：
+
+- 不在 Prometheus 标签中增加 actor、token、sourceIp 等高基数字段。
+- 不为了快速恢复而给所有用户配置全局 `CONFIG_*:*:*` 权限。
+- 不把权限失败排查扩展成直接查询或修复业务数据。
+
+## IntentHubAdminJwtAuthFailed
+
+触发条件：
+
+```promql
+increase(intent_hub_admin_jwt_auth_failures_total[5m]) > 0
+```
+
+影响判断：
+
+- 是否集中在 Admin 配置入口 `/api/v1/admin/config/**`。
+- 是否由 token 过期、issuer/audience 不匹配、secretRef 解析失败、签名错误或缺少 Bearer token 导致。
+- 是否与网关认证配置、密钥轮换、IAM 发布或时钟漂移同时发生。
+
+止血动作：
+
+- 如果是合法请求失败，优先修复网关/IAM token 签发、issuer/audience 或 secretRef 配置。
+- 如果疑似攻击或扫描，收紧网关来源、限流 Admin 路径，并保留审计事件。
+- 若密钥轮换异常，回滚到上一版可用 secretRef 或恢复双发兼容窗口。
+
+定位步骤：
+
+1. 查询审计事件 `ADMIN_JWT_AUTH_FAILED`，只使用 method、path、reason 定位，不查 token 原文。
+2. 检查 Admin JWT Filter 开关、`secret/secretRef`、`issuer`、`audience` 与系统时间。
+3. 对照网关/IAM 日志，确认是否有 token 签发格式或 claims 变化。
+4. 确认失败没有继续进入应用层授权；应用层权限失败应看 `CONFIG_PERMISSION_DENIED`。
+
+禁止动作：
+
+- 不记录或转发 Authorization header、JWT 原文、secret 或完整 claims。
+- 不临时关闭 Admin JWT Filter 作为长期恢复手段。
+- 不把认证失败和应用层权限拒绝混为同一个告警处理。
+
 ## IntentHubAverageLatencyHigh
 
 触发条件：
@@ -243,3 +309,59 @@ intent_hub_latency_millis_max > 3000
 - 是否需要补充 Prometheus 规则、Grafana 面板或 SLO 阈值。
 - 是否需要把 recognition_path 从字符串升级为结构化 span/event。
 - 是否需要对高等级租户配置独立限流、预算和告警路由。
+
+## IntentHubAdminJwksFetchFailed
+
+触发条件：
+```promql
+increase(intent_hub_admin_jwks_fetch_failures_total[5m]) > 0
+```
+
+影响判断：
+- 是否只影响开启 `jwksUrl` 的 Admin JWT 验签路径。
+- 是否与 IAM/OIDC JWKS endpoint 发布、DNS/TLS/代理变更、网络抖动或 `jwksFetchTimeoutMs` 调整同时发生。
+- 是否已经同时出现 `IntentHubAdminJwksStaleHit`，说明系统正在依赖旧 JWKS 缓存兜底。
+
+止血动作：
+- 优先恢复 IAM/OIDC JWKS endpoint、网络代理、证书链或 DNS 解析。
+- 若最近发布了 JWKS URL、网关代理或证书配置，优先回滚到上一版可用配置。
+- 在确认安全边界后，可临时延长 `jwksStaleGraceSeconds` 争取恢复窗口，但必须设定回滚时间，不把 stale grace 当长期方案。
+
+定位步骤：
+1. 查看应用日志中 JWKS fetch failure 的异常类型，区分 timeout、DNS、TLS、HTTP 状态码和 JSON/JWK 解析失败。
+2. 从 Intent Hub 所在网络访问 JWKS URL，确认 TLS、代理、状态码和响应体格式。
+3. 对照 IAM/OIDC 发布记录，确认是否发生 key rotation、issuer 变更或 JWKS endpoint 路径变更。
+4. 检查 `jwksFetchTimeoutMs` 是否过短，以及失败是否集中在网络高峰或 IAM 发布窗口。
+
+禁止动作：
+- 不记录、转发或粘贴 Authorization header、JWT 原文、私钥、完整 claims 或真实 token。
+- 不为了恢复而长期关闭 Admin JWT Filter。
+- 不在 Prometheus 标签中加入 issuer、kid、url、actor、tenant 等高基数字段。
+
+## IntentHubAdminJwksStaleHit
+
+触发条件：
+```promql
+increase(intent_hub_admin_jwks_stale_hits_total[5m]) > 0
+```
+
+影响判断：
+- 说明 JWKS TTL 到期后的刷新失败，但仍处于 `jwksStaleGraceSeconds` 宽限窗口内。
+- Admin API 当前可能仍可验签成功，但正在消耗旧 JWKS 缓存宽限期。
+- 若 IAM 已完成 key rotation，新 token 可能因为旧 JWKS 无法识别新 key 而失败。
+
+止血动作：
+- 立即确认 JWKS endpoint 是否恢复；目标是在 stale grace 到期前恢复正常刷新。
+- 暂缓 IAM key rotation 或确认双 key 兼容窗口仍覆盖 Intent Hub 缓存刷新周期。
+- 如必须延长宽限期，应同步安全值班确认风险，并在 IAM 恢复后恢复默认值。
+
+定位步骤：
+1. 同时查看 `intent_hub_admin_jwks_fetch_failures_total` 是否增长，确认 stale 命中是否由刷新失败触发。
+2. 检查当前 `jwksCacheTtlSeconds`、`jwksStaleGraceSeconds` 与 IAM key rotation 窗口是否匹配。
+3. 抽样验证新旧 key 的 `kid` 是否都存在于 JWKS endpoint 中。
+4. 恢复后观察 stale hit 是否停止增长，并确认 fetch failure 不再增长。
+
+禁止动作：
+- 不把 stale hit 当作健康状态；它只是受控降级信号。
+- 不无限延长 `jwksStaleGraceSeconds`。
+- 不绕过防腐层边界去改业务库或业务数据；本告警只处理 Admin JWT/JWKS 认证链路。

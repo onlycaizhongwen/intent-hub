@@ -11,8 +11,28 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties(AdminJwtProperties.class)
 public class AdminSecurityConfiguration {
     @Bean
-    AdminJwtVerifier adminJwtVerifier(AdminJwtProperties properties, SecretRefResolver secretRefResolver) {
-        return new AdminJwtVerifier(properties, secretRefResolver);
+    AdminJwtVerifier adminJwtVerifier(AdminJwtProperties properties, SecretRefResolver secretRefResolver, IntentMetricsPort metricsPort) {
+        return new AdminJwtVerifier(properties, secretRefResolver, new AdminJwksMetricsRecorder() {
+            @Override
+            public void recordFetch() {
+                metricsPort.recordAdminJwksFetch();
+            }
+
+            @Override
+            public void recordFetchFailure() {
+                metricsPort.recordAdminJwksFetchFailure();
+            }
+
+            @Override
+            public void recordCacheHit() {
+                metricsPort.recordAdminJwksCacheHit();
+            }
+
+            @Override
+            public void recordStaleHit() {
+                metricsPort.recordAdminJwksStaleHit();
+            }
+        });
     }
 
     @Bean

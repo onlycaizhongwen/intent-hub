@@ -2,6 +2,7 @@ package com.intenthub.application.config;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class ConfigReviewWorkspaceAppService {
     private static final int AUDIT_LIMIT = 50;
@@ -47,9 +48,57 @@ public class ConfigReviewWorkspaceAppService {
                 validation,
                 dryRun,
                 audits,
+                reviewHistory(audits),
                 availableActions,
                 blockedReasons
         );
+    }
+
+    private List<ConfigReviewHistoryEntry> reviewHistory(List<AuditLogEntry> audits) {
+        return audits.stream()
+                .filter(entry -> stage(entry) != null)
+                .map(this::historyEntry)
+                .toList();
+    }
+
+    private ConfigReviewHistoryEntry historyEntry(AuditLogEntry entry) {
+        Map<String, String> detail = entry.detail() == null ? Map.of() : entry.detail();
+        return new ConfigReviewHistoryEntry(
+                entry.id(),
+                stage(entry),
+                entry.action(),
+                entry.actor(),
+                status(entry, detail),
+                detail.get("reason"),
+                detail.get("snapshotHash"),
+                detail.get("requiredRole"),
+                detail.get("alternativeRole"),
+                detail.get("objectType"),
+                entry.createdAt(),
+                detail
+        );
+    }
+
+    private String stage(AuditLogEntry entry) {
+        return switch (entry.action()) {
+            case "CONFIG_REVIEW_SUBMITTED" -> "REVIEW_SUBMITTED";
+            case "CONFIG_APPROVED" -> "APPROVED";
+            case "CONFIG_REVIEW_REJECTED" -> "REJECTED";
+            case "CONFIG_REVIEW_CANCELLED" -> "CANCELLED";
+            case "CONFIG_PUBLISHED" -> "PUBLISHED";
+            case "CONFIG_PERMISSION_DENIED" -> "PERMISSION_DENIED";
+            default -> null;
+        };
+    }
+
+    private String status(AuditLogEntry entry, Map<String, String> detail) {
+        return switch (entry.action()) {
+            case "CONFIG_REVIEW_SUBMITTED" -> "REVIEWING";
+            case "CONFIG_APPROVED" -> "APPROVED";
+            case "CONFIG_REVIEW_REJECTED", "CONFIG_REVIEW_CANCELLED" -> "DRAFT";
+            case "CONFIG_PUBLISHED" -> "PUBLISHED";
+            default -> detail.get("status");
+        };
     }
 
     private List<String> availableActions(ConfigVersionInfo info, ConfigValidationResult validation, List<String> blockedReasons) {

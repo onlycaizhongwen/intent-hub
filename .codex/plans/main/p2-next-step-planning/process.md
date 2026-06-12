@@ -4,9 +4,9 @@
 
 - 任务需求：规划 P2-5 之后的下一步，形成可执行顺序并固化到正式计划文档。
 - 关键决策：优先进入 P2-6 密钥治理与外部联调准入，再推进 P2-7 多实例一致性与压测、P2-8 观测告警真实试点、P2-9 配置发布治理增强。
-- 当前阶段：P2-27 Admin JWT 认证失败审计与指标最小闭环已完成；P2-6 至 P2-8 已形成本地阶段证据，P2-9 至 P2-27 已完成配置发布治理、审批、GitOps 导出、工作台聚合、审批元数据、scoped role、对象编辑、只读分层、权限拒绝审计、权限拒绝指标告警、默认关闭的 Admin JWT 认证入口和 JWT 认证失败可观测闭环。
+- 当前阶段：P2-36 Admin JWKS Prometheus/Alertmanager 告警规则最小闭环已完成；P2-6 至 P2-8 已形成本地阶段证据，P2-9 至 P2-36 已完成配置发布治理、审批、GitOps 导出、工作台聚合、审批元数据、scoped role、对象编辑、只读分层、权限拒绝审计、权限拒绝指标告警、Admin JWT/JWKS 认证入口、JWKS timeout/指标和 JWKS 安全告警闭环。
 - 已完成产物：`docs/codex/v1/plans/intent-hub-p2-next-step-plan.md`、`SecretRefResolver`、`EnvironmentSecretRefResolver`、`CompositeSecretRefResolver`、`FileSecretRefResolver`、`ManagedConfigSecretRefResolver`、`ManagedConfigSecretProperties`、模型服务/LLM resolver 接入、模型服务 token fingerprint 客户端缓存、`scripts/preflight-external-integration.ps1`（含 env 与文件挂载 Secret 预检）、`scripts/smoke-model-service-e2e.ps1 -WithAuth`、`scripts/smoke-secret-rotation.ps1`、`ops/external-integration-smoke-record-template.md`、FastAPI 可选鉴权与文件 token 示例、测试、status/trace/production checklist/TASKS 回写。
-- 剩余工作：继续 P2-28 候选项，包括真实 Prometheus/Alertmanager 规则、对象类型级权限、结构化 review history、完整 IAM/OIDC/JWKS 接入，或回到 P2-6 真实远端模型服务 smoke / DashScope 沙箱 smoke。
+- 剩余工作：继续完整 IAM/OIDC/JWKS 接入、真实 IAM/OIDC sandbox smoke、OIDC discovery、真实 dev/staging Prometheus/Alertmanager 试点，或回到 P2-6 真实远端模型服务 smoke / DashScope 沙箱 smoke。
 - 重要发现：模型服务和 LLM 外部调用能力已具备，当前最大生产化缺口是 Secret 安全解析、真实外部联调证据、多实例一致性和真实观测试点。
 
 ## 步骤列表
@@ -31,9 +31,11 @@
 - [v] 完成 P2-25 权限拒绝指标告警，`CONFIG_PERMISSION_DENIED` 审计事件同步进入 metrics/prometheus/alerts。
 - [v] 完成 P2-26 Admin JWT Filter，默认关闭，开启后校验 HS256 Bearer JWT 并把 actor/roles 写入 Admin 请求上下文。
 - [v] 完成 P2-27 Admin JWT 认证失败审计与指标，认证失败写入 `ADMIN_JWT_AUTH_FAILED` 审计并进入 metrics/prometheus/alerts。
+- [v] 完成 P2-28 安全指标 Prometheus/Alertmanager 规则，权限拒绝和 Admin JWT 认证失败指标已有可部署 rule/route/runbook 样例。
+- [v] 完成 P2-29 配置对象类型级编辑权限，配置对象写入支持对象类型级细分 editor role，并保持 `CONFIG_EDITOR` 兼容。
 - [~] 继续 P2-6 外部联调准入。
   - 当前产物：统一 Secret resolver 最小闭环、文件挂载 Secret resolver、managed-config Secret resolver、模型服务 token fingerprint 客户端缓存、外部联调 preflight 脚本、本地带鉴权模型服务 smoke 证据、本地文件挂载轮换 smoke 证据、外部联调冒烟记录模板。
-  - 下一步：新增 Vault SDK/动态刷新型 Nacos adapter，或在凭证可用时执行真实远端模型服务 smoke / DashScope 沙箱 smoke；如果继续配置治理线，则进入 Spring Security/JWT Filter、真实 Prometheus/Alertmanager 规则、对象类型级权限或结构化 review history。
+  - 下一步：新增 Vault SDK/动态刷新型 Nacos adapter，或在凭证可用时执行真实远端模型服务 smoke / DashScope 沙箱 smoke；如果继续配置治理线，则进入对象类型级权限、结构化 review history、完整 IAM/OIDC/JWKS 接入，或执行真实 dev/staging Prometheus/Alertmanager 试点。
   - 涉及文件：`scripts/`、`intent-hub-infrastructure/src/main/java/com/intenthub/infrastructure/security/`、`intent-hub-application/src/main/java/com/intenthub/application/config/`、`intent-hub-interfaces/src/main/java/com/intenthub/interfaces/admin/`、`ops/production-readiness-checklist.md`、`ops/external-integration-smoke-record-template.md`。
 
 ## 研究发现
@@ -51,11 +53,14 @@
 - 2026-06-09：P2-6 第七段完成。新增 `ManagedConfigSecretProperties` 与 `ManagedConfigSecretRefResolver`，通过 `intent-hub.secret.managed-config.enabled` 和 `intent-hub.secret.managed-config.refs.*` 支持外部托管配置注入 Secret 映射；解析顺序为 env/system property -> file-root -> managed-config。该能力适合 Nacos/Apollo/Spring Config 等平台完成解密后的运行时注入，不代表 Intent Hub 已实现供应商 SDK、权限、轮换或审计。
 - 2026-06-09：P2-6 第八段完成。模型服务 scene 客户端缓存 key 改为 `endpoint + timeout + authTokenRef + token fingerprint`，不再保存明文 token；同一路由 token 指纹变化时会驱逐旧客户端并重建，避免 Secret 轮换后长期复用旧 Bearer 鉴权头。`ModelClientAdapterTest` 已覆盖轮换后第二次请求使用新 token 且缓存数量保持 1。
 - 2026-06-09：P2-6 第九段完成。新增 `scripts/smoke-secret-rotation.ps1` 并已执行通过：脚本启动临时 PostgreSQL 16、文件挂载 Secret、FastAPI 模型服务容器和 Intent Hub `local-jdbc`；先用初始 token 完成直连和 Intent Hub 识别，再改写 Secret 文件，验证旧 token 直连被 401 拒绝、新 token 直连通过，且 Intent Hub 第二次识别仍通过 `ModelRecognitionPolicy`。脚本结束后已清理容器、进程和临时 Secret 文件。
+- 2026-06-10：P2-28 完成。`ops/prometheus/intent-hub-alert-rules.yml` 新增 `IntentHubConfigPermissionDenied` 与 `IntentHubAdminJwtAuthFailed`，均采用 `increase(...[5m]) > 0` 时间窗口并标记 `category=security`；`ops/alertmanager/alertmanager-route-sample.yml` 新增 `intent-hub-security` receiver；Runbook、README 与 `scripts/validate-observability-compose.ps1` 已同步。该阶段只交付规则/路由/手册样例，不代表真实 dev/staging/production 观测栈已接入。
+- 2026-06-10：P2-29 完成。`ConfigPermission` 新增对象类型级编辑角色映射，`ConfigObjectAppService` 的 upsert/bulk/delete 改为允许 `CONFIG_EDITOR` 或对应对象类型 editor role；接口层通过现有 body/header/JWT roles 透传，不新增 HTTP 字段。错误类型角色会写入 `CONFIG_PERMISSION_DENIED`，detail 增加 `alternativeRole` 和 `objectType`。三层回归通过：应用层 37、基础设施层 61、接口层 39。
 
 ## 错误记录
 
 - 2026-06-09：首次带鉴权 smoke 在 Admin 写入 downstream action 时失败，原因是脚本使用了不被配置校验允许的 `ASYNC_COMMAND`，已改为 `MQ`。
 - 2026-06-09：第二次带鉴权 smoke 识别结果未命中专用 scene，原因是 memory 模式下 Admin 配置仓储与识别读取仓储未打通，已将 `-WithAuth` smoke 切到 `local-jdbc` + 临时 PostgreSQL。
+- 2026-06-10：P2-28 尝试通过 Docker 执行 `promtool check rules` 时失败，原因是本地没有 `prom/prometheus` 镜像，拉取 Docker Hub 返回 registry EOF；这不是规则文件解析失败。当前已保留 `scripts/validate-observability-compose.ps1` 通过证据，后续网络恢复或镜像缓存可用时需补跑 promtool。
 
 ## 2026-06-09 P2-7 断点记录
 
@@ -287,3 +292,100 @@
 - 关键设计：JWT 认证失败与应用层配置授权失败分开计数；认证失败审计只记录 method/path/reason，不记录 Authorization header、token、secret 或 roles claim 原文；指标保持全局聚合，避免高基数标签。
 - 重要边界：当前仍不是完整 IAM/OIDC/JWKS 接入；actor 暂为 `unknown`；真实 Prometheus/Alertmanager 阈值和 receiver 仍待 dev/staging 验证。
 - 下一步：可补真实 Prometheus/Alertmanager 规则、对象类型级权限、结构化 review history、完整 IAM/OIDC/JWKS 接入，或回到 P2-6 真实外部联调准入。
+
+## 2026-06-10 P2-28 断点记录
+
+- 当前阶段：P2-28 安全指标 Prometheus/Alertmanager 规则样例已完成。
+- 已完成产物：`IntentHubConfigPermissionDenied`、`IntentHubAdminJwtAuthFailed` Prometheus 告警规则，Alertmanager `intent-hub-security` receiver 样例，安全告警 Runbook 章节，观测配置校验脚本规则检查，`docs/codex/v1/trace/intent-hub-p2-security-alert-rules-trace.md`。
+- 验证证据 1：已执行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-observability-compose.ps1`，结果通过。
+- 验证结论 1：Prometheus 规则文件包含 10 条告警，其中权限拒绝与 Admin JWT 认证失败使用 `increase(...[5m]) > 0` 增量窗口，并标记 `category=security`；Alertmanager 样例可将安全告警路由到独立安全通道。
+- 重要边界：已尝试使用 Docker `prom/prometheus:latest` 执行 `promtool check rules`，但 Docker Hub 拉取镜像返回 registry EOF，未形成 promtool 通过证据；本阶段不是 dev/staging 真实观测栈加载结果。
+- 下一步：可执行真实 dev/staging Prometheus/Alertmanager 试点，或继续对象类型级权限、结构化 review history、完整 IAM/OIDC/JWKS 接入。
+
+## 2026-06-10 P2-29 断点记录
+
+- 当前阶段：P2-29 配置对象类型级编辑权限最小闭环已完成。
+- 已完成产物：`CONFIG_INTENT_EDITOR`、`CONFIG_SLOT_EDITOR`、`CONFIG_SYNONYM_EDITOR`、`CONFIG_STRATEGY_EDITOR`、`CONFIG_ROUTE_EDITOR`、`CONFIG_ACTION_EDITOR`；`ConfigPermission.requireObjectEditor(...)`；配置对象 upsert/bulk/delete 对象类型角色校验；权限拒绝审计 detail 增加 `alternativeRole` 与 `objectType`；`docs/codex/v1/trace/intent-hub-p2-object-type-permission-trace.md`。
+- 验证证据 1：已执行 `mvn -pl intent-hub-application,intent-hub-interfaces -am '-Dtest=ConfigVersionAppServiceTest,AdminConfigControllerTest' '-Dsurefire.failIfNoSpecifiedTests=false' test`，结果通过。
+- 验证结论 1：定向测试覆盖对象类型角色允许/拒绝、旧 `CONFIG_EDITOR` 兼容、header 透传对象类型角色和结构化 403。
+- 验证证据 2：已执行 `mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test`，结果通过。
+- 验证结论 2：应用层 37 个测试、基础设施层 61 个测试、接口层 39 个测试，合计 137 个测试。
+- 关键设计：保留 `CONFIG_EDITOR[:tenant:scene]` 总编辑权限，同时允许对象类型级 editor role 以同样 scoped role 语义授权，降低 Admin Portal 与 IAM 的授权半径。
+- 重要边界：当前只到对象类型级，不到字段级；`CONFIG_ACTION_EDITOR` 仍覆盖所有下游动作配置；读取仍由 `CONFIG_VIEWER` 或继承读权限控制。
+- 下一步：可继续结构化 review history、完整 IAM/OIDC/JWKS 接入、真实 dev/staging Prometheus/Alertmanager 试点，或回到 P2-6 外部联调 smoke。
+
+## 2026-06-10 P2-30 断点记录
+
+- 当前阶段：P2-30 结构化 review history 最小闭环已完成。
+- 已完成产物：`ConfigReviewHistoryEntry`、`ConfigReviewWorkspace.reviewHistory`、`ConfigReviewWorkspaceAppService` 从审计日志派生结构化评审历史、`docs/codex/v1/trace/intent-hub-p2-review-history-trace.md`。
+- 验证证据 1：已执行 `mvn -pl intent-hub-application,intent-hub-interfaces -am '-Dtest=ConfigVersionAppServiceTest,AdminConfigControllerTest' '-Dsurefire.failIfNoSpecifiedTests=false' test`，结果通过。
+- 验证结论 1：应用层 25 个测试、接口层 21 个测试通过；覆盖工作台返回 `PUBLISHED`、`APPROVED`、`REVIEW_SUBMITTED`，以及接口 JSON 返回 `reviewHistory`。
+- 验证证据 2：已执行 `mvn -pl intent-hub-application,intent-hub-infrastructure,intent-hub-interfaces -am test`，结果通过。
+- 验证结论 2：应用层 38 个测试、基础设施层 61 个测试、接口层 40 个测试，合计 139 个测试。
+- 关键设计：新增 `reviewHistory` 作为 Admin Portal 可直接消费的时间线数据，同时保留原始 `audits` 兼容排障视图；阶段字段从既有审计 action 派生，不新增 DB schema。
+- 重要边界：当前不支持多人会签、审批评论线程或独立审批历史表；`CONFIG_PERMISSION_DENIED` 映射存在，但是否出现在某个版本工作台取决于审计 target 归属。
+- 下一步：可继续完整 IAM/OIDC/JWKS 接入、真实 dev/staging Prometheus/Alertmanager 试点、真实外部联调 smoke，或补 Admin Portal 前端时间线。
+
+## 2026-06-10 P2-31 断点记录
+
+- 当前阶段：P2-31 Admin JWT RS256/JWKS 最小入口已完成。
+- 已完成产物：`AdminJwtProperties.jwksJson/jwksUrl`、`AdminJwtVerifier` RS256 + JWKS 公钥验签、`kid` 匹配、多 RSA key 无 `kid` 拒绝、`docs/codex/v1/trace/intent-hub-p2-admin-jwks-rs256-trace.md`。
+- 验证证据 1：已执行 `mvn -pl intent-hub-interfaces -am clean test '-Dtest=AdminJwtVerifierTest' '-Dsurefire.failIfNoSpecifiedTests=false'`，结果通过。
+- 验证结论 1：`AdminJwtVerifierTest` 7 个测试通过；覆盖 HS256、`secretRef`、issuer/audience、RS256/JWKS、错误公钥拒绝、多 key 无 `kid` 拒绝和过期 token 拒绝。
+- 验证证据 2：已执行 `mvn -pl intent-hub-interfaces -am test '-Dtest=AdminJwtVerifierTest,AdminConfigControllerTest' '-Dsurefire.failIfNoSpecifiedTests=false'`，结果通过。
+- 验证结论 2：`AdminConfigControllerTest` 21 个测试、`AdminJwtVerifierTest` 7 个测试，合计 28 个测试通过；既有 Admin JWT Filter/Controller 兼容路径未被 RS256/JWKS 扩展破坏。
+- 关键设计：不引入 Spring Security Resource Server 依赖，继续复用当前 servlet filter 和 `AdminRequestContext`；HS256 兼容路径不变，RS256 路径通过 `jwksJson/jwksUrl` 接入企业 IAM/OIDC 常见公钥集合。
+- 重要边界：当前没有 OIDC discovery、JWKS TTL/后台刷新、key rotation 双 key 宽限窗口、introspection、scope policy 或 JWKS 拉取超时配置。
+- 下一步：可补 JWKS URL 真实 smoke、TTL/刷新/轮换策略、完整 IAM/OIDC discovery，或推进真实外部联调 smoke。
+
+## 2026-06-10 P2-32 断点记录
+
+- 当前阶段：P2-32 Admin JWKS URL 本地 smoke 已完成。
+- 已完成产物：`AdminJwtVerifierTest.verifiesRs256TokenWithJwksUrlAndCachesResponse`、本地 JDK `HttpServer` JWKS endpoint、`docs/codex/v1/trace/intent-hub-p2-admin-jwks-url-smoke-trace.md`。
+- 验证证据 1：已执行 `mvn -pl intent-hub-interfaces -am clean test '-Dtest=AdminJwtVerifierTest' '-Dsurefire.failIfNoSpecifiedTests=false'`，结果通过。
+- 验证结论 1：`AdminJwtVerifierTest` 8 个测试通过；新增覆盖 `jwksUrl` 本地 HTTP 拉取、公钥验签和同一 verifier 实例内 JWKS 缓存。
+- 验证证据 2：已执行 `mvn -pl intent-hub-interfaces -am test '-Dtest=AdminJwtVerifierTest,AdminConfigControllerTest' '-Dsurefire.failIfNoSpecifiedTests=false'`，结果通过。
+- 验证结论 2：`AdminConfigControllerTest` 21 个测试、`AdminJwtVerifierTest` 8 个测试，合计 29 个测试通过；新增 JWKS URL smoke 未破坏既有 Admin Controller/JWT Filter 兼容路径。
+- 关键设计：使用真实 HTTP endpoint 验证 `jwksUrl` 路径，不引入外部服务或新依赖；通过请求计数证明缓存语义。
+- 重要边界：本地 smoke 不覆盖真实 IAM 的 TLS、网络、代理、证书链、DNS 或访问控制；当前缓存仍无 TTL，不支持 key rotation 自动刷新。
+- 下一步：可补真实 IAM/OIDC sandbox smoke、JWKS TTL/刷新/轮换策略，或推进外部联调配置模板。
+
+## 2026-06-10 P2-33 断点记录
+
+- 当前阶段：P2-33 Admin JWKS 缓存 TTL 最小闭环已完成。
+- 已完成产物：`AdminJwtProperties.jwksCacheTtlSeconds`、`AdminJwtVerifier.cachedJwksExpiresAt`、TTL 到期重新拉取 JWKS、`AdminJwtVerifierTest.refreshesJwksUrlWhenCacheTtlExpires`、`docs/codex/v1/trace/intent-hub-p2-admin-jwks-cache-ttl-trace.md`。
+- 验证证据 1：已执行 `mvn -pl intent-hub-interfaces -am clean test '-Dtest=AdminJwtVerifierTest' '-Dsurefire.failIfNoSpecifiedTests=false'`，结果通过。
+- 验证结论 1：`AdminJwtVerifierTest` 9 个测试通过；新增覆盖默认 TTL 内缓存复用，以及 `jwksCacheTtlSeconds=0` 时连续验签触发两次 JWKS endpoint 请求。
+- 验证证据 2：已执行 `mvn -pl intent-hub-interfaces -am test '-Dtest=AdminJwtVerifierTest,AdminConfigControllerTest' '-Dsurefire.failIfNoSpecifiedTests=false'`，结果通过。
+- 验证结论 2：`AdminConfigControllerTest` 21 个测试、`AdminJwtVerifierTest` 9 个测试，合计 30 个测试通过；JWKS TTL 改动未破坏既有 Admin Controller/JWT Filter 兼容路径。
+- 关键设计：默认 TTL 为 300 秒，负数 TTL 按 0 处理；刷新仍在请求线程同步执行，不引入后台线程或新依赖。
+- 重要边界：当前没有刷新失败继续使用旧 JWKS 的宽限策略，也没有 JWKS 拉取 timeout、缓存命中/失败指标或完整 OIDC discovery。
+- 下一步：可补刷新失败回退旧 JWKS、JWKS timeout/指标、真实 IAM/OIDC sandbox smoke，或外部联调配置模板。
+
+## 2026-06-10 P2-34 Admin JWKS 刷新失败旧缓存宽限更新
+
+- 当前进展：P2-34 Admin JWKS 刷新失败旧缓存宽限最小闭环已完成，`jwksUrl` 到期刷新失败时可在可配置宽限窗口内继续使用上一份成功 JWKS，降低 IAM/OIDC endpoint 短暂抖动对 Admin API 的影响。
+- 新增交付物：`AdminJwtProperties.jwksStaleGraceSeconds`、`AdminJwtVerifier.cachedJwksStaleUntil`、刷新失败 stale fallback 逻辑，以及 `AdminJwtVerifierTest` 中宽限期内复用旧 JWKS 与宽限后拒绝的测试。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-admin-jwks-stale-grace-trace.md`。
+- 验证证据：`mvn -pl intent-hub-interfaces -am clean test '-Dtest=AdminJwtVerifierTest' '-Dsurefire.failIfNoSpecifiedTests=false'` 通过；`mvn -pl intent-hub-interfaces -am test '-Dtest=AdminJwtVerifierTest,AdminConfigControllerTest' '-Dsurefire.failIfNoSpecifiedTests=false'` 通过。
+- 验证结论：`AdminJwtVerifierTest` 11 个测试通过；接口层 JWT + Admin Controller 回归 32 个测试通过。覆盖 TTL 刷新、刷新失败宽限回退、宽限为 0 时拒绝，以及既有 Admin Controller/JWT Filter 兼容路径。
+- 关键边界：stale grace 不是无限期接受旧 key，宽限期过后仍必须重新成功拉取 JWKS；当前仍未实现 JWKS 拉取 timeout、缓存/失败/回退指标和完整 OIDC discovery。
+- 后续重点：可继续补 JWKS timeout/指标、真实 IAM/OIDC sandbox smoke、OIDC discovery，或外部联调配置模板。
+
+## 2026-06-11 P2-35 Admin JWKS timeout 与指标更新
+
+- 当前进展：P2-35 Admin JWKS timeout 与指标最小闭环已完成，`jwksUrl` 拉取具备请求超时保护，JWKS fetch/cache/stale 行为已进入 Admin metrics 与 Prometheus 文本。
+- 新增交付物：`AdminJwtProperties.jwksFetchTimeoutMs`、`AdminJwksMetricsRecorder`、`AdminJwtVerifier` JDK request timeout、`IntentMetricsPort` JWKS 指标方法、`MetricsSnapshot` JWKS 指标字段、`MetricsAppService` Prometheus 文本、`InMemoryIntentMetricsRepository` JWKS 计数实现。
+- 新增审查文档：`docs/codex/v1/trace/intent-hub-p2-admin-jwks-timeout-metrics-trace.md`。
+- 验证证据：`mvn -pl intent-hub-interfaces,intent-hub-infrastructure -am test '-Dtest=AdminJwtVerifierTest,AdminMetricsControllerTest,InMemoryIntentMetricsRepositoryTest' '-Dsurefire.failIfNoSpecifiedTests=false'` 通过；`mvn -pl intent-hub-interfaces -am test '-Dtest=AdminJwtVerifierTest,AdminConfigControllerTest,AdminMetricsControllerTest' '-Dsurefire.failIfNoSpecifiedTests=false'` 通过。
+- 验证结论：定向 15 个测试通过；接口层组合回归 36 个测试通过。覆盖 JWKS timeout、fetch failure、cache hit、stale hit、Prometheus 文本，以及既有 Admin 配置接口兼容路径。
+- 关键边界：当前指标保持全局聚合，不按 issuer/kid/url/tenant/scene 打高基数标签；当前未记录 JWKS fetch latency histogram；OIDC discovery 和真实 IAM sandbox smoke 仍待后续补齐。
+- 后续重点：补 JWKS Prometheus/Alertmanager 规则、真实 IAM/OIDC sandbox smoke、OIDC discovery，或外部联调配置模板。
+## 2026-06-12 P2-36 Admin JWKS Prometheus/Alertmanager 告警规则更新
+
+- 当前进展：P2-36 Admin JWKS 告警规则最小闭环已完成，JWKS fetch failure 与 stale cache hit 已从 Prometheus 文本指标延伸到可接入的告警规则、Runbook 和配置校验脚本。
+- 新增交付物：`IntentHubAdminJwksFetchFailed`、`IntentHubAdminJwksStaleHit` Prometheus 规则；Runbook 两个告警处理章节；Prometheus/Alertmanager/ops README 补充；`scripts/validate-observability-compose.ps1` 必检项；`docs/codex/v1/trace/intent-hub-p2-admin-jwks-alert-rules-trace.md`。
+- 验证证据：已执行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-observability-compose.ps1` 并通过。
+- 验证结论：观测配置校验脚本确认新增两条 JWKS 告警存在，且安全类告警均使用 `increase(...[5m]) > 0` 增量窗口；Docker compose 配置引用、Prometheus rule file 引用和 Grafana provisioning 引用保持通过。
+- 关键边界：本阶段仍是本地配置样例和脚本校验，不等同于真实 dev/staging Alertmanager 已加载；指标保持低基数，不按 issuer/kid/url/tenant/actor 打标签；stale hit 是受控降级信号，不是健康状态。
+- 下一步：可进入真实 IAM/OIDC sandbox smoke、OIDC discovery、外部联调配置模板，或真实 dev/staging Prometheus/Alertmanager 试点。

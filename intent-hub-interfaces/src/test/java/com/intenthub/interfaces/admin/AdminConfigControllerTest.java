@@ -482,6 +482,37 @@ class AdminConfigControllerTest {
     }
 
     @Test
+    void reviewWorkspaceExposesStructuredReviewHistory() throws Exception {
+        ConfigVersionInfo source = new ConfigVersionInfo("demo", "order-scene", "source", "PUBLISHED", "from file", "ops", Instant.now(), Instant.now());
+        controller.importBundle(new ConfigImportRequest("demo", "order-scene", "v-history-json", "admin", new ConfigBundle(
+                source,
+                List.of(Map.of("intentCode", "ORDER_QUERY", "intentName", "order query")),
+                null,
+                null,
+                null,
+                null,
+                null
+        )));
+        controller.submitReview("demo", "order-scene", "v-history-json", new ConfigVersionActionRequest("reviewer"));
+        controller.approve("demo", "order-scene", "v-history-json", new ConfigVersionActionRequest("approver", null, null, List.of("CONFIG_APPROVER")));
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mockMvc.perform(get("/api/v1/admin/config/versions/v-history-json/review-workspace")
+                        .param("tenantId", "demo")
+                        .param("sceneId", "order-scene")
+                        .param("roles", "CONFIG_VIEWER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reviewHistory[0].stage").value("APPROVED"))
+                .andExpect(jsonPath("$.reviewHistory[0].actor").value("approver"))
+                .andExpect(jsonPath("$.reviewHistory[0].status").value("APPROVED"))
+                .andExpect(jsonPath("$.reviewHistory[0].snapshotHash").isNotEmpty())
+                .andExpect(jsonPath("$.reviewHistory[1].stage").value("REVIEW_SUBMITTED"))
+                .andExpect(jsonPath("$.reviewHistory[1].actor").value("reviewer"));
+    }
+
+    @Test
     void managesConfigObjectsThroughControllerContract() {
         controller.createDraft(new ConfigDraftRequest("demo", "order-scene", "v1", "base", "admin"));
 
@@ -536,13 +567,15 @@ class AdminConfigControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"))
                 .andExpect(jsonPath("$.status").value(403))
-                .andExpect(jsonPath("$.message").value("upsert config object requires role CONFIG_EDITOR or CONFIG_EDITOR:demo:order-scene"));
+                .andExpect(jsonPath("$.message").value("upsert config object requires role CONFIG_EDITOR or CONFIG_EDITOR:demo:order-scene or CONFIG_INTENT_EDITOR or CONFIG_INTENT_EDITOR:demo:order-scene"));
         assertThat(auditLogPort.entries)
                 .anySatisfy(entry -> {
                     assertThat(entry.action()).isEqualTo("CONFIG_PERMISSION_DENIED");
                     assertThat(entry.targetType()).isEqualTo("CONFIG_PERMISSION");
                     assertThat(entry.detail()).containsEntry("action", "upsert config object");
                     assertThat(entry.detail()).containsEntry("requiredRole", "CONFIG_EDITOR");
+                    assertThat(entry.detail()).containsEntry("alternativeRole", "CONFIG_INTENT_EDITOR");
+                    assertThat(entry.detail()).containsEntry("objectType", "INTENT");
                     assertThat(entry.detail()).containsEntry("roles", "CONFIG_EDITOR:demo:other-scene");
                 });
     }
@@ -572,6 +605,69 @@ class AdminConfigControllerTest {
                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.intentCode").value("ORDER_QUERY"));
+    }
+
+    @Test
+    void acceptsObjectTypeEditorRoleFromAdminRequestContextHeaders() throws Exception {
+        controller.createDraft(new ConfigDraftRequest("demo", "order-scene", "v-object-type-header", "base", "admin"));
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mockMvc.perform(post("/api/v1/admin/config/versions/v-object-type-header/routes")
+                        .param("tenantId", "demo")
+                        .param("sceneId", "order-scene")
+                        .header("X-IntentHub-Actor", "route-editor")
+                        .header("X-IntentHub-Roles", "CONFIG_ROUTE_EDITOR:demo:order-scene")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "actor": "body-editor",
+                                  "roles": ["CONFIG_OPERATOR"],
+                                  "payload": {
+                                    "routeStage": "POST",
+                                    "routeTarget": "ORDER_QUERY",
+                                    "priority": 10
+                                  }
+                                }
+                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.routeStage").value("POST"));
+    }
+
+    @Test
+    void mapsWrongObjectTypeEditorRoleToForbiddenHttpResponse() throws Exception {
+        controller.createDraft(new ConfigDraftRequest("demo", "order-scene", "v-object-type-forbidden", "base", "admin"));
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mockMvc.perform(post("/api/v1/admin/config/versions/v-object-type-forbidden/actions")
+                        .param("tenantId", "demo")
+                        .param("sceneId", "order-scene")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "actor": "route-editor",
+                                  "roles": ["CONFIG_ROUTE_EDITOR:demo:order-scene"],
+                                  "payload": {
+                                    "actionCode": "notify-order",
+                                    "actionType": "MQ",
+                                    "target": "order.events"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("upsert config object requires role CONFIG_EDITOR or CONFIG_EDITOR:demo:order-scene or CONFIG_ACTION_EDITOR or CONFIG_ACTION_EDITOR:demo:order-scene"));
+        assertThat(auditLogPort.entries)
+                .anySatisfy(entry -> {
+                    assertThat(entry.action()).isEqualTo("CONFIG_PERMISSION_DENIED");
+                    assertThat(entry.detail()).containsEntry("alternativeRole", "CONFIG_ACTION_EDITOR");
+                    assertThat(entry.detail()).containsEntry("objectType", "DOWNSTREAM_ACTION");
+                    assertThat(entry.detail()).containsEntry("roles", "CONFIG_ROUTE_EDITOR:demo:order-scene");
+                });
     }
 
     @Test

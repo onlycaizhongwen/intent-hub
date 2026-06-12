@@ -39,6 +39,11 @@ class InMemoryIntentMetricsRepositoryTest {
         repository.recordPermissionDenied("demo", "order-scene", "approve config version");
         repository.recordPermissionDenied("demo", "order-scene", "get config version");
         repository.recordAdminJwtAuthFailure("invalid admin jwt signature");
+        repository.recordAdminJwksFetch();
+        repository.recordAdminJwksFetch();
+        repository.recordAdminJwksFetchFailure();
+        repository.recordAdminJwksCacheHit();
+        repository.recordAdminJwksStaleHit();
 
         MetricsSnapshot snapshot = repository.snapshot();
 
@@ -50,6 +55,10 @@ class InMemoryIntentMetricsRepositoryTest {
         assertThat(snapshot.totalLlmBudgetReconciliations()).isEqualTo(3);
         assertThat(snapshot.totalPermissionDenied()).isEqualTo(2);
         assertThat(snapshot.totalAdminJwtAuthFailures()).isEqualTo(1);
+        assertThat(snapshot.totalAdminJwksFetches()).isEqualTo(2);
+        assertThat(snapshot.totalAdminJwksFetchFailures()).isEqualTo(1);
+        assertThat(snapshot.totalAdminJwksCacheHits()).isEqualTo(1);
+        assertThat(snapshot.totalAdminJwksStaleHits()).isEqualTo(1);
         assertThat(snapshot.totalBadCases()).isEqualTo(2);
         assertThat(snapshot.p95LatencyMillis()).isEqualTo(18.0);
         assertThat(snapshot.p99LatencyMillis()).isEqualTo(18.0);

@@ -41,6 +41,50 @@ groups:
           summary: "Intent Hub LLM budget reconciliation detected"
           description: "Stale LLM budget reservations were reconciled. Check provider timeouts, pending budget usage, and adapter failures."
 
+      - alert: IntentHubConfigPermissionDenied
+        expr: increase(intent_hub_permission_denied_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          subsystem: intent-hub
+          category: security
+        annotations:
+          summary: "Intent Hub config permission denied"
+          description: "Config permission denial increased in the last 5 minutes. Check CONFIG_PERMISSION_DENIED audit events, actor roles, tenant/scene scoped permissions, and recent Admin operations."
+
+      - alert: IntentHubAdminJwtAuthFailed
+        expr: increase(intent_hub_admin_jwt_auth_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          subsystem: intent-hub
+          category: security
+        annotations:
+          summary: "Intent Hub Admin JWT authentication failed"
+          description: "Admin JWT authentication failures increased in the last 5 minutes. Check ADMIN_JWT_AUTH_FAILED audit events, token issuer/audience/expiration, secretRef resolution, and gateway authentication configuration."
+
+      - alert: IntentHubAdminJwksFetchFailed
+        expr: increase(intent_hub_admin_jwks_fetch_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          subsystem: intent-hub
+          category: security
+        annotations:
+          summary: "Intent Hub Admin JWKS fetch failed"
+          description: "Admin JWKS fetch failures increased in the last 5 minutes. Check IAM/OIDC JWKS endpoint health, DNS/TLS/proxy, jwksFetchTimeoutMs, and whether stale JWKS fallback is being used."
+
+      - alert: IntentHubAdminJwksStaleHit
+        expr: increase(intent_hub_admin_jwks_stale_hits_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          subsystem: intent-hub
+          category: security
+        annotations:
+          summary: "Intent Hub Admin JWKS stale cache used"
+          description: "Admin JWKS stale cache was used after refresh failures in the last 5 minutes. Confirm IAM/OIDC JWKS endpoint recovery before the stale grace window expires."
+
       - alert: IntentHubAverageLatencyHigh
         expr: intent_hub_latency_millis_avg > 1000
         for: 5m

@@ -1,12 +1,19 @@
 package com.intenthub.application.config;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 final class ConfigPermission {
     static final String VIEWER = "CONFIG_VIEWER";
     static final String EDITOR = "CONFIG_EDITOR";
+    static final String INTENT_EDITOR = "CONFIG_INTENT_EDITOR";
+    static final String SLOT_EDITOR = "CONFIG_SLOT_EDITOR";
+    static final String SYNONYM_EDITOR = "CONFIG_SYNONYM_EDITOR";
+    static final String STRATEGY_EDITOR = "CONFIG_STRATEGY_EDITOR";
+    static final String ROUTE_EDITOR = "CONFIG_ROUTE_EDITOR";
+    static final String ACTION_EDITOR = "CONFIG_ACTION_EDITOR";
     static final String APPROVER = "CONFIG_APPROVER";
     static final String PUBLISHER = "CONFIG_PUBLISHER";
 
@@ -29,6 +36,19 @@ final class ConfigPermission {
 
     static void requireEditor(List<String> roles, String tenantId, String sceneId, String action, AuditLogPort auditLogPort) {
         requireRole(roles, EDITOR, tenantId, sceneId, action, auditLogPort);
+    }
+
+    static void requireObjectEditor(List<String> roles, String tenantId, String sceneId, ConfigObjectType type, String action) {
+        requireObjectEditor(roles, tenantId, sceneId, type, action, null);
+    }
+
+    static void requireObjectEditor(List<String> roles, String tenantId, String sceneId, ConfigObjectType type, String action, AuditLogPort auditLogPort) {
+        String objectRole = objectEditorRole(type);
+        if (!ConfigRoleMatcher.hasAnyRole(roles, List.of(EDITOR, objectRole), tenantId, sceneId)) {
+            deny(roles, EDITOR, tenantId, sceneId, action, auditLogPort, objectRole, Map.of(
+                    "objectType", type.name()
+            ));
+        }
     }
 
     static void requireApprover(List<String> roles, String tenantId, String sceneId, String action) {
@@ -67,15 +87,37 @@ final class ConfigPermission {
         }
     }
 
+    static String objectEditorRole(ConfigObjectType type) {
+        return switch (type) {
+            case INTENT -> INTENT_EDITOR;
+            case SLOT -> SLOT_EDITOR;
+            case SYNONYM -> SYNONYM_EDITOR;
+            case STRATEGY -> STRATEGY_EDITOR;
+            case ROUTE -> ROUTE_EDITOR;
+            case DOWNSTREAM_ACTION -> ACTION_EDITOR;
+        };
+    }
+
     private static void deny(List<String> roles, String requiredRole, String tenantId, String sceneId, String action, AuditLogPort auditLogPort) {
+        deny(roles, requiredRole, tenantId, sceneId, action, auditLogPort, null, Map.of());
+    }
+
+    private static void deny(List<String> roles, String requiredRole, String tenantId, String sceneId, String action, AuditLogPort auditLogPort, String alternativeRole, Map<String, String> extraDetail) {
         String roleHint = ConfigRoleMatcher.requiredRoleHint(requiredRole, tenantId, sceneId);
+        if (alternativeRole != null && !alternativeRole.isBlank()) {
+            roleHint = roleHint + " or " + ConfigRoleMatcher.requiredRoleHint(alternativeRole, tenantId, sceneId);
+        }
         if (auditLogPort != null) {
-            auditLogPort.record(tenantId, sceneId, "unknown", "CONFIG_PERMISSION_DENIED", "CONFIG_PERMISSION", sceneId, Map.of(
-                    "action", action,
-                    "requiredRole", requiredRole,
-                    "roleHint", roleHint,
-                    "roles", normalizedRoles(roles)
-            ));
+            Map<String, String> detail = new LinkedHashMap<>();
+            detail.put("action", action);
+            detail.put("requiredRole", requiredRole);
+            if (alternativeRole != null && !alternativeRole.isBlank()) {
+                detail.put("alternativeRole", alternativeRole);
+            }
+            detail.put("roleHint", roleHint);
+            detail.put("roles", normalizedRoles(roles));
+            detail.putAll(extraDetail);
+            auditLogPort.record(tenantId, sceneId, "unknown", "CONFIG_PERMISSION_DENIED", "CONFIG_PERMISSION", sceneId, detail);
         }
         throw new SecurityException(action + " requires role " + roleHint);
     }

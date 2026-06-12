@@ -16,6 +16,12 @@ route:
       repeat_interval: 30m
     - matchers:
         - subsystem="intent-hub"
+        - category="security"
+      receiver: intent-hub-security
+      group_wait: 10s
+      repeat_interval: 1h
+    - matchers:
+        - subsystem="intent-hub"
         - severity="warning"
       receiver: intent-hub-p2
       repeat_interval: 2h
@@ -28,6 +34,10 @@ receivers:
   - name: intent-hub-p1
     webhook_configs:
       - url: http://alert-router.example.internal/intent-hub/p1
+        send_resolved: true
+  - name: intent-hub-security
+    webhook_configs:
+      - url: http://alert-router.example.internal/intent-hub/security
         send_resolved: true
   - name: intent-hub-p2
     webhook_configs:

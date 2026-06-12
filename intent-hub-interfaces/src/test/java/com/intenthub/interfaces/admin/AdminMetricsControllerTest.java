@@ -33,6 +33,10 @@ class AdminMetricsControllerTest {
         assertThat(snapshot.totalLlmBudgetReconciliations()).isEqualTo(4);
         assertThat(snapshot.totalPermissionDenied()).isEqualTo(2);
         assertThat(snapshot.totalAdminJwtAuthFailures()).isEqualTo(1);
+        assertThat(snapshot.totalAdminJwksFetches()).isEqualTo(5);
+        assertThat(snapshot.totalAdminJwksFetchFailures()).isEqualTo(2);
+        assertThat(snapshot.totalAdminJwksCacheHits()).isEqualTo(7);
+        assertThat(snapshot.totalAdminJwksStaleHits()).isEqualTo(1);
         assertThat(snapshot.p95LatencyMillis()).isEqualTo(1600.0);
         assertThat(snapshot.p99LatencyMillis()).isEqualTo(3100.0);
         assertThat(snapshot.decisions()).containsEntry("SUCCESS", 2L);
@@ -55,6 +59,10 @@ class AdminMetricsControllerTest {
         assertThat(text).contains("intent_hub_llm_budget_reconciliations_total 4");
         assertThat(text).contains("intent_hub_permission_denied_total 2");
         assertThat(text).contains("intent_hub_admin_jwt_auth_failures_total 1");
+        assertThat(text).contains("intent_hub_admin_jwks_fetches_total 5");
+        assertThat(text).contains("intent_hub_admin_jwks_fetch_failures_total 2");
+        assertThat(text).contains("intent_hub_admin_jwks_cache_hits_total 7");
+        assertThat(text).contains("intent_hub_admin_jwks_stale_hits_total 1");
         assertThat(text).contains("intent_hub_latency_millis_p95 1600.0");
         assertThat(text).contains("intent_hub_latency_millis_p99 3100.0");
         assertThat(text).contains("intent_hub_decisions_total{decision=\"SUCCESS\"} 2");
@@ -93,6 +101,10 @@ class AdminMetricsControllerTest {
                     2.0,
                     4,
                     2,
+                    1,
+                    5,
+                    2,
+                    7,
                     1,
                     27,
                     9.0,

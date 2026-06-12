@@ -185,3 +185,57 @@
 - 摘要：已将 Admin JWT 认证失败接入审计、metrics、Prometheus 文本和告警快照；失败事件记录为 `ADMIN_JWT_AUTH_FAILED`，只保存 method/path/reason，不记录 Authorization header 或 token 原文。相关应用层、基础设施层与接口层测试通过。
 - 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
 - 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-jwt-auth-failure-audit-trace.md`；下一步可补真实 Prometheus/Alertmanager 规则、对象类型级权限、结构化 review history、完整 IAM/OIDC/JWKS 接入或真实外部联调 smoke。
+
+## P2-28 安全指标 Prometheus/Alertmanager 规则
+- 状态：运维规则样例闭环完成
+- 摘要：已为 `intent_hub_permission_denied_total` 与 `intent_hub_admin_jwt_auth_failures_total` 补真实 Prometheus rule 样例，采用 5 分钟增量窗口，标记 `category=security`，并在 Alertmanager 样例中新增安全 receiver；Runbook、Prometheus/Alertmanager README、运维总入口和本地观测配置校验脚本已同步。未修改 Java 运行时代码。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-security-alert-rules-trace.md`；下一步可进入对象类型级权限、结构化 review history、完整 IAM/OIDC/JWKS 接入，或执行真实 dev/staging Prometheus/Alertmanager 试点。
+
+## P2-29 配置对象类型级编辑权限
+- 状态：对象类型编辑权限闭环完成
+- 摘要：在兼容 `CONFIG_EDITOR[:tenant:scene]` 总编辑权限的基础上，新增 `CONFIG_INTENT_EDITOR`、`CONFIG_SLOT_EDITOR`、`CONFIG_SYNONYM_EDITOR`、`CONFIG_STRATEGY_EDITOR`、`CONFIG_ROUTE_EDITOR`、`CONFIG_ACTION_EDITOR` 对象类型级编辑角色；配置对象 upsert/bulk/delete 可使用对应类型角色，错误类型角色会返回结构化 403 并写入拒绝审计，审计 detail 包含 `objectType` 与 `alternativeRole`。相关应用层、基础设施层与接口层测试通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-object-type-permission-trace.md`；下一步可继续结构化 review history、完整 IAM/OIDC/JWKS 接入、真实 dev/staging Prometheus/Alertmanager 试点，或回到 P2-6 外部联调 smoke。
+
+## P2-30 结构化 review history
+- 状态：评审历史结构化闭环完成
+- 摘要：已在 Admin 配置评审工作台中新增 `reviewHistory`，从版本审计记录派生 `REVIEW_SUBMITTED`、`APPROVED`、`REJECTED`、`CANCELLED`、`PUBLISHED` 等结构化阶段，并返回 actor、status、reason、snapshotHash、requiredRole、alternativeRole、objectType 和 occurredAt；原始 `audits` 保留兼容。相关应用层、基础设施层与接口层测试通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-review-history-trace.md`；下一步可继续完整 IAM/OIDC/JWKS 接入、真实 dev/staging Prometheus/Alertmanager 试点、真实外部联调 smoke，或补 Admin Portal 前端时间线。
+
+## P2-31 Admin JWT RS256/JWKS 入口
+- 状态：最小 RS256/JWKS 入口完成
+- 摘要：已在既有默认关闭的 Admin JWT Filter 基础上，扩展 `AdminJwtVerifier` 支持 RS256 + JWKS 公钥验签；新增 `jwksJson` 与 `jwksUrl` 配置，保留 HS256 `secret/secretRef` 兼容，支持 `kid` 匹配，并在多 RSA key 但 token 缺少 `kid` 时拒绝。JWT verifier 定向测试通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-jwks-rs256-trace.md`；下一步可补 JWKS URL 真实 smoke、TTL/刷新/轮换策略、完整 IAM/OIDC discovery，或推进真实外部联调。
+
+## P2-32 Admin JWKS URL 本地 smoke
+- 状态：JWKS URL 本地 smoke 完成
+- 摘要：已在 `AdminJwtVerifierTest` 中使用 JDK `HttpServer` 启动本地 JWKS endpoint，验证 `jwksUrl` 可以通过真实 HTTP 拉取 JWKS 并完成 RS256 token 验签；同一 verifier 连续验签两次只请求一次 JWKS endpoint，证明实例内缓存生效。JWT verifier clean 定向测试通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-jwks-url-smoke-trace.md`；下一步可补真实 IAM/OIDC sandbox smoke、JWKS TTL/刷新/轮换策略，或推进外部联调配置模板。
+
+## P2-33 Admin JWKS 缓存 TTL
+- 状态：JWKS 缓存 TTL 最小闭环完成
+- 摘要：已为 `jwksUrl` 拉取结果新增 `jwksCacheTtlSeconds` 配置，默认 300 秒；TTL 内复用缓存，TTL 到期后重新请求 JWKS endpoint。测试覆盖默认 TTL 缓存命中，以及 `jwksCacheTtlSeconds=0` 时连续验签触发重新拉取。JWT verifier clean 定向测试通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-jwks-cache-ttl-trace.md`；下一步可补刷新失败回退旧 JWKS、JWKS timeout/指标、真实 IAM/OIDC sandbox smoke，或外部联调配置模板。
+
+## P2-34 Admin JWKS 刷新失败旧缓存宽限
+- 状态：JWKS stale grace 最小闭环完成
+- 摘要：已为 `jwksUrl` 缓存新增 `jwksStaleGraceSeconds` 配置，默认 300 秒；TTL 到期后仍会优先刷新 JWKS，若刷新失败且仍在宽限期内，则继续使用上一份已成功拉取并解析过的 JWKS；宽限期为 0 或已过期时刷新失败会拒绝验签。JWT verifier 与 Admin Controller 组合回归通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-jwks-stale-grace-trace.md`；下一步可补 JWKS timeout/指标、真实 IAM/OIDC sandbox smoke、OIDC discovery，或外部联调配置模板。
+
+## P2-35 Admin JWKS timeout 与指标
+- 状态：JWKS timeout 与指标最小闭环完成
+- 摘要：已为 `jwksUrl` 拉取新增 `jwksFetchTimeoutMs` 配置，默认 2000ms；JWKS fetch、fetch failure、cache hit、stale hit 已接入 `IntentMetricsPort`、`MetricsSnapshot`、内存指标仓储和 Prometheus 文本。JWT verifier、Admin metrics 和 Admin config controller 组合回归通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-jwks-timeout-metrics-trace.md`；下一步可补 JWKS Prometheus/Alertmanager 规则、真实 IAM/OIDC sandbox smoke、OIDC discovery，或外部联调配置模板。
+
+## P2-36 Admin JWKS Prometheus/Alertmanager 告警规则
+- 状态：JWKS 告警规则闭环完成
+- 摘要：已为 `intent_hub_admin_jwks_fetch_failures_total` 与 `intent_hub_admin_jwks_stale_hits_total` 补 Prometheus 告警规则、Runbook、Prometheus/Alertmanager README、运维总入口和本地观测配置校验脚本；两条规则均使用 5 分钟增量窗口并标记 `category=security`。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-jwks-alert-rules-trace.md`；下一步可进入真实 IAM/OIDC sandbox smoke、OIDC discovery、外部联调配置模板，或真实 dev/staging Prometheus/Alertmanager 试点。

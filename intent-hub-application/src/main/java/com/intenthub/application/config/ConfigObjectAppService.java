@@ -30,7 +30,7 @@ public class ConfigObjectAppService {
     }
 
     public Map<String, Object> upsert(String tenantId, String sceneId, String version, ConfigObjectType type, Map<String, Object> payload, String actor, List<String> roles) {
-        requireEditorRole(roles, tenantId, sceneId, "upsert config object");
+        requireEditorRole(roles, tenantId, sceneId, type, "upsert config object");
         requireDraftVersion(tenantId, sceneId, version);
         Map<String, Object> normalized = normalize(type, payload);
         Map<String, Object> saved = configObjectPort.upsert(tenantId, sceneId, version, type, normalized);
@@ -45,7 +45,7 @@ public class ConfigObjectAppService {
     }
 
     public List<Map<String, Object>> bulkUpsert(String tenantId, String sceneId, String version, ConfigObjectType type, List<Map<String, Object>> payloads, String actor, List<String> roles) {
-        requireEditorRole(roles, tenantId, sceneId, "bulk upsert config object");
+        requireEditorRole(roles, tenantId, sceneId, type, "bulk upsert config object");
         requireDraftVersion(tenantId, sceneId, version);
         if (payloads == null || payloads.isEmpty()) {
             throw new IllegalArgumentException("payloads is required");
@@ -75,7 +75,7 @@ public class ConfigObjectAppService {
     }
 
     public boolean delete(String tenantId, String sceneId, String version, ConfigObjectType type, String objectId, String actor, List<String> roles) {
-        requireEditorRole(roles, tenantId, sceneId, "delete config object");
+        requireEditorRole(roles, tenantId, sceneId, type, "delete config object");
         requireDraftVersion(tenantId, sceneId, version);
         if (objectId == null || objectId.isBlank()) {
             throw new IllegalArgumentException("objectId is required");
@@ -88,8 +88,8 @@ public class ConfigObjectAppService {
         return deleted;
     }
 
-    private void requireEditorRole(List<String> roles, String tenantId, String sceneId, String action) {
-        ConfigPermission.requireEditor(roles, tenantId, sceneId, action, auditLogPort);
+    private void requireEditorRole(List<String> roles, String tenantId, String sceneId, ConfigObjectType type, String action) {
+        ConfigPermission.requireObjectEditor(roles, tenantId, sceneId, type, action, auditLogPort);
     }
 
     private void requireDraftVersion(String tenantId, String sceneId, String version) {

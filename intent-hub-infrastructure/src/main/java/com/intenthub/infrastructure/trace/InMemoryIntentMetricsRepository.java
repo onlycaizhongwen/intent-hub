@@ -28,6 +28,10 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
     private final AtomicLong totalLlmBudgetReconciliations = new AtomicLong();
     private final AtomicLong totalPermissionDenied = new AtomicLong();
     private final AtomicLong totalAdminJwtAuthFailures = new AtomicLong();
+    private final AtomicLong totalAdminJwksFetches = new AtomicLong();
+    private final AtomicLong totalAdminJwksFetchFailures = new AtomicLong();
+    private final AtomicLong totalAdminJwksCacheHits = new AtomicLong();
+    private final AtomicLong totalAdminJwksStaleHits = new AtomicLong();
     private final AtomicLong totalLatencyMillis = new AtomicLong();
     private final AtomicLong maxLatencyMillis = new AtomicLong();
     private final long[] latencySamples = new long[LATENCY_SAMPLE_WINDOW];
@@ -73,6 +77,10 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
                 totalLlmBudgetReconciliations.get(),
                 totalPermissionDenied.get(),
                 totalAdminJwtAuthFailures.get(),
+                totalAdminJwksFetches.get(),
+                totalAdminJwksFetchFailures.get(),
+                totalAdminJwksCacheHits.get(),
+                totalAdminJwksStaleHits.get(),
                 latency,
                 requests == 0 ? 0.0 : (double) latency / requests,
                 maxLatencyMillis.get(),
@@ -115,6 +123,30 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
     @Override
     public void recordAdminJwtAuthFailure(String reason) {
         totalAdminJwtAuthFailures.incrementAndGet();
+        updatedAt = Instant.now();
+    }
+
+    @Override
+    public void recordAdminJwksFetch() {
+        totalAdminJwksFetches.incrementAndGet();
+        updatedAt = Instant.now();
+    }
+
+    @Override
+    public void recordAdminJwksFetchFailure() {
+        totalAdminJwksFetchFailures.incrementAndGet();
+        updatedAt = Instant.now();
+    }
+
+    @Override
+    public void recordAdminJwksCacheHit() {
+        totalAdminJwksCacheHits.incrementAndGet();
+        updatedAt = Instant.now();
+    }
+
+    @Override
+    public void recordAdminJwksStaleHit() {
+        totalAdminJwksStaleHits.incrementAndGet();
         updatedAt = Instant.now();
     }
 

@@ -30,5 +30,11 @@ public interface IntentMetricsPort {
     default void recordAdminJwksStaleHit() {
     }
 
+    default void recordAdminOidcDiscoveryFetch() {
+    }
+
+    default void recordAdminOidcDiscoveryFetchFailure() {
+    }
+
     MetricsSnapshot snapshot();
 }

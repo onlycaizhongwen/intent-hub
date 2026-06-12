@@ -365,3 +365,32 @@ increase(intent_hub_admin_jwks_stale_hits_total[5m]) > 0
 - 不把 stale hit 当作健康状态；它只是受控降级信号。
 - 不无限延长 `jwksStaleGraceSeconds`。
 - 不绕过防腐层边界去改业务库或业务数据；本告警只处理 Admin JWT/JWKS 认证链路。
+
+## IntentHubAdminOidcDiscoveryFetchFailed
+
+触发条件：
+```promql
+increase(intent_hub_admin_oidc_discovery_fetch_failures_total[5m]) > 0
+```
+
+影响判断：
+- 是否只影响通过 `oidcDiscoveryUrl` 自动解析 `jwks_uri` 的 Admin JWT 验签路径。
+- 是否与 IAM/OIDC discovery endpoint 发布、issuer metadata 变更、DNS/TLS/代理变更或网络抖动同时发生。
+- 是否同时出现 `IntentHubAdminJwksFetchFailed`；若两者同时增长，可能 discovery 与 JWKS endpoint 都不可达，或 discovery 返回了不可用的 `jwks_uri`。
+
+止血动作：
+- 优先恢复 discovery endpoint 的可访问性、TLS 证书链、DNS 解析和代理配置。
+- 若 discovery metadata 中 `issuer` 或 `jwks_uri` 刚发生变更，优先回滚到上一版可用 metadata 或改用显式 `jwksUrl` 临时绕过 discovery。
+- 对非标准测试环境，只有在确认 JWT payload `iss` 仍由显式 `issuer` 校验保护时，才可临时关闭 `oidcDiscoveryIssuerValidationEnabled`。
+
+定位步骤：
+1. 从 Intent Hub 所在网络访问 `oidcDiscoveryUrl`，确认 HTTP 状态码、JSON 格式和响应延迟。
+2. 检查 discovery 文档是否包含可用的 `jwks_uri`，并确认 `issuer` 与 Intent Hub 显式配置一致。
+3. 单独访问 `jwks_uri` 指向的 JWKS endpoint，区分 discovery metadata 故障和 JWKS endpoint 故障。
+4. 检查 `jwksFetchTimeoutMs` 是否过短，以及失败是否集中在 IAM 发布窗口或网络高峰。
+5. 恢复后观察 `intent_hub_admin_oidc_discovery_fetch_failures_total` 是否停止增长，并确认 JWKS fetch failure 与 stale hit 没有继续增长。
+
+禁止动作：
+- 不把 discovery 文档中的 `issuer` 自动写回配置来“消除”告警。
+- 不记录、转发或粘贴 Authorization header、JWT 原文、私钥、完整 claims 或真实 token。
+- 不在 Prometheus 标签中加入 issuer、kid、url、actor、tenant 等高基数字段。

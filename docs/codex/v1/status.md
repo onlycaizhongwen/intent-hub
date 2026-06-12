@@ -1,7 +1,7 @@
 # 项目状态
 
 - 当前版本：v1
-- 当前阶段：P2-36 Admin JWKS Prometheus/Alertmanager 告警规则最小闭环已完成。P2 已形成密钥治理与外部联调准入、多实例一致性、观测告警本地试点、配置发布治理、审批/GitOps、评审工作台、权限门禁、权限审计指标、Admin JWT/JWKS 认证入口、JWKS TTL/stale grace/timeout/指标和 JWKS 安全告警等阶段证据。真实 Prometheus/Alertmanager/Grafana dev/staging 接入、真实 GitOps PR 同步、前端 Admin Portal 页面、真实 IAM/OIDC sandbox、OIDC discovery、标准 JSON canonicalization 和真实外部联调 smoke 仍待后续环境与产品流程验证。
+- 当前阶段：P2-40 Admin OIDC Discovery 告警规则最小闭环已完成。P2 已形成密钥治理与外部联调准入、多实例一致性、观测告警本地试点、配置发布治理、审批/GitOps、评审工作台、权限门禁、权限审计指标、Admin JWT/JWKS 认证入口、JWKS TTL/stale grace/timeout/指标、JWKS 安全告警、OIDC discovery `jwks_uri` 解析、discovery issuer 一致性校验、discovery fetch/failure 指标和 discovery failure 安全告警规则等阶段证据。真实 Prometheus/Alertmanager/Grafana dev/staging 接入、真实 GitOps PR 同步、前端 Admin Portal 页面、真实 IAM/OIDC sandbox、标准 JSON canonicalization 和真实外部联调 smoke 仍待后续环境与产品流程验证。
 - 当前主题：intent-hub
 - 说明：本文档记录意图中枢需求、设计、计划、审查主线状态。
 
@@ -15,7 +15,7 @@
 
 | 主题 | Requirements | Design | Plan | Trace/Review | 整体状态 |
 | --- | --- | --- | --- | --- | --- |
-| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1 有条件通过；P2-1 至 P2-36 已完成多阶段最小闭环，覆盖外部联调准入、多实例一致性、观测告警本地试点、配置发布治理、审批/GitOps、评审工作台、权限门禁、权限审计指标、Admin JWT/JWKS 验签入口、JWKS URL 本地 smoke、JWKS TTL、stale grace、timeout、指标与 Prometheus/Alertmanager 安全告警规则；真实外部联调、真实观测栈试点、真实 GitOps PR 同步、前端页面、真实 IAM/OIDC sandbox、OIDC discovery 与标准 JSON canonicalization 仍待后续验证 |
+| intent-hub | 已完成 | P1 已设计，技术选型与 DDD 骨架已确认 | 已完成 | 已完成 | P1 有条件通过；P2-1 至 P2-40 已完成多阶段最小闭环，覆盖外部联调准入、多实例一致性、观测告警本地试点、配置发布治理、审批/GitOps、评审工作台、权限门禁、权限审计指标、Admin JWT/JWKS 验签入口、JWKS URL 本地 smoke、JWKS TTL、stale grace、timeout、指标、Prometheus/Alertmanager 安全告警规则、OIDC discovery `jwks_uri` 解析、discovery issuer 一致性校验、discovery fetch/failure 指标与 discovery failure 安全告警规则；真实外部联调、真实观测栈试点、真实 GitOps PR 同步、前端页面、真实 IAM/OIDC sandbox 与标准 JSON canonicalization 仍待后续验证 |
 
 ## 交付物
 
@@ -60,6 +60,13 @@
 - P2-31 Admin JWT RS256/JWKS 入口审查：`docs/codex/v1/trace/intent-hub-p2-admin-jwks-rs256-trace.md`
 - P2-32 Admin JWKS URL 本地 smoke 审查：`docs/codex/v1/trace/intent-hub-p2-admin-jwks-url-smoke-trace.md`
 - P2-33 Admin JWKS 缓存 TTL 审查：`docs/codex/v1/trace/intent-hub-p2-admin-jwks-cache-ttl-trace.md`
+- P2-34 Admin JWKS 刷新失败旧缓存宽限审查：`docs/codex/v1/trace/intent-hub-p2-admin-jwks-stale-grace-trace.md`
+- P2-35 Admin JWKS timeout 与指标审查：`docs/codex/v1/trace/intent-hub-p2-admin-jwks-timeout-metrics-trace.md`
+- P2-36 Admin JWKS Prometheus/Alertmanager 告警规则审查：`docs/codex/v1/trace/intent-hub-p2-admin-jwks-alert-rules-trace.md`
+- P2-37 Admin OIDC Discovery 审查：`docs/codex/v1/trace/intent-hub-p2-admin-oidc-discovery-trace.md`
+- P2-38 Admin OIDC Discovery Issuer 校验审查：`docs/codex/v1/trace/intent-hub-p2-admin-oidc-discovery-issuer-validation-trace.md`
+- P2-39 Admin OIDC Discovery 指标审查：`docs/codex/v1/trace/intent-hub-p2-admin-oidc-discovery-metrics-trace.md`
+- P2-40 Admin OIDC Discovery 告警规则审查：`docs/codex/v1/trace/intent-hub-p2-admin-oidc-discovery-alert-rules-trace.md`
 - P2-18 评审工作台按角色过滤动作审查：`docs/codex/v1/trace/intent-hub-p2-review-workspace-role-filter-trace.md`
 - 模型服务 FastAPI 示例：`examples/model-service-fastapi/README.md`
 - 模型服务容器化校验脚本：`scripts/validate-model-service-container.ps1`
@@ -429,3 +436,35 @@
 - 验证证据：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-observability-compose.ps1` 通过。
 - 关键边界：当前仍是本地配置样例和脚本校验，不等同于真实 dev/staging Alertmanager 已加载；JWKS 告警不增加 issuer、kid、url、tenant、actor 等高基数标签。
 - 后续重点：真实 IAM/OIDC sandbox smoke、OIDC discovery、外部联调配置模板，或真实 dev/staging Prometheus/Alertmanager 试点。
+
+## 2026-06-12 P2-37 Admin OIDC Discovery 更新
+
+- 当前进展：P2-37 Admin OIDC Discovery 最小闭环已完成，Admin JWT RS256/JWKS 验签可通过 `oidcDiscoveryUrl` 读取 discovery 文档中的 `jwks_uri`。
+- 新增交付物：`AdminJwtProperties.oidcDiscoveryUrl`、`AdminJwtVerifier.resolveDiscoveryJwksUrl(...)`、OIDC discovery 本地 HTTP 测试、缺少 `jwks_uri` 的拒绝测试、`docs/codex/v1/trace/intent-hub-p2-admin-oidc-discovery-trace.md`。
+- 验证证据：`mvn -pl intent-hub-interfaces -am test '-Dtest=AdminJwtVerifierTest,AdminConfigControllerTest' '-Dsurefire.failIfNoSpecifiedTests=false'` 通过。
+- 验证结论：接口层组合回归 35 个测试通过，覆盖 OIDC discovery `jwks_uri` 解析和既有 Admin Controller 兼容路径。
+- 关键边界：当前只解析 discovery JSON 中的 `jwks_uri`，不会自动覆盖显式 `issuer/audience`。
+
+## 2026-06-12 P2-38 Admin OIDC Discovery Issuer 校验更新
+
+- 当前进展：P2-38 Admin OIDC Discovery Issuer 校验最小闭环已完成，`oidcDiscoveryUrl` 解析 discovery metadata 时会默认校验 discovery `issuer` 与显式配置 `issuer` 一致。
+- 新增交付物：`AdminJwtProperties.oidcDiscoveryIssuerValidationEnabled`、`AdminJwtVerifier.verifyDiscoveryIssuer(...)`、issuer 不一致拒绝测试、关闭校验兼容测试、`docs/codex/v1/trace/intent-hub-p2-admin-oidc-discovery-issuer-validation-trace.md`。
+- 验证证据：`mvn -pl intent-hub-interfaces -am test '-Dtest=AdminJwtVerifierTest,AdminConfigControllerTest' '-Dsurefire.failIfNoSpecifiedTests=false'` 通过。
+- 验证结论：接口层组合回归 37 个测试通过，覆盖 discovery issuer 不一致拒绝、关闭 issuer 校验兼容路径和既有 Admin Controller 兼容路径。
+- 关键边界：关闭 discovery issuer 校验只影响 discovery metadata，不影响 JWT payload `iss` 与显式 `issuer` 的校验。
+
+## 2026-06-12 P2-39 Admin OIDC Discovery 指标更新
+
+- 当前进展：P2-39 Admin OIDC Discovery 指标最小闭环已完成，`oidcDiscoveryUrl` 拉取 discovery metadata 的 fetch/failure 已进入 Admin metrics 与 Prometheus 文本。
+- 新增交付物：`AdminJwksMetricsRecorder.recordDiscoveryFetch/recordDiscoveryFetchFailure`、`IntentMetricsPort.recordAdminOidcDiscoveryFetch/recordAdminOidcDiscoveryFetchFailure`、`MetricsSnapshot.totalAdminOidcDiscoveryFetches/totalAdminOidcDiscoveryFetchFailures`、Prometheus `intent_hub_admin_oidc_discovery_fetches_total` 与 `intent_hub_admin_oidc_discovery_fetch_failures_total`、`docs/codex/v1/trace/intent-hub-p2-admin-oidc-discovery-metrics-trace.md`。
+- 验证证据：`mvn -pl intent-hub-interfaces,intent-hub-infrastructure -am test '-Dtest=AdminJwtVerifierTest,AdminMetricsControllerTest,InMemoryIntentMetricsRepositoryTest' '-Dsurefire.failIfNoSpecifiedTests=false'` 通过。
+- 验证结论：相关 21 个测试通过，覆盖 discovery 成功/失败打点、内存指标累加、Admin metrics JSON 快照和 Prometheus 文本导出。
+- 关键边界：指标保持低基数，不按 issuer/kid/url/tenant/actor 打标签；当前只新增指标，不等同于已加载 Alertmanager 告警规则。
+
+## 2026-06-12 P2-40 Admin OIDC Discovery 告警规则更新
+
+- 当前进展：P2-40 Admin OIDC Discovery 告警规则最小闭环已完成，`intent_hub_admin_oidc_discovery_fetch_failures_total` 已具备 Prometheus 告警规则、Runbook 和本地观测配置校验。
+- 新增交付物：`IntentHubAdminOidcDiscoveryFetchFailed` Prometheus 规则；Runbook 处理章节；Prometheus/ops README 补充；`scripts/validate-observability-compose.ps1` 必检项；`docs/codex/v1/trace/intent-hub-p2-admin-oidc-discovery-alert-rules-trace.md`。
+- 验证证据：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-observability-compose.ps1` 通过。
+- 验证结论：观测配置校验脚本确认新增 discovery 告警存在，且 security 类告警均使用 `increase(...[5m]) > 0` 增量窗口；Docker compose 配置引用、Prometheus rule file 引用和 Grafana provisioning 引用保持通过。
+- 关键边界：本阶段仍是本地配置样例和脚本校验，不等同于真实 dev/staging Alertmanager 已加载。

@@ -27,6 +27,8 @@ public class MetricsAppService {
         appendGauge(builder, "intent_hub_admin_jwks_fetch_failures_total", "Total Admin JWKS fetch failures.", snapshot.totalAdminJwksFetchFailures());
         appendGauge(builder, "intent_hub_admin_jwks_cache_hits_total", "Total Admin JWKS cache hits.", snapshot.totalAdminJwksCacheHits());
         appendGauge(builder, "intent_hub_admin_jwks_stale_hits_total", "Total Admin JWKS stale cache hits after refresh failures.", snapshot.totalAdminJwksStaleHits());
+        appendGauge(builder, "intent_hub_admin_oidc_discovery_fetches_total", "Total Admin OIDC discovery fetch attempts.", snapshot.totalAdminOidcDiscoveryFetches());
+        appendGauge(builder, "intent_hub_admin_oidc_discovery_fetch_failures_total", "Total Admin OIDC discovery fetch failures.", snapshot.totalAdminOidcDiscoveryFetchFailures());
         appendGauge(builder, "intent_hub_latency_millis_sum", "Total recognition latency in milliseconds.", snapshot.totalLatencyMillis());
         appendGauge(builder, "intent_hub_latency_millis_avg", "Average recognition latency in milliseconds.", snapshot.averageLatencyMillis());
         appendGauge(builder, "intent_hub_latency_millis_max", "Max recognition latency in milliseconds.", snapshot.maxLatencyMillis());

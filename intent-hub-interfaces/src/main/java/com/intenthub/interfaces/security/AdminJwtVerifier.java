@@ -32,6 +32,7 @@ public class AdminJwtVerifier {
     private String cachedJwksJson;
     private Instant cachedJwksExpiresAt = Instant.EPOCH;
     private Instant cachedJwksStaleUntil = Instant.EPOCH;
+    private String cachedDiscoveryJwksUrl;
 
     public AdminJwtVerifier(AdminJwtProperties properties, SecretRefResolver secretRefResolver) {
         this(properties, secretRefResolver, AdminJwksMetricsRecorder.NOOP);
@@ -245,6 +246,10 @@ public class AdminJwtVerifier {
         if (url != null) {
             return parseJwks(fetchJwks(url));
         }
+        String discoveryUrl = blankToNull(properties.getOidcDiscoveryUrl());
+        if (discoveryUrl != null) {
+            return parseJwks(fetchJwks(resolveDiscoveryJwksUrl(discoveryUrl)));
+        }
         throw new SecurityException("admin jwt jwks is not configured");
     }
 
@@ -293,6 +298,54 @@ public class AdminJwtVerifier {
                 return cachedJwksJson;
             }
             throw new SecurityException("admin jwt jwks fetch failed");
+        }
+    }
+
+    private synchronized String resolveDiscoveryJwksUrl(String discoveryUrl) {
+        if (cachedDiscoveryJwksUrl != null) {
+            return cachedDiscoveryJwksUrl;
+        }
+        try {
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(URI.create(discoveryUrl)).GET();
+            if (jwksFetchTimeout() != null) {
+                requestBuilder.timeout(jwksFetchTimeout());
+            }
+            jwksMetricsRecorder.recordDiscoveryFetch();
+            HttpResponse<String> response = httpClient.send(
+                    requestBuilder.build(),
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)
+            );
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new SecurityException("admin jwt oidc discovery fetch failed");
+            }
+            JsonNode discovery = objectMapper.readTree(response.body());
+            verifyDiscoveryIssuer(discovery);
+            String jwksUri = blankToNull(text(discovery, "jwks_uri"));
+            if (jwksUri == null) {
+                throw new SecurityException("admin jwt oidc discovery jwks_uri is unavailable");
+            }
+            cachedDiscoveryJwksUrl = jwksUri;
+            return cachedDiscoveryJwksUrl;
+        } catch (SecurityException ex) {
+            jwksMetricsRecorder.recordDiscoveryFetchFailure();
+            throw ex;
+        } catch (Exception ex) {
+            jwksMetricsRecorder.recordDiscoveryFetchFailure();
+            throw new SecurityException("admin jwt oidc discovery fetch failed");
+        }
+    }
+
+    private void verifyDiscoveryIssuer(JsonNode discovery) {
+        if (!properties.isOidcDiscoveryIssuerValidationEnabled()) {
+            return;
+        }
+        String expectedIssuer = blankToNull(properties.getIssuer());
+        if (expectedIssuer == null) {
+            return;
+        }
+        String discoveryIssuer = blankToNull(text(discovery, "issuer"));
+        if (!expectedIssuer.equals(discoveryIssuer)) {
+            throw new SecurityException("admin jwt oidc discovery issuer is invalid");
         }
     }
 

@@ -38,5 +38,6 @@ Admin JWT 的 JWKS 路径已补充两条 Prometheus 规则，均标记 `category
 
 - `IntentHubAdminJwksFetchFailed`：基于 `increase(intent_hub_admin_jwks_fetch_failures_total[5m]) > 0`，用于发现 IAM/OIDC JWKS endpoint、DNS、TLS、代理或 `jwksFetchTimeoutMs` 异常。
 - `IntentHubAdminJwksStaleHit`：基于 `increase(intent_hub_admin_jwks_stale_hits_total[5m]) > 0`，用于发现 JWKS 刷新失败后进入 stale grace 旧缓存兜底。
+- `IntentHubAdminOidcDiscoveryFetchFailed`：基于 `increase(intent_hub_admin_oidc_discovery_fetch_failures_total[5m]) > 0`，用于发现 OIDC discovery metadata endpoint、`jwks_uri` 缺失、issuer 不一致、DNS/TLS/代理或 discovery 配置异常。
 
-这两条规则不携带 issuer、kid、url、tenant 或 actor 等高基数字段。生产环境接入时应结合真实 IAM 发布窗口、JWKS TTL、stale grace 时长和值班策略调整 `for`、阈值和通知升级策略。
+这三条规则不携带 issuer、kid、url、tenant 或 actor 等高基数字段。生产环境接入时应结合真实 IAM 发布窗口、JWKS TTL、stale grace 时长、discovery endpoint 稳定性和值班策略调整 `for`、阈值和通知升级策略。

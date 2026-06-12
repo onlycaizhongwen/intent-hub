@@ -239,3 +239,27 @@
 - 摘要：已为 `intent_hub_admin_jwks_fetch_failures_total` 与 `intent_hub_admin_jwks_stale_hits_total` 补 Prometheus 告警规则、Runbook、Prometheus/Alertmanager README、运维总入口和本地观测配置校验脚本；两条规则均使用 5 分钟增量窗口并标记 `category=security`。
 - 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
 - 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-jwks-alert-rules-trace.md`；下一步可进入真实 IAM/OIDC sandbox smoke、OIDC discovery、外部联调配置模板，或真实 dev/staging Prometheus/Alertmanager 试点。
+
+## P2-37 Admin OIDC Discovery
+- 状态：OIDC discovery 最小闭环完成
+- 摘要：已为 Admin JWT RS256/JWKS 验签新增 `oidcDiscoveryUrl` 配置，支持从 `/.well-known/openid-configuration` 解析 `jwks_uri`，并复用现有 JWKS URL TTL、stale grace、timeout、指标与验签链路。定向 verifier 测试通过。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-oidc-discovery-trace.md`；下一步可进入真实 IAM/OIDC sandbox smoke、discovery metadata issuer 校验、discovery fetch 指标告警，或真实 dev/staging Prometheus/Alertmanager 试点。
+
+## P2-38 Admin OIDC Discovery Issuer 校验
+- 状态：discovery issuer 校验最小闭环完成
+- 摘要：已为 `oidcDiscoveryUrl` 增加 discovery metadata issuer 一致性校验，默认启用；显式配置 `issuer` 时，discovery 文档中的 `issuer` 必须一致，否则拒绝继续读取 `jwks_uri`。同时保留兼容开关 `oidcDiscoveryIssuerValidationEnabled=false`，且不影响 JWT payload `iss` 校验。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-oidc-discovery-issuer-validation-trace.md`；下一步可进入真实 IAM/OIDC sandbox smoke、discovery fetch 指标告警、外部联调配置模板，或真实 dev/staging Prometheus/Alertmanager 试点。
+
+## P2-39 Admin OIDC Discovery 指标
+- 状态：discovery fetch 指标最小闭环完成
+- 摘要：已为 `oidcDiscoveryUrl` 拉取 discovery metadata 增加独立 fetch/failure 指标，Prometheus 文本导出 `intent_hub_admin_oidc_discovery_fetches_total` 与 `intent_hub_admin_oidc_discovery_fetch_failures_total`；HTTP 非 2xx、JSON 解析失败、缺 `jwks_uri` 和 issuer 不一致均进入 discovery failure 计数。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-oidc-discovery-metrics-trace.md`；下一步可补 discovery Prometheus/Alertmanager 告警规则与 Runbook，或进入真实 IAM/OIDC sandbox smoke。
+
+## P2-40 Admin OIDC Discovery 告警规则
+- 状态：discovery failure 告警规则最小闭环完成
+- 摘要：已为 `intent_hub_admin_oidc_discovery_fetch_failures_total` 补 Prometheus 告警 `IntentHubAdminOidcDiscoveryFetchFailed`、Runbook 处理章节、Prometheus/ops README 和本地观测配置校验脚本；规则使用 5 分钟增量窗口并标记 `category=security`。
+- 过程文件：`.codex/plans/main/p2-next-step-planning/process.md`
+- 恢复提示：读取 `docs/codex/v1/trace/intent-hub-p2-admin-oidc-discovery-alert-rules-trace.md`；下一步可进入真实 IAM/OIDC sandbox smoke、真实 dev/staging Prometheus/Alertmanager 试点，或外部联调配置模板。

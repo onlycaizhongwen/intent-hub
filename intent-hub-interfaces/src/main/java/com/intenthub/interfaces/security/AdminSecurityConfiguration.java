@@ -32,6 +32,16 @@ public class AdminSecurityConfiguration {
             public void recordStaleHit() {
                 metricsPort.recordAdminJwksStaleHit();
             }
+
+            @Override
+            public void recordDiscoveryFetch() {
+                metricsPort.recordAdminOidcDiscoveryFetch();
+            }
+
+            @Override
+            public void recordDiscoveryFetchFailure() {
+                metricsPort.recordAdminOidcDiscoveryFetchFailure();
+            }
         });
     }
 

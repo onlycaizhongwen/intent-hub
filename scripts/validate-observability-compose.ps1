@@ -45,6 +45,7 @@ if (Test-Path $alertRules) {
         "IntentHubAdminJwtAuthFailed",
         "IntentHubAdminJwksFetchFailed",
         "IntentHubAdminJwksStaleHit",
+        "IntentHubAdminOidcDiscoveryFetchFailed",
         "IntentHubAverageLatencyHigh",
         "IntentHubP95LatencyHigh",
         "IntentHubP99LatencyCritical",
@@ -61,7 +62,8 @@ if (Test-Path $alertRules) {
     if ($alertRulesText -match "increase\(intent_hub_permission_denied_total\[5m\]\) > 0" `
             -and $alertRulesText -match "increase\(intent_hub_admin_jwt_auth_failures_total\[5m\]\) > 0" `
             -and $alertRulesText -match "increase\(intent_hub_admin_jwks_fetch_failures_total\[5m\]\) > 0" `
-            -and $alertRulesText -match "increase\(intent_hub_admin_jwks_stale_hits_total\[5m\]\) > 0") {
+            -and $alertRulesText -match "increase\(intent_hub_admin_jwks_stale_hits_total\[5m\]\) > 0" `
+            -and $alertRulesText -match "increase\(intent_hub_admin_oidc_discovery_fetch_failures_total\[5m\]\) > 0") {
         Write-Host "[OK] security alert rules use 5m increase windows"
     } else {
         Write-Host "[FAIL] security alert rules missing 5m increase windows"

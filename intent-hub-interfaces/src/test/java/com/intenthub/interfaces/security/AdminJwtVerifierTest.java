@@ -108,6 +108,162 @@ class AdminJwtVerifierTest {
     }
 
     @Test
+    void verifiesRs256TokenWithOidcDiscoveryJwksUri() throws Exception {
+        KeyPair keyPair = rsaKeyPair();
+        AtomicInteger discoveryRequests = new AtomicInteger();
+        AtomicInteger jwksRequests = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/.well-known/openid-configuration", exchange -> {
+            discoveryRequests.incrementAndGet();
+            String baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
+            byte[] body = ("""
+                    {"issuer":"%s","jwks_uri":"%s/.well-known/jwks.json"}
+                    """.formatted(baseUrl, baseUrl)).getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.createContext("/.well-known/jwks.json", exchange -> {
+            jwksRequests.incrementAndGet();
+            byte[] body = jwks("iam-key-discovery", (RSAPublicKey) keyPair.getPublic()).getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.start();
+        try {
+            String issuer = "http://127.0.0.1:" + server.getAddress().getPort();
+            AdminJwtProperties properties = new AdminJwtProperties();
+            properties.setOidcDiscoveryUrl(issuer + "/.well-known/openid-configuration");
+            properties.setIssuer(issuer);
+            RecordingJwksMetricsRecorder metrics = new RecordingJwksMetricsRecorder();
+            AdminJwtVerifier verifier = new AdminJwtVerifier(properties, unusedResolver(), metrics);
+            String token = rs256Token("iam-key-discovery", keyPair, """
+                    {"sub":"oidc-discovery-admin","roles":["CONFIG_VIEWER"],"iss":"%s","exp":%d}
+                    """.formatted(issuer, Instant.now().plusSeconds(60).getEpochSecond()));
+
+            AdminJwtClaims claims = verifier.verify(token);
+
+            assertThat(claims.actor()).isEqualTo("oidc-discovery-admin");
+            assertThat(claims.roles()).containsExactly("CONFIG_VIEWER");
+            assertThat(discoveryRequests).hasValue(1);
+            assertThat(jwksRequests).hasValue(1);
+            assertThat(metrics.discoveryFetches).hasValue(1);
+            assertThat(metrics.discoveryFetchFailures).hasValue(0);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void rejectsOidcDiscoveryWithoutJwksUri() throws Exception {
+        KeyPair keyPair = rsaKeyPair();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/.well-known/openid-configuration", exchange -> {
+            byte[] body = "{\"issuer\":\"local-issuer\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.start();
+        try {
+            AdminJwtProperties properties = new AdminJwtProperties();
+            properties.setOidcDiscoveryUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/.well-known/openid-configuration");
+            RecordingJwksMetricsRecorder metrics = new RecordingJwksMetricsRecorder();
+            AdminJwtVerifier verifier = new AdminJwtVerifier(properties, unusedResolver(), metrics);
+            String token = rs256Token("missing-discovery-jwks", keyPair, """
+                    {"sub":"oidc-discovery-admin","roles":["CONFIG_VIEWER"],"exp":%d}
+                    """.formatted(Instant.now().plusSeconds(60).getEpochSecond()));
+
+            assertThatThrownBy(() -> verifier.verify(token))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("admin jwt oidc discovery jwks_uri is unavailable");
+            assertThat(metrics.discoveryFetches).hasValue(1);
+            assertThat(metrics.discoveryFetchFailures).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void rejectsOidcDiscoveryWhenIssuerDoesNotMatchConfiguredIssuer() throws Exception {
+        KeyPair keyPair = rsaKeyPair();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/.well-known/openid-configuration", exchange -> {
+            String baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
+            byte[] body = ("""
+                    {"issuer":"https://wrong-issuer.example.com","jwks_uri":"%s/.well-known/jwks.json"}
+                    """.formatted(baseUrl)).getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.start();
+        try {
+            AdminJwtProperties properties = new AdminJwtProperties();
+            properties.setIssuer("https://iam.example.com");
+            properties.setOidcDiscoveryUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/.well-known/openid-configuration");
+            RecordingJwksMetricsRecorder metrics = new RecordingJwksMetricsRecorder();
+            AdminJwtVerifier verifier = new AdminJwtVerifier(properties, unusedResolver(), metrics);
+            String token = rs256Token("issuer-mismatch-discovery", keyPair, """
+                    {"sub":"oidc-discovery-admin","roles":["CONFIG_VIEWER"],"iss":"https://iam.example.com","exp":%d}
+                    """.formatted(Instant.now().plusSeconds(60).getEpochSecond()));
+
+            assertThatThrownBy(() -> verifier.verify(token))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("admin jwt oidc discovery issuer is invalid");
+            assertThat(metrics.discoveryFetches).hasValue(1);
+            assertThat(metrics.discoveryFetchFailures).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void allowsOidcDiscoveryIssuerMismatchWhenValidationIsDisabled() throws Exception {
+        KeyPair keyPair = rsaKeyPair();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/.well-known/openid-configuration", exchange -> {
+            String baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
+            byte[] body = ("""
+                    {"issuer":"https://wrong-issuer.example.com","jwks_uri":"%s/.well-known/jwks.json"}
+                    """.formatted(baseUrl)).getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.createContext("/.well-known/jwks.json", exchange -> {
+            byte[] body = jwks("issuer-validation-disabled", (RSAPublicKey) keyPair.getPublic()).getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.start();
+        try {
+            AdminJwtProperties properties = new AdminJwtProperties();
+            properties.setIssuer("https://iam.example.com");
+            properties.setOidcDiscoveryUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/.well-known/openid-configuration");
+            properties.setOidcDiscoveryIssuerValidationEnabled(false);
+            AdminJwtVerifier verifier = new AdminJwtVerifier(properties, unusedResolver());
+            String token = rs256Token("issuer-validation-disabled", keyPair, """
+                    {"sub":"oidc-discovery-admin","roles":["CONFIG_VIEWER"],"iss":"https://iam.example.com","exp":%d}
+                    """.formatted(Instant.now().plusSeconds(60).getEpochSecond()));
+
+            AdminJwtClaims claims = verifier.verify(token);
+
+            assertThat(claims.actor()).isEqualTo("oidc-discovery-admin");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void refreshesJwksUrlWhenCacheTtlExpires() throws Exception {
         KeyPair keyPair = rsaKeyPair();
         AtomicInteger jwksRequests = new AtomicInteger();
@@ -335,6 +491,8 @@ class AdminJwtVerifierTest {
         private final AtomicInteger fetchFailures = new AtomicInteger();
         private final AtomicInteger cacheHits = new AtomicInteger();
         private final AtomicInteger staleHits = new AtomicInteger();
+        private final AtomicInteger discoveryFetches = new AtomicInteger();
+        private final AtomicInteger discoveryFetchFailures = new AtomicInteger();
 
         @Override
         public void recordFetch() {
@@ -354,6 +512,16 @@ class AdminJwtVerifierTest {
         @Override
         public void recordStaleHit() {
             staleHits.incrementAndGet();
+        }
+
+        @Override
+        public void recordDiscoveryFetch() {
+            discoveryFetches.incrementAndGet();
+        }
+
+        @Override
+        public void recordDiscoveryFetchFailure() {
+            discoveryFetchFailures.incrementAndGet();
         }
     }
 

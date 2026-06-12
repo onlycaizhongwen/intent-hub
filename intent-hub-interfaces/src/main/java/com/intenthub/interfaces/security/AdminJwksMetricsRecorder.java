@@ -15,4 +15,10 @@ public interface AdminJwksMetricsRecorder {
 
     default void recordStaleHit() {
     }
+
+    default void recordDiscoveryFetch() {
+    }
+
+    default void recordDiscoveryFetchFailure() {
+    }
 }

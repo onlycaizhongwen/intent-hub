@@ -12,6 +12,8 @@ public class AdminJwtProperties {
     private String secretRef;
     private String jwksJson;
     private String jwksUrl;
+    private String oidcDiscoveryUrl;
+    private boolean oidcDiscoveryIssuerValidationEnabled = true;
     private long jwksCacheTtlSeconds = 300;
     private long jwksStaleGraceSeconds = 300;
     private long jwksFetchTimeoutMs = 2000;
@@ -59,6 +61,22 @@ public class AdminJwtProperties {
 
     public void setJwksUrl(String jwksUrl) {
         this.jwksUrl = jwksUrl;
+    }
+
+    public String getOidcDiscoveryUrl() {
+        return oidcDiscoveryUrl;
+    }
+
+    public void setOidcDiscoveryUrl(String oidcDiscoveryUrl) {
+        this.oidcDiscoveryUrl = oidcDiscoveryUrl;
+    }
+
+    public boolean isOidcDiscoveryIssuerValidationEnabled() {
+        return oidcDiscoveryIssuerValidationEnabled;
+    }
+
+    public void setOidcDiscoveryIssuerValidationEnabled(boolean oidcDiscoveryIssuerValidationEnabled) {
+        this.oidcDiscoveryIssuerValidationEnabled = oidcDiscoveryIssuerValidationEnabled;
     }
 
     public long getJwksCacheTtlSeconds() {

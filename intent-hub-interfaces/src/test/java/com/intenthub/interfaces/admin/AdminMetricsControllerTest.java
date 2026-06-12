@@ -37,6 +37,8 @@ class AdminMetricsControllerTest {
         assertThat(snapshot.totalAdminJwksFetchFailures()).isEqualTo(2);
         assertThat(snapshot.totalAdminJwksCacheHits()).isEqualTo(7);
         assertThat(snapshot.totalAdminJwksStaleHits()).isEqualTo(1);
+        assertThat(snapshot.totalAdminOidcDiscoveryFetches()).isEqualTo(4);
+        assertThat(snapshot.totalAdminOidcDiscoveryFetchFailures()).isEqualTo(1);
         assertThat(snapshot.p95LatencyMillis()).isEqualTo(1600.0);
         assertThat(snapshot.p99LatencyMillis()).isEqualTo(3100.0);
         assertThat(snapshot.decisions()).containsEntry("SUCCESS", 2L);
@@ -63,6 +65,8 @@ class AdminMetricsControllerTest {
         assertThat(text).contains("intent_hub_admin_jwks_fetch_failures_total 2");
         assertThat(text).contains("intent_hub_admin_jwks_cache_hits_total 7");
         assertThat(text).contains("intent_hub_admin_jwks_stale_hits_total 1");
+        assertThat(text).contains("intent_hub_admin_oidc_discovery_fetches_total 4");
+        assertThat(text).contains("intent_hub_admin_oidc_discovery_fetch_failures_total 1");
         assertThat(text).contains("intent_hub_latency_millis_p95 1600.0");
         assertThat(text).contains("intent_hub_latency_millis_p99 3100.0");
         assertThat(text).contains("intent_hub_decisions_total{decision=\"SUCCESS\"} 2");
@@ -105,6 +109,8 @@ class AdminMetricsControllerTest {
                     5,
                     2,
                     7,
+                    1,
+                    4,
                     1,
                     27,
                     9.0,

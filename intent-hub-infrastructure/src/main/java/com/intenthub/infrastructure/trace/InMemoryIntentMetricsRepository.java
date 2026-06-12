@@ -32,6 +32,8 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
     private final AtomicLong totalAdminJwksFetchFailures = new AtomicLong();
     private final AtomicLong totalAdminJwksCacheHits = new AtomicLong();
     private final AtomicLong totalAdminJwksStaleHits = new AtomicLong();
+    private final AtomicLong totalAdminOidcDiscoveryFetches = new AtomicLong();
+    private final AtomicLong totalAdminOidcDiscoveryFetchFailures = new AtomicLong();
     private final AtomicLong totalLatencyMillis = new AtomicLong();
     private final AtomicLong maxLatencyMillis = new AtomicLong();
     private final long[] latencySamples = new long[LATENCY_SAMPLE_WINDOW];
@@ -81,6 +83,8 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
                 totalAdminJwksFetchFailures.get(),
                 totalAdminJwksCacheHits.get(),
                 totalAdminJwksStaleHits.get(),
+                totalAdminOidcDiscoveryFetches.get(),
+                totalAdminOidcDiscoveryFetchFailures.get(),
                 latency,
                 requests == 0 ? 0.0 : (double) latency / requests,
                 maxLatencyMillis.get(),
@@ -147,6 +151,18 @@ public class InMemoryIntentMetricsRepository implements IntentMetricsPort {
     @Override
     public void recordAdminJwksStaleHit() {
         totalAdminJwksStaleHits.incrementAndGet();
+        updatedAt = Instant.now();
+    }
+
+    @Override
+    public void recordAdminOidcDiscoveryFetch() {
+        totalAdminOidcDiscoveryFetches.incrementAndGet();
+        updatedAt = Instant.now();
+    }
+
+    @Override
+    public void recordAdminOidcDiscoveryFetchFailure() {
+        totalAdminOidcDiscoveryFetchFailures.incrementAndGet();
         updatedAt = Instant.now();
     }
 

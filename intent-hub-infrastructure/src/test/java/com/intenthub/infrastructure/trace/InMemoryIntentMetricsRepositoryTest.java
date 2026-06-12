@@ -44,6 +44,9 @@ class InMemoryIntentMetricsRepositoryTest {
         repository.recordAdminJwksFetchFailure();
         repository.recordAdminJwksCacheHit();
         repository.recordAdminJwksStaleHit();
+        repository.recordAdminOidcDiscoveryFetch();
+        repository.recordAdminOidcDiscoveryFetch();
+        repository.recordAdminOidcDiscoveryFetchFailure();
 
         MetricsSnapshot snapshot = repository.snapshot();
 
@@ -59,6 +62,8 @@ class InMemoryIntentMetricsRepositoryTest {
         assertThat(snapshot.totalAdminJwksFetchFailures()).isEqualTo(1);
         assertThat(snapshot.totalAdminJwksCacheHits()).isEqualTo(1);
         assertThat(snapshot.totalAdminJwksStaleHits()).isEqualTo(1);
+        assertThat(snapshot.totalAdminOidcDiscoveryFetches()).isEqualTo(2);
+        assertThat(snapshot.totalAdminOidcDiscoveryFetchFailures()).isEqualTo(1);
         assertThat(snapshot.totalBadCases()).isEqualTo(2);
         assertThat(snapshot.p95LatencyMillis()).isEqualTo(18.0);
         assertThat(snapshot.p99LatencyMillis()).isEqualTo(18.0);
